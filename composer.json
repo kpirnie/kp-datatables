@@ -1,7 +1,6 @@
 {
 "name": "kevinpirnie/kpt-datatables",
-"description": "Advanced PHP DataTables library with CRUD operations, search, sorting, pagination, bulk actions, and UIKit3 integration",    
-"version": "1.0.16",
+"description": "Advanced PHP DataTables library with CRUD operations, search, sorting, pagination, bulk actions, and UIKit3 integration",
 "type": "library",
     "keywords": [
         "datatables",
