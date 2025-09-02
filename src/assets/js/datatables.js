@@ -513,29 +513,36 @@ class DataTablesJS {
     {
         // Find row data and populate form
         const row = document.querySelector(`tr[data-id="${id}"]`);
-        if (!row) { return;
-        }
+        if (!row) { return; }
 
         // Set the primary key
         const pkField = document.getElementById(`edit-${this.primaryKey}`);
-        if (pkField) { pkField.value = id;
-        }
+        if (pkField) { pkField.value = id; }
 
-        // Populate other fields based on row data
+        // NEW: Populate fields from all table cells, not just inline-editable
         const cells = row.querySelectorAll('td');
-        cells.forEach(
-            cell => {
-            const editableSpan = cell.querySelector('.inline-editable');
-            if (editableSpan) {
-                const field = editableSpan.getAttribute('data-field');
-                const value = editableSpan.textContent;
+        let cellIndex = 0;
+        
+        // Skip bulk actions checkbox cell if present
+        if (this.bulkActionsEnabled) cellIndex++;
+        
+        // Skip action column if at start
+        if (this.actionConfig.position === 'start') cellIndex++;
+        
+        // Map cells to columns
+        Object.keys(this.columns).forEach(column => {
+            const config = this.columns[column];
+            const field = typeof config === 'string' ? config : (config.field || column);
+            
+            if (cells[cellIndex]) {
+                const value = cells[cellIndex].textContent.trim();
                 const formField = document.getElementById(`edit-${field}`);
                 if (formField) {
                     formField.value = value;
                 }
             }
-            }
-        );
+            cellIndex++;
+        });
     }
 
     submitAddForm(event)

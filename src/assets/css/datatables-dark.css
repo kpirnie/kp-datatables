@@ -680,3 +680,75 @@ body.datatables-theme-dark {
 [class*="datatables-container-"] .uk-text-muted {
     color: var(--datatables-text-muted);
 }
+/* Global Dark Theme Overrides */
+body.datatables-theme-dark .uk-modal-dialog {
+    background-color: var(--datatables-surface) !important;
+    border: 1px solid var(--datatables-border) !important;
+    color: var(--datatables-text) !important;
+}
+
+body.datatables-theme-dark .uk-modal-title,
+body.datatables-theme-dark .uk-modal-body {
+    color: var(--datatables-text) !important;
+}
+
+/* Modal Form Fields */
+body.datatables-theme-dark .uk-input,
+body.datatables-theme-dark .uk-select,
+body.datatables-theme-dark .uk-textarea {
+    background-color: var(--datatables-background) !important;
+    border-color: var(--datatables-border) !important;
+    color: var(--datatables-text) !important;
+}
+
+body.datatables-theme-dark .uk-input:focus,
+body.datatables-theme-dark .uk-select:focus,
+body.datatables-theme-dark .uk-textarea:focus {
+    background-color: var(--datatables-surface) !important;
+    border-color: var(--datatables-primary) !important;
+}
+
+/* Modal Buttons */
+body.datatables-theme-dark .uk-button-default {
+    background-color: var(--datatables-surface) !important;
+    border-color: var(--datatables-border) !important;
+    color: var(--datatables-text) !important;
+}
+
+body.datatables-theme-dark .uk-button-default:hover {
+    background-color: var(--datatables-hover) !important;
+}
+
+/* Table with Data */
+body.datatables-theme-dark .uk-table {
+    background-color: var(--datatables-surface) !important;
+    color: var(--datatables-text) !important;
+}
+
+body.datatables-theme-dark .uk-table th,
+body.datatables-theme-dark .uk-table td {
+    background-color: transparent !important;
+    color: var(--datatables-text) !important;
+    border-color: var(--datatables-border) !important;
+}
+
+body.datatables-theme-dark .uk-table tbody tr:hover {
+    background-color: var(--datatables-hover) !important;
+}
+
+/* Form Labels */
+body.datatables-theme-dark .uk-form-label {
+    color: var(--datatables-text) !important;
+}
+/* Override UIKit Striped Table for Dark Theme */
+body.datatables-theme-dark .uk-table-striped tbody tr:nth-of-type(odd) {
+    background-color: var(--datatables-surface) !important;
+}
+
+body.datatables-theme-dark .uk-table-striped tbody tr:nth-of-type(even) {
+    background-color: var(--datatables-background) !important;
+}
+
+body.datatables-theme-dark .uk-table-hover tbody tr:hover {
+    background-color: var(--datatables-hover) !important;
+}

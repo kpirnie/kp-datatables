@@ -56,7 +56,6 @@ class Renderer
     public function render(): string
     {
         // Build complete HTML structure
-        $html = $this->renderIncludes();        // CSS and JS file includes
         $html .= $this->renderContainer();      // Main table container
         $html .= $this->renderModals();         // Add/Edit/Delete modals
         $html .= $this->renderInitScript();     // JavaScript initialization
@@ -65,29 +64,34 @@ class Renderer
     }
 
     /**
-     * Render CSS and JavaScript file includes
+     * Render CSS file includes
      *
-     * Generates the necessary <link> and <script> tags for external files.
+     * Generates the necessary <link> tags for external files.
      * Supports theme switching by detecting current theme from URL parameters
      * or cookies. Files are loaded from the vendor directory structure.
      *
      * @return string HTML with CSS and JS includes
      */
-    private function renderIncludes(): string
+    public static function getCssIncludes(string $theme = 'light'): string
     {
-        // Determine current theme (light/dark) from various sources
-        $theme = $_GET['theme'] ?? $_COOKIE['datatables_theme'] ?? 'light';
-
         $html = "<!-- DataTables CSS -->\n";
-        // Theme-specific CSS file
-        $html .= "<link rel=\"stylesheet\" href=\"vendor/kpirnie/kpt-datatables/assets/css/datatables-{$theme}.css\">\n";
-        // Custom CSS overrides
-        $html .= "<link rel=\"stylesheet\" href=\"vendor/kpirnie/kpt-datatables/assets/css/datatables-custom.css\">\n\n";
+        $html .= "<link rel=\"stylesheet\" href=\"vendor/kevinpirnie/kpt-datatables/src/assets/css/datatables-{$theme}.css\">\n";
+        return $html;
+    }
 
-        $html .= "<!-- DataTables JavaScript -->\n";
-        // Main JavaScript functionality
-        $html .= "<script src=\"vendor/kpirnie/kpt-datatables/assets/js/datatables.js\"></script>\n\n";
-
+    /**
+     * Render JavaScript file includes
+     *
+     * Generates the necessary <script> tags for external files.
+     * Supports theme switching by detecting current theme from URL parameters
+     * or cookies. Files are loaded from the vendor directory structure.
+     *
+     * @return string HTML with CSS and JS includes
+     */
+    public static function getJsIncludes(): string
+    {
+        $html = "<!-- DataTables JavaScript -->\n";
+        $html .= "<script src=\"vendor/kevinpirnie/kpt-datatables/src/assets/js/datatables.js\"></script>\n";
         return $html;
     }
 
@@ -297,7 +301,7 @@ class Renderer
         $cssClasses = $this->dataTable->getCssClasses();
 
         // Get CSS classes with defaults
-        $tableClass = $cssClasses['table'] ?? 'uk-table uk-table-striped uk-table-hover';
+        $tableClass = $cssClasses['table'] ?? 'uk-table';
         $theadClass = $cssClasses['thead'] ?? '';
         $tbodyClass = $cssClasses['tbody'] ?? '';
 
