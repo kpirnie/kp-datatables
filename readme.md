@@ -2,11 +2,6 @@
 
 Advanced PHP DataTables library with CRUD operations, search, sorting, pagination, bulk actions, and UIKit3 integration.
 
-[![Latest Stable Version](https://poser.pugx.org/kpirnie/kpt-datatables/v/stable)](https://packagist.org/packages/kpirnie/kpt-datatables)
-[![Total Downloads](https://poser.pugx.org/kpirnie/kpt-datatables/downloads)](https://packagist.org/packages/kpirnie/kpt-datatables)
-[![License](https://poser.pugx.org/kpirnie/kpt-datatables/license)](https://packagist.org/packages/kpirnie/kpt-datatables)
-[![PHP Version Require](https://poser.pugx.org/kpirnie/kpt-datatables/require/php)](https://packagist.org/packages/kpirnie/kpt-datatables)
-
 ## Features
 
 - 🚀 **Full CRUD Operations** - Create, Read, Update, Delete with AJAX support

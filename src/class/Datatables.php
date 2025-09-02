@@ -12,7 +12,7 @@ use RuntimeException;
 /**
  * DataTables - Advanced Database Table Management System
  *
- * A comprehensive table management system with CRUD operations, search, sorting, 
+ * A comprehensive table management system with CRUD operations, search, sorting,
  * pagination, bulk actions, and modal forms using UIKit3. This is the main class
  * that orchestrates all DataTables functionality and provides a fluent interface
  * for configuration.
@@ -29,8 +29,8 @@ use RuntimeException;
  * - Database JOIN support
  * - Extensive customization options
  *
- * @since 1.0.0
- * @author Kevin Pirnie <me@kpirnie.com>
+ * @since   1.0.0
+ * @author  Kevin Pirnie <me@kpirnie.com>
  * @package KPT\DataTables
  */
 class DataTables
@@ -51,7 +51,7 @@ class DataTables
 
     /**
      * Column configuration array
-     * 
+     *
      * Format: ['column_name' => 'field_name'] or ['column_name' => ['field' => 'field_name', 'label' => 'Label']]
      *
      * @var array
@@ -60,7 +60,7 @@ class DataTables
 
     /**
      * JOIN configuration for complex queries
-     * 
+     *
      * Format: [['type' => 'LEFT', 'table' => 'table_name', 'condition' => 'join_condition']]
      *
      * @var array
@@ -209,7 +209,7 @@ class DataTables
      * This method specifies which table will be used for all CRUD operations.
      * The table name will be used in all generated SQL queries.
      *
-     * @param string $tableName The name of the database table
+     * @param  string $tableName The name of the database table
      * @return self Returns self for method chaining
      */
     public function table(string $tableName): self
@@ -229,7 +229,7 @@ class DataTables
      * - Simple: ['name', 'email', 'status']
      * - Complex: ['name' => ['field' => 'u.name', 'label' => 'Full Name', 'class' => 'uk-text-bold']]
      *
-     * @param array $columns Array of column configurations
+     * @param  array $columns Array of column configurations
      * @return self Returns self for method chaining
      */
     public function columns(array $columns): self
@@ -245,9 +245,9 @@ class DataTables
      * Allows for complex queries involving multiple tables. Each JOIN is stored
      * and will be applied to both data retrieval and count queries.
      *
-     * @param string $type JOIN type (INNER, LEFT, RIGHT, FULL OUTER)
-     * @param string $table Table name to join with (can include alias)
-     * @param string $condition JOIN condition (e.g., 'a.id = b.foreign_id')
+     * @param  string $type      JOIN type (INNER, LEFT, RIGHT, FULL OUTER)
+     * @param  string $table     Table name to join with (can include alias)
+     * @param  string $condition JOIN condition (e.g., 'a.id = b.foreign_id')
      * @return self Returns self for method chaining
      */
     public function join(string $type, string $table, string $condition): self
@@ -258,13 +258,16 @@ class DataTables
             'table' => $table,
             'condition' => $condition
         ];
-        
-        Logger::debug("DataTables JOIN added", [
+
+        Logger::debug(
+            "DataTables JOIN added",
+            [
             'type' => $type,
             'table' => $table,
             'condition' => $condition
-        ]);
-        
+            ]
+        );
+
         return $this;
     }
 
@@ -274,7 +277,7 @@ class DataTables
      * Only columns specified here will have clickable headers with sort indicators.
      * Column names should match the field names used in the database query.
      *
-     * @param array $columns Array of sortable column field names
+     * @param  array $columns Array of sortable column field names
      * @return self Returns self for method chaining
      */
     public function sortable(array $columns): self
@@ -290,7 +293,7 @@ class DataTables
      * Columns specified here will be double-clickable for inline editing.
      * Only columns that are safe to edit should be included.
      *
-     * @param array $columns Array of inline editable column field names
+     * @param  array $columns Array of inline editable column field names
      * @return self Returns self for method chaining
      */
     public function inlineEditable(array $columns): self
@@ -306,7 +309,7 @@ class DataTables
      * This sets the initial page size when the table loads. Users can still
      * change this using the page size selector if enabled.
      *
-     * @param int $count Number of records to show per page
+     * @param  int $count Number of records to show per page
      * @return self Returns self for method chaining
      */
     public function perPage(int $count): self
@@ -322,20 +325,23 @@ class DataTables
      * Sets the options available in the page size selector dropdown.
      * The includeAll parameter determines if an "All records" option is shown.
      *
-     * @param array $options Array of page size options (e.g., [10, 25, 50, 100])
-     * @param bool $includeAll Whether to include an "ALL" records option
+     * @param  array $options    Array of page size options (e.g., [10, 25, 50, 100])
+     * @param  bool  $includeAll Whether to include an "ALL" records option
      * @return self Returns self for method chaining
      */
     public function pageSizeOptions(array $options, bool $includeAll = true): self
     {
         $this->pageSizeOptions = $options;
         $this->includeAllOption = $includeAll;
-        
-        Logger::debug("DataTables page size options set", [
+
+        Logger::debug(
+            "DataTables page size options set",
+            [
             'options' => $options,
             'include_all' => $includeAll
-        ]);
-        
+            ]
+        );
+
         return $this;
     }
 
@@ -345,9 +351,9 @@ class DataTables
      * Defines the modal form used for creating new records. The fields array
      * specifies form elements and their configuration.
      *
-     * @param string $title Modal title for the add form
-     * @param array $fields Array of form field configurations
-     * @param bool $ajax Whether to submit the form via AJAX (true) or traditional POST (false)
+     * @param  string $title  Modal title for the add form
+     * @param  array  $fields Array of form field configurations
+     * @param  bool   $ajax   Whether to submit the form via AJAX (true) or traditional POST (false)
      * @return self Returns self for method chaining
      */
     public function addForm(string $title, array $fields, bool $ajax = true): self
@@ -357,7 +363,7 @@ class DataTables
             'fields' => $fields,
             'ajax' => $ajax
         ];
-        
+
         Logger::debug("DataTables add form configured", ['title' => $title, 'ajax' => $ajax]);
         return $this;
     }
@@ -368,9 +374,9 @@ class DataTables
      * Defines the modal form used for editing existing records. Similar to addForm
      * but will be pre-populated with existing record data.
      *
-     * @param string $title Modal title for the edit form
-     * @param array $fields Array of form field configurations
-     * @param bool $ajax Whether to submit the form via AJAX (true) or traditional POST (false)
+     * @param  string $title  Modal title for the edit form
+     * @param  array  $fields Array of form field configurations
+     * @param  bool   $ajax   Whether to submit the form via AJAX (true) or traditional POST (false)
      * @return self Returns self for method chaining
      */
     public function editForm(string $title, array $fields, bool $ajax = true): self
@@ -380,7 +386,7 @@ class DataTables
             'fields' => $fields,
             'ajax' => $ajax
         ];
-        
+
         Logger::debug("DataTables edit form configured", ['title' => $title, 'ajax' => $ajax]);
         return $this;
     }
@@ -391,24 +397,27 @@ class DataTables
      * Enables bulk operations on multiple selected records. Custom actions can
      * be defined with callback functions for complex operations.
      *
-     * @param bool $enabled Whether to enable bulk actions
-     * @param array $actions Array of custom bulk action configurations
+     * @param  bool  $enabled Whether to enable bulk actions
+     * @param  array $actions Array of custom bulk action configurations
      * @return self Returns self for method chaining
      */
     public function bulkActions(bool $enabled = true, array $actions = []): self
     {
         $this->bulkActions['enabled'] = $enabled;
-        
+
         // Merge custom actions with default actions
         if (!empty($actions)) {
             $this->bulkActions['actions'] = array_merge($this->bulkActions['actions'], $actions);
         }
-        
-        Logger::debug("DataTables bulk actions configured", [
+
+        Logger::debug(
+            "DataTables bulk actions configured",
+            [
             'enabled' => $enabled,
             'actions' => array_keys($this->bulkActions['actions'])
-        ]);
-        
+            ]
+        );
+
         return $this;
     }
 
@@ -418,7 +427,7 @@ class DataTables
      * Controls whether the search input and column selector are displayed.
      * When enabled, provides both global and column-specific searching.
      *
-     * @param bool $enabled Whether search functionality should be enabled
+     * @param  bool $enabled Whether search functionality should be enabled
      * @return self Returns self for method chaining
      */
     public function search(bool $enabled = true): self
@@ -447,10 +456,10 @@ class DataTables
      * Controls the edit/delete buttons and any custom action buttons.
      * Actions can be positioned at the start or end of each table row.
      *
-     * @param string $position Position of action column ('start' or 'end')
-     * @param bool $showEdit Whether to show the edit button
-     * @param bool $showDelete Whether to show the delete button
-     * @param array $customActions Array of custom action button configurations
+     * @param  string $position      Position of action column ('start' or 'end')
+     * @param  bool   $showEdit      Whether to show the edit button
+     * @param  bool   $showDelete    Whether to show the delete button
+     * @param  array  $customActions Array of custom action button configurations
      * @return self Returns self for method chaining
      */
     public function actions(string $position = 'end', bool $showEdit = true, bool $showDelete = true, array $customActions = []): self
@@ -461,7 +470,7 @@ class DataTables
             'show_delete' => $showDelete,
             'custom_actions' => $customActions
         ];
-        
+
         Logger::debug("DataTables actions configured", $this->actionConfig);
         return $this;
     }
@@ -472,7 +481,7 @@ class DataTables
      * Allows customization of the table's appearance using CSS classes.
      * Default uses UIKit3 table classes for styling.
      *
-     * @param string $class CSS class string for the table element
+     * @param  string $class CSS class string for the table element
      * @return self Returns self for method chaining
      */
     public function tableClass(string $class): self
@@ -488,7 +497,7 @@ class DataTables
      * For example, if $class is 'highlight' and record ID is 123, the final
      * class will be 'highlight-123'.
      *
-     * @param string $class Base CSS class for table rows
+     * @param  string $class Base CSS class for table rows
      * @return self Returns self for method chaining
      */
     public function rowClass(string $class): self
@@ -503,7 +512,7 @@ class DataTables
      * Allows individual styling of table columns. The array keys should match
      * column names from the columns configuration.
      *
-     * @param array $classes Array of column name => CSS class mappings
+     * @param  array $classes Array of column name => CSS class mappings
      * @return self Returns self for method chaining
      */
     public function columnClasses(array $classes): self
@@ -518,7 +527,7 @@ class DataTables
      * Specifies which column serves as the unique identifier for records.
      * This is used for edit, delete, and bulk operations.
      *
-     * @param string $column Name of the primary key column
+     * @param  string $column Name of the primary key column
      * @return self Returns self for method chaining
      */
     public function primaryKey(string $column): self
@@ -534,9 +543,9 @@ class DataTables
      * Sets up file upload validation including allowed file types, size limits,
      * and upload destination. Used for form fields with type 'file'.
      *
-     * @param string $uploadPath Directory path where files will be uploaded
-     * @param array $allowedExtensions Array of allowed file extensions (without dots)
-     * @param int $maxFileSize Maximum file size in bytes
+     * @param  string $uploadPath        Directory path where files will be uploaded
+     * @param  array  $allowedExtensions Array of allowed file extensions (without dots)
+     * @param  int    $maxFileSize       Maximum file size in bytes
      * @return self Returns self for method chaining
      */
     public function fileUpload(string $uploadPath = 'uploads/', array $allowedExtensions = [], int $maxFileSize = 10485760): self
@@ -546,7 +555,7 @@ class DataTables
             'allowed_extensions' => !empty($allowedExtensions) ? $allowedExtensions : $this->fileUploadConfig['allowed_extensions'],
             'max_file_size' => $maxFileSize
         ];
-        
+
         Logger::debug("DataTables file upload configured", $this->fileUploadConfig);
         return $this;
     }
@@ -576,7 +585,6 @@ class DataTables
             // Create renderer and generate HTML
             $renderer = new Renderer($this);
             return $renderer->render();
-
         } catch (Exception $e) {
             Logger::error("DataTables render failed", ['message' => $e->getMessage()]);
             throw $e;
@@ -602,7 +610,6 @@ class DataTables
             // Delegate to the AJAX handler
             $handler = new AjaxHandler($this);
             $handler->handle($action);
-
         } catch (Exception $e) {
             // Log the error and return error response
             Logger::error("DataTables AJAX error", ['message' => $e->getMessage()]);
@@ -619,9 +626,9 @@ class DataTables
      *
      * @return Database The configured database instance
      */
-    public function getDatabase(): Database 
-    { 
-        return $this->db; 
+    public function getDatabase(): Database
+    {
+        return $this->db;
     }
 
     /**
@@ -629,9 +636,9 @@ class DataTables
      *
      * @return string The configured table name
      */
-    public function getTableName(): string 
-    { 
-        return $this->tableName; 
+    public function getTableName(): string
+    {
+        return $this->tableName;
     }
 
     /**
@@ -639,9 +646,9 @@ class DataTables
      *
      * @return array The columns configuration array
      */
-    public function getColumns(): array 
-    { 
-        return $this->columns; 
+    public function getColumns(): array
+    {
+        return $this->columns;
     }
 
     /**
@@ -649,9 +656,9 @@ class DataTables
      *
      * @return array Array of JOIN configurations
      */
-    public function getJoins(): array 
-    { 
-        return $this->joins; 
+    public function getJoins(): array
+    {
+        return $this->joins;
     }
 
     /**
@@ -659,9 +666,9 @@ class DataTables
      *
      * @return array Array of sortable column names
      */
-    public function getSortableColumns(): array 
-    { 
-        return $this->sortableColumns; 
+    public function getSortableColumns(): array
+    {
+        return $this->sortableColumns;
     }
 
     /**
@@ -669,9 +676,9 @@ class DataTables
      *
      * @return array Array of inline editable column names
      */
-    public function getInlineEditableColumns(): array 
-    { 
-        return $this->inlineEditableColumns; 
+    public function getInlineEditableColumns(): array
+    {
+        return $this->inlineEditableColumns;
     }
 
     /**
@@ -679,9 +686,9 @@ class DataTables
      *
      * @return int Number of records per page
      */
-    public function getRecordsPerPage(): int 
-    { 
-        return $this->recordsPerPage; 
+    public function getRecordsPerPage(): int
+    {
+        return $this->recordsPerPage;
     }
 
     /**
@@ -689,9 +696,9 @@ class DataTables
      *
      * @return array Array of available page size options
      */
-    public function getPageSizeOptions(): array 
-    { 
-        return $this->pageSizeOptions; 
+    public function getPageSizeOptions(): array
+    {
+        return $this->pageSizeOptions;
     }
 
     /**
@@ -699,9 +706,9 @@ class DataTables
      *
      * @return bool Whether "ALL" option should be included in page size selector
      */
-    public function getIncludeAllOption(): bool 
-    { 
-        return $this->includeAllOption; 
+    public function getIncludeAllOption(): bool
+    {
+        return $this->includeAllOption;
     }
 
     /**
@@ -709,9 +716,9 @@ class DataTables
      *
      * @return array Add form configuration array
      */
-    public function getAddFormConfig(): array 
-    { 
-        return $this->addFormConfig; 
+    public function getAddFormConfig(): array
+    {
+        return $this->addFormConfig;
     }
 
     /**
@@ -719,9 +726,9 @@ class DataTables
      *
      * @return array Edit form configuration array
      */
-    public function getEditFormConfig(): array 
-    { 
-        return $this->editFormConfig; 
+    public function getEditFormConfig(): array
+    {
+        return $this->editFormConfig;
     }
 
     /**
@@ -729,9 +736,9 @@ class DataTables
      *
      * @return array Bulk actions configuration array
      */
-    public function getBulkActions(): array 
-    { 
-        return $this->bulkActions; 
+    public function getBulkActions(): array
+    {
+        return $this->bulkActions;
     }
 
     /**
@@ -739,9 +746,9 @@ class DataTables
      *
      * @return bool Whether search functionality is enabled
      */
-    public function isSearchEnabled(): bool 
-    { 
-        return $this->searchEnabled; 
+    public function isSearchEnabled(): bool
+    {
+        return $this->searchEnabled;
     }
 
     /**
@@ -749,9 +756,9 @@ class DataTables
      *
      * @return array Action buttons configuration array
      */
-    public function getActionConfig(): array 
-    { 
-        return $this->actionConfig; 
+    public function getActionConfig(): array
+    {
+        return $this->actionConfig;
     }
 
     /**
@@ -759,9 +766,9 @@ class DataTables
      *
      * @return array CSS classes configuration array
      */
-    public function getCssClasses(): array 
-    { 
-        return $this->cssClasses; 
+    public function getCssClasses(): array
+    {
+        return $this->cssClasses;
     }
 
     /**
@@ -769,9 +776,9 @@ class DataTables
      *
      * @return array File upload configuration array
      */
-    public function getFileUploadConfig(): array 
-    { 
-        return $this->fileUploadConfig; 
+    public function getFileUploadConfig(): array
+    {
+        return $this->fileUploadConfig;
     }
 
     /**
@@ -779,8 +786,8 @@ class DataTables
      *
      * @return string The primary key column name
      */
-    public function getPrimaryKey(): string 
-    { 
-        return $this->primaryKey; 
+    public function getPrimaryKey(): string
+    {
+        return $this->primaryKey;
     }
 }

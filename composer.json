@@ -44,8 +44,8 @@
         "test": "phpunit tests",
         "test-coverage": "phpunit tests --coverage-html coverage --coverage-filter src",
         "phpstan": "phpstan analyse src",
-        "cs-check": "phpcs src --standard=PSR12",
-        "cs-fix": "phpcbf src --standard=PSR12"
+        "cs-check": "phpcs src --standard=PSR12 --ignore=*.js,*.css -n",
+        "cs-fix": "phpcbf src --standard=PSR12 --ignore=*.js,*.css -n"
     },
     "config": {
         "sort-packages": true,

@@ -21,8 +21,8 @@ namespace KPT\DataTables;
  * - Responsive design elements
  * - Accessibility features
  *
- * @since 1.0.0
- * @author Kevin Pirnie <me@kpirnie.com>
+ * @since   1.0.0
+ * @author  Kevin Pirnie <me@kpirnie.com>
  * @package KPT\DataTables
  */
 class Renderer
@@ -77,17 +77,17 @@ class Renderer
     {
         // Determine current theme (light/dark) from various sources
         $theme = $_GET['theme'] ?? $_COOKIE['datatables_theme'] ?? 'light';
-        
+
         $html = "<!-- DataTables CSS -->\n";
         // Theme-specific CSS file
         $html .= "<link rel=\"stylesheet\" href=\"vendor/kpirnie/kpt-datatables/assets/css/datatables-{$theme}.css\">\n";
         // Custom CSS overrides
         $html .= "<link rel=\"stylesheet\" href=\"vendor/kpirnie/kpt-datatables/assets/css/datatables-custom.css\">\n\n";
-        
+
         $html .= "<!-- DataTables JavaScript -->\n";
         // Main JavaScript functionality
         $html .= "<script src=\"vendor/kpirnie/kpt-datatables/assets/js/datatables.js\"></script>\n\n";
-        
+
         return $html;
     }
 
@@ -107,12 +107,12 @@ class Renderer
 
         // Create main container with table-specific class
         $html = "<div class=\"{$containerClass}\" data-table=\"{$tableName}\">\n";
-        
+
         // Build container contents
         $html .= $this->renderControls();       // Top control panel
         $html .= $this->renderTable();          // Main data table
         $html .= $this->renderPagination();     // Bottom pagination
-        
+
         $html .= "</div>\n";
 
         return $html;
@@ -175,13 +175,13 @@ class Renderer
      * for available actions and an execute button. Both elements start
      * disabled and are enabled when records are selected.
      *
-     * @param array $bulkConfig Bulk actions configuration from DataTables
+     * @param  array $bulkConfig Bulk actions configuration from DataTables
      * @return string HTML bulk actions controls
      */
     private function renderBulkActions(array $bulkConfig): string
     {
         $html = "<div>\n";
-        
+
         // Bulk action selector dropdown (initially disabled)
         $html .= "<select class=\"uk-select uk-width-auto\" id=\"datatables-bulk-action\" disabled>\n";
         $html .= "<option value=\"\">Bulk Actions</option>\n";
@@ -193,7 +193,7 @@ class Renderer
         }
 
         $html .= "</select>\n";
-        
+
         // Execute button (initially disabled)
         $html .= "<button class=\"uk-button uk-button-default uk-margin-small-left\" type=\"button\" " .
                  "id=\"datatables-bulk-execute\" onclick=\"DataTables.executeBulkAction()\" disabled>\n";
@@ -327,15 +327,15 @@ class Renderer
             $label = is_string($config) ? $column : ($config['label'] ?? $column);
             $field = is_string($config) ? $config : ($config['field'] ?? $column);
             $columnClass = $cssClasses['columns'][$column] ?? '';
-            
+
             // Determine if column is sortable
             $sortable = in_array($field, $sortableColumns);
             $thClass = $columnClass . ($sortable ? ' sortable' : '');
-            
+
             // Build header cell
-            $html .= "<th" . (!empty($thClass) ? " class=\"{$thClass}\"" : "") . 
+            $html .= "<th" . (!empty($thClass) ? " class=\"{$thClass}\"" : "") .
                      ($sortable ? " data-sort=\"{$field}\"" : "") . ">";
-            
+
             if ($sortable) {
                 // Sortable header with click handler and sort indicator
                 $html .= "<span class=\"sortable-header\">{$label} <span class=\"sort-icon\" uk-icon=\"triangle-up\"></span></span>";
@@ -343,7 +343,7 @@ class Renderer
                 // Non-sortable header
                 $html .= $label;
             }
-            
+
             $html .= "</th>\n";
         }
 
@@ -357,13 +357,13 @@ class Renderer
 
         // === TABLE BODY ===
         $html .= "<tbody" . (!empty($tbodyClass) ? " class=\"{$tbodyClass}\"" : "") . " id=\"datatables-tbody\">\n";
-        
+
         // Calculate total columns for loading placeholder
         $totalColumns = count($columns) + 1; // +1 for actions
         if ($bulkActions['enabled']) {
             $totalColumns++; // +1 for bulk selection checkboxes
         }
-        
+
         // Initial loading placeholder row
         $html .= "<tr><td colspan=\"{$totalColumns}\" class=\"uk-text-center\">Loading...</td></tr>\n";
         $html .= "</tbody>\n";
@@ -442,7 +442,7 @@ class Renderer
         $html .= "<h2 class=\"uk-modal-title\">{$title}</h2>\n";
 
         // Form with conditional AJAX submission
-        $html .= "<form class=\"uk-form-stacked\" id=\"add-form\"" . 
+        $html .= "<form class=\"uk-form-stacked\" id=\"add-form\"" .
                  ($config['ajax'] ? " onsubmit=\"return DataTables.submitAddForm(event)\"" : "") . ">\n";
 
         // Generate form fields from configuration
@@ -486,7 +486,7 @@ class Renderer
         $html .= "<h2 class=\"uk-modal-title\">{$title}</h2>\n";
 
         // Form with conditional AJAX submission
-        $html .= "<form class=\"uk-form-stacked\" id=\"edit-form\"" . 
+        $html .= "<form class=\"uk-form-stacked\" id=\"edit-form\"" .
                  ($config['ajax'] ? " onsubmit=\"return DataTables.submitEditForm(event)\"" : "") . ">\n";
 
         // Hidden field for record ID (populated by JavaScript)
@@ -547,9 +547,9 @@ class Renderer
      * textareas, checkboxes, radio buttons, file uploads, and date/time fields.
      * Handles validation attributes, styling classes, and accessibility features.
      *
-     * @param string $field Field name for form submission
-     * @param array $config Field configuration array with type, label, validation, etc.
-     * @param string $prefix Field prefix for ID generation ('add' or 'edit')
+     * @param  string $field  Field name for form submission
+     * @param  array  $config Field configuration array with type, label, validation, etc.
+     * @param  string $prefix Field prefix for ID generation ('add' or 'edit')
      * @return string HTML form field element
      */
     private function renderFormField(string $field, array $config, string $prefix = 'add'): string
@@ -570,7 +570,7 @@ class Renderer
 
         // Start field container
         $html = "<div class=\"uk-margin\">\n";
-        $html .= "<label class=\"uk-form-label\" for=\"{$fieldId}\">{$label}" . 
+        $html .= "<label class=\"uk-form-label\" for=\"{$fieldId}\">{$label}" .
                  ($required ? " <span class=\"uk-text-danger\">*</span>" : "") . "</label>\n";
         $html .= "<div class=\"uk-form-controls\">\n";
 
@@ -588,26 +588,26 @@ class Renderer
             case 'password':
                 // Standard input fields
                 $html .= "<input type=\"{$type}\" class=\"{$baseClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" " .
-                         "value=\"{$value}\" placeholder=\"{$placeholder}\" " .
-                         ($required ? "required " : "") . $attrs . ">\n";
+                     "value=\"{$value}\" placeholder=\"{$placeholder}\" " .
+                     ($required ? "required " : "") . $attrs . ">\n";
                 break;
 
             case 'textarea':
                 // Multi-line text input
                 $html .= "<textarea class=\"uk-textarea {$fieldClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" " .
-                         "placeholder=\"{$placeholder}\" " . ($required ? "required " : "") . $attrs . ">{$value}</textarea>\n";
+                     "placeholder=\"{$placeholder}\" " . ($required ? "required " : "") . $attrs . ">{$value}</textarea>\n";
                 break;
 
             case 'select':
                 // Dropdown selection
                 $html .= "<select class=\"uk-select {$fieldClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" " .
-                         ($required ? "required " : "") . $attrs . ">\n";
-                
+                     ($required ? "required " : "") . $attrs . ">\n";
+
                 // Add empty option if field is not required
                 if (!$required) {
                     $html .= "<option value=\"\">-- Select --</option>\n";
                 }
-                
+
                 // Add all configured options
                 foreach ($options as $optValue => $optLabel) {
                     $selected = $optValue == $value ? ' selected' : '';
@@ -620,7 +620,7 @@ class Renderer
                 // Single checkbox
                 $checked = $value ? ' checked' : '';
                 $html .= "<label><input type=\"checkbox\" class=\"uk-checkbox {$fieldClass}\" " .
-                         "id=\"{$fieldId}\" name=\"{$fieldName}\" value=\"1\"{$checked} {$attrs}> {$label}</label>\n";
+                     "id=\"{$fieldId}\" name=\"{$fieldName}\" value=\"1\"{$checked} {$attrs}> {$label}</label>\n";
                 break;
 
             case 'radio':
@@ -628,15 +628,15 @@ class Renderer
                 foreach ($options as $optValue => $optLabel) {
                     $checked = $optValue == $value ? ' checked' : '';
                     $html .= "<label class=\"uk-margin-small-right\"><input type=\"radio\" class=\"uk-radio {$fieldClass}\" " .
-                             "name=\"{$fieldName}\" value=\"{$optValue}\"{$checked} {$attrs}> {$optLabel}</label>\n";
+                         "name=\"{$fieldName}\" value=\"{$optValue}\"{$checked} {$attrs}> {$optLabel}</label>\n";
                 }
                 break;
 
             case 'file':
                 // File upload with UIKit3 custom styling
                 $allowedExts = $this->dataTable->getFileUploadConfig()['allowed_extensions'];
-                $accept = !empty($allowedExts) ? ' accept=".' . implode(',.' , $allowedExts) . '"' : '';
-                
+                $accept = !empty($allowedExts) ? ' accept=".' . implode(',.', $allowedExts) . '"' : '';
+
                 $html .= "<div uk-form-custom=\"target: true\">\n";
                 $html .= "<input type=\"file\" id=\"{$fieldId}\" name=\"{$fieldName}\" {$accept} {$attrs}>\n";
                 $html .= "<input class=\"uk-input {$fieldClass}\" type=\"text\" placeholder=\"Select file...\" disabled>\n";
@@ -646,19 +646,19 @@ class Renderer
             case 'date':
                 // Date picker
                 $html .= "<input type=\"date\" class=\"{$baseClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" " .
-                         "value=\"{$value}\" " . ($required ? "required " : "") . $attrs . ">\n";
+                     "value=\"{$value}\" " . ($required ? "required " : "") . $attrs . ">\n";
                 break;
 
             case 'datetime':
                 // Date and time picker
                 $html .= "<input type=\"datetime-local\" class=\"{$baseClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" " .
-                         "value=\"{$value}\" " . ($required ? "required " : "") . $attrs . ">\n";
+                     "value=\"{$value}\" " . ($required ? "required " : "") . $attrs . ">\n";
                 break;
 
             case 'time':
                 // Time picker
                 $html .= "<input type=\"time\" class=\"{$baseClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" " .
-                         "value=\"{$value}\" " . ($required ? "required " : "") . $attrs . ">\n";
+                     "value=\"{$value}\" " . ($required ? "required " : "") . $attrs . ">\n";
                 break;
 
             case 'hidden':
@@ -680,13 +680,13 @@ class Renderer
      * Converts an associative array of attributes into a properly formatted
      * HTML attributes string. Handles boolean attributes correctly.
      *
-     * @param array $attributes Associative array of attribute name => value pairs
+     * @param  array $attributes Associative array of attribute name => value pairs
      * @return string Formatted HTML attributes string
      */
     private function buildAttributes(array $attributes): string
     {
         $attrs = [];
-        
+
         foreach ($attributes as $name => $value) {
             if (is_bool($value)) {
                 // Boolean attributes (e.g., disabled, readonly)

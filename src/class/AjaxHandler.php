@@ -15,8 +15,8 @@ use InvalidArgumentException;
  * data fetching, CRUD operations, bulk actions, inline editing, and file uploads.
  * It acts as the main controller for server-side operations.
  *
- * @since 1.0.0
- * @author Kevin Pirnie <me@kpirnie.com>
+ * @since   1.0.0
+ * @author  Kevin Pirnie <me@kpirnie.com>
  * @package KPT\DataTables
  */
 class AjaxHandler
@@ -44,7 +44,7 @@ class AjaxHandler
      * Routes incoming AJAX requests to the appropriate handler method based
      * on the action parameter. This is the main entry point for all AJAX operations.
      *
-     * @param string $action The action to perform (fetch_data, add_record, edit_record, etc.)
+     * @param  string $action The action to perform (fetch_data, add_record, edit_record, etc.)
      * @return void
      * @throws InvalidArgumentException If the action is unknown or invalid
      */
@@ -107,7 +107,7 @@ class AjaxHandler
 
         // Build the main SELECT query with all parameters
         $query = $this->buildSelectQuery($search, $searchColumn, $sortColumn, $sortDirection, $page, $perPage);
-        
+
         // Build a separate COUNT query for pagination metadata
         $countQuery = $this->buildCountQuery($search, $searchColumn);
 
@@ -123,14 +123,16 @@ class AjaxHandler
 
         // Send JSON response with data and metadata
         header('Content-Type: application/json');
-        echo json_encode([
+        echo json_encode(
+            [
             'success' => true,
             'data' => $data ?: [], // Ensure array even if no data
             'total' => $totalRecords,
             'page' => $page,
             'per_page' => $perPage,
             'total_pages' => $totalPages
-        ]);
+            ]
+        );
         exit;
     }
 
@@ -154,14 +156,14 @@ class AjaxHandler
         // Prepare SQL INSERT statement
         $fields = array_keys($data);
         $placeholders = array_fill(0, count($fields), '?'); // Create ? placeholders for each field
-        
+
         // Build the INSERT query
-        $query = "INSERT INTO {$this->dataTable->getTableName()} (" . 
-                 implode(', ', $fields) . 
-                 ") VALUES (" . 
-                 implode(', ', $placeholders) . 
+        $query = "INSERT INTO {$this->dataTable->getTableName()} (" .
+                 implode(', ', $fields) .
+                 ") VALUES (" .
+                 implode(', ', $placeholders) .
                  ")";
-        
+
         // Execute the query with the data values
         $result = $this->dataTable->getDatabase()->raw($query, array_values($data));
 
@@ -172,11 +174,13 @@ class AjaxHandler
 
         // Send JSON response
         header('Content-Type: application/json');
-        echo json_encode([
+        echo json_encode(
+            [
             'success' => $success,
             'message' => $message,
             'id' => $insertId
-        ]);
+            ]
+        );
         exit;
     }
 
@@ -207,13 +211,13 @@ class AjaxHandler
         // Prepare SQL UPDATE statement
         $fields = array_keys($data);
         $setClause = implode(' = ?, ', $fields) . ' = ?'; // Build SET clause
-        
+
         // Build the UPDATE query
         $query = "UPDATE {$this->dataTable->getTableName()} SET {$setClause} WHERE {$this->dataTable->getPrimaryKey()} = ?";
-        
+
         // Combine data values with the ID for parameters
         $params = array_merge(array_values($data), [$id]);
-        
+
         // Execute the update query
         $result = $this->dataTable->getDatabase()->raw($query, $params);
 
@@ -223,10 +227,12 @@ class AjaxHandler
 
         // Send JSON response
         header('Content-Type: application/json');
-        echo json_encode([
+        echo json_encode(
+            [
             'success' => $success,
             'message' => $message
-        ]);
+            ]
+        );
         exit;
     }
 
@@ -256,10 +262,12 @@ class AjaxHandler
 
         // Send JSON response
         header('Content-Type: application/json');
-        echo json_encode([
+        echo json_encode(
+            [
             'success' => $success,
             'message' => $message
-        ]);
+            ]
+        );
         exit;
     }
 
@@ -312,24 +320,24 @@ class AjaxHandler
                 $result = $this->dataTable->getDatabase()->raw($query, $selectedIds);
                 $message = $result !== false ? 'Selected records deleted successfully' : 'Failed to delete selected records';
                 break;
-            
+
             default:
                 // Handle custom bulk actions with callbacks
                 $actionConfig = $bulkActions['actions'][$bulkAction];
-                
+
                 // Check if a callback function is defined
                 if (isset($actionConfig['callback']) && is_callable($actionConfig['callback'])) {
                     // Execute the custom callback with selected IDs, database, and table name
                     $result = call_user_func(
-                        $actionConfig['callback'], 
-                        $selectedIds, 
-                        $this->dataTable->getDatabase(), 
+                        $actionConfig['callback'],
+                        $selectedIds,
+                        $this->dataTable->getDatabase(),
                         $this->dataTable->getTableName()
                     );
-                    
+
                     // Set appropriate success/error messages
-                    $message = $result ? 
-                        ($actionConfig['success_message'] ?? 'Bulk action completed successfully') : 
+                    $message = $result ?
+                        ($actionConfig['success_message'] ?? 'Bulk action completed successfully') :
                         ($actionConfig['error_message'] ?? 'Bulk action failed');
                 }
                 break;
@@ -340,11 +348,13 @@ class AjaxHandler
 
         // Send JSON response
         header('Content-Type: application/json');
-        echo json_encode([
+        echo json_encode(
+            [
             'success' => $result !== false,
             'message' => $message,
             'affected_count' => $affectedCount
-        ]);
+            ]
+        );
         exit;
     }
 
@@ -384,10 +394,12 @@ class AjaxHandler
 
         // Send JSON response
         header('Content-Type: application/json');
-        echo json_encode([
+        echo json_encode(
+            [
             'success' => $success,
             'message' => $message
-        ]);
+            ]
+        );
         exit;
     }
 
@@ -423,7 +435,7 @@ class AjaxHandler
      * Scans $_FILES for uploaded files and processes them, updating the form data
      * with the file paths. Used during add/edit record operations.
      *
-     * @param array $data Form data to process
+     * @param  array $data Form data to process
      * @return array Updated form data with file paths
      */
     private function processFileUploads(array $data): array
@@ -433,7 +445,7 @@ class AjaxHandler
             // Only process files that were uploaded successfully
             if ($file['error'] === UPLOAD_ERR_OK) {
                 $uploadResult = $this->uploadFile($file);
-                
+
                 // Add file path to form data if upload was successful
                 if ($uploadResult['success']) {
                     $data[$fieldName] = $uploadResult['file_path'];
@@ -450,14 +462,14 @@ class AjaxHandler
      * Handles the complete file upload process including validation of file size,
      * extension, directory creation, and file movement.
      *
-     * @param array $file File array from $_FILES
+     * @param  array $file File array from $_FILES
      * @return array Upload result with success status, file path, and message
      */
     private function uploadFile(array $file): array
     {
         // Get upload configuration
         $config = $this->dataTable->getFileUploadConfig();
-        
+
         // Validate file size
         if ($file['size'] > $config['max_file_size']) {
             return [
@@ -507,12 +519,12 @@ class AjaxHandler
      * Constructs a complete SELECT query based on the DataTables configuration
      * and request parameters. Handles JOINs, WHERE conditions, ORDER BY, and LIMIT.
      *
-     * @param string $search Search term to filter results
-     * @param string $searchColumn Specific column to search (or 'all' for global search)
-     * @param string $sortColumn Column to sort by
-     * @param string $sortDirection Sort direction (ASC or DESC)
-     * @param int $page Page number for pagination
-     * @param int $perPage Number of records per page (0 for all records)
+     * @param  string $search        Search term to filter results
+     * @param  string $searchColumn  Specific column to search (or 'all' for global search)
+     * @param  string $sortColumn    Column to sort by
+     * @param  string $sortDirection Sort direction (ASC or DESC)
+     * @param  int    $page          Page number for pagination
+     * @param  int    $perPage       Number of records per page (0 for all records)
      * @return array Array with 'sql' query string and 'params' array
      */
     private function buildSelectQuery(string $search = '', string $searchColumn = '', string $sortColumn = '', string $sortDirection = 'ASC', int $page = 1, int $perPage = 25): array
@@ -552,7 +564,7 @@ class AjaxHandler
                     $searchConditions[] = "{$field} LIKE ?";
                     $params[] = "%{$search}%";
                 }
-                
+
                 // Only add WHERE clause if we have searchable columns
                 if (!empty($searchConditions)) {
                     $sql .= " WHERE " . implode(' OR ', $searchConditions);
@@ -583,8 +595,8 @@ class AjaxHandler
      * Constructs a COUNT query to determine total number of records that match
      * the current search/filter criteria. Used for pagination calculations.
      *
-     * @param string $search Search term to filter results
-     * @param string $searchColumn Specific column to search (or 'all' for global search)
+     * @param  string $search       Search term to filter results
+     * @param  string $searchColumn Specific column to search (or 'all' for global search)
      * @return array Array with 'sql' query string and 'params' array
      */
     private function buildCountQuery(string $search = '', string $searchColumn = ''): array
@@ -612,7 +624,7 @@ class AjaxHandler
                     $searchConditions[] = "{$field} LIKE ?";
                     $params[] = "%{$search}%";
                 }
-                
+
                 // Only add WHERE clause if we have searchable columns
                 if (!empty($searchConditions)) {
                     $sql .= " WHERE " . implode(' OR ', $searchConditions);

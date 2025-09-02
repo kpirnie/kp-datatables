@@ -5,13 +5,14 @@
  * AJAX operations, table rendering, pagination, search, 
  * bulk actions, and theme management.
  * 
- * @since 1.0.0
- * @author Kevin Pirnie <me@kpirnie.com>
+ * @since   1.0.0
+ * @author  Kevin Pirnie <me@kpirnie.com>
  * @package KPT/DataTables
  */
 
 class DataTablesJS {
-    constructor(config = {}) {
+    constructor(config = {})
+    {
         // Configuration
         this.tableName = config.tableName || '';
         this.primaryKey = config.primaryKey || 'id';
@@ -35,63 +36,76 @@ class DataTablesJS {
         this.init();
     }
 
-    init() {
+    init()
+    {
         this.bindEvents();
         this.loadData();
         this.initTheme();
     }
 
     // === EVENT BINDING ===
-    bindEvents() {
+    bindEvents()
+    {
         // Search input
         const searchInput = document.getElementById('datatables-search');
         if (searchInput) {
             let searchTimeout;
-            searchInput.addEventListener('input', (e) => {
-                clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(() => {
-                    this.search = e.target.value;
-                    this.currentPage = 1;
-                    this.loadData();
-                }, 300);
-            });
+            searchInput.addEventListener(
+                'input', (e) => {
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(
+                    () => {
+                            this.search = e.target.value;
+                            this.currentPage = 1;
+                            this.loadData();
+                    }, 300
+                );
+                }
+            );
         }
 
         // Search column selector
         const searchColumn = document.getElementById('datatables-search-column');
         if (searchColumn) {
-            searchColumn.addEventListener('change', (e) => {
-                this.searchColumn = e.target.value;
-                this.currentPage = 1;
-                this.loadData();
-            });
+            searchColumn.addEventListener(
+                'change', (e) => {
+                    this.searchColumn = e.target.value;
+                    this.currentPage = 1;
+                    this.loadData();
+                }
+            );
         }
 
         // Page size selector
         const pageSizeSelect = document.getElementById('datatables-page-size');
         if (pageSizeSelect) {
-            pageSizeSelect.addEventListener('change', (e) => {
-                this.perPage = parseInt(e.target.value);
-                this.currentPage = 1;
-                this.loadData();
-            });
+            pageSizeSelect.addEventListener(
+                'change', (e) => {
+                    this.perPage = parseInt(e.target.value);
+                    this.currentPage = 1;
+                    this.loadData();
+                }
+            );
         }
 
         // Bulk actions
         if (this.bulkActionsEnabled) {
             const bulkSelect = document.getElementById('datatables-bulk-action');
             if (bulkSelect) {
-                bulkSelect.addEventListener('change', (e) => {
-                    const executeBtn = document.getElementById('datatables-bulk-execute');
-                    if (executeBtn) {
-                        executeBtn.disabled = !e.target.value || this.selectedIds.size === 0;
+                bulkSelect.addEventListener(
+                    'change', (e) => {
+                        const executeBtn = document.getElementById('datatables-bulk-execute');
+                        if (executeBtn) {
+                            executeBtn.disabled = !e.target.value || this.selectedIds.size === 0;
+                        }
                     }
-                });
+                );
             }
         }
 
         // Sortable headers
-        document.addEventListener('click', (e) => {
+        document.addEventListener(
+            'click', (e) => {
             if (e.target.closest('.sortable-header')) {
                 const header = e.target.closest('th[data-sort]');
                 if (header) {
@@ -107,43 +121,53 @@ class DataTablesJS {
                     this.updateSortIcons();
                 }
             }
-        });
+            }
+        );
     }
 
     // === DATA LOADING ===
-    loadData() {
-        const params = new URLSearchParams({
-            action: 'fetch_data',
-            page: this.currentPage,
-            per_page: this.perPage,
-            search: this.search,
-            search_column: this.searchColumn,
-            sort_column: this.sortColumn,
-            sort_direction: this.sortDirection
-        });
+    loadData()
+    {
+        const params = new URLSearchParams(
+            {
+                action: 'fetch_data',
+                page: this.currentPage,
+                per_page: this.perPage,
+                search: this.search,
+                search_column: this.searchColumn,
+                sort_column: this.sortColumn,
+                sort_direction: this.sortDirection
+            }
+        );
 
         fetch('?' + params.toString())
             .then(response => response.json())
-            .then(data => {
+            .then(
+                data => {
                 if (data.success) {
                     this.renderTable(data.data);
                     this.renderPagination(data);
                     this.renderInfo(data);
                 } else {
-                    console.error('Failed to load data:', data.message);
-                    UIkit.notification(data.message || 'Failed to load data', {status: 'danger'});
+                        console.error('Failed to load data:', data.message);
+                        UIkit.notification(data.message || 'Failed to load data', {status: 'danger'});
                 }
-            })
-            .catch(error => {
+                }
+            )
+            .catch(
+                error => {
                 console.error('Error loading data:', error);
                 UIkit.notification('Error loading data', {status: 'danger'});
-            });
+                }
+            );
     }
 
     // === TABLE RENDERING ===
-    renderTable(data) {
+    renderTable(data)
+    {
         const tbody = document.getElementById('datatables-tbody');
-        if (!tbody) return;
+        if (!tbody) { return;
+        }
 
         const columnCount = this.getColumnCount();
 
@@ -153,42 +177,39 @@ class DataTablesJS {
         }
 
         let html = '';
-        data.forEach(row => {
+        data.forEach(
+            row => {
             const rowId = row[this.primaryKey];
             const rowClass = this.getRowClass(rowId);
-            
             html += `<tr${rowClass ? ` class="${rowClass}"` : ''} data-id="${rowId}">`;
-
             // Bulk selection checkbox
-            if (this.bulkActionsEnabled) {
-                html += '<td class="uk-table-shrink">';
-                html += `<label><input type="checkbox" class="uk-checkbox row-checkbox" value="${rowId}" onchange="DataTables.toggleRowSelection(this)"></label>`;
-                html += '</td>';
-            }
-
-            // Action column at start
-            if (this.actionConfig.position === 'start') {
-                html += '<td class="uk-table-shrink">';
-                html += this.renderActionButtons(rowId);
-                html += '</td>';
-            }
-
-            // Regular columns - iterate through the configured columns
-            Object.keys(this.columns).forEach(column => {
-                const config = this.columns[column];
-                const field = typeof config === 'string' ? config : (config.field || column);
-                const columnClass = config.class || '';
-                const isEditable = this.inlineEditableColumns.includes(field);
-                
-                let cellContent = row[field] || '';
-                
-                if (isEditable) {
-                    cellContent = `<span class="inline-editable" data-field="${field}" data-id="${rowId}">${cellContent}</span>`;
+                if (this.bulkActionsEnabled) {
+                    html += '<td class="uk-table-shrink">';
+                    html += `<label><input type="checkbox" class="uk-checkbox row-checkbox" value="${rowId}" onchange="DataTables.toggleRowSelection(this)"></label>`;
+                    html += '</td>';
                 }
-                
-                html += `<td${columnClass ? ` class="${columnClass}"` : ''}>${cellContent}</td>`;
-            });
 
+                // Action column at start
+                if (this.actionConfig.position === 'start') {
+                    html += '<td class="uk-table-shrink">';
+                    html += this.renderActionButtons(rowId);
+                    html += '</td>';
+                }
+
+                // Regular columns - iterate through the configured columns
+                Object.keys(this.columns).forEach(
+                    column => {
+                    const config = this.columns[column];
+                    const field = typeof config === 'string' ? config : (config.field || column);
+                    const columnClass = config.class || '';
+                    const isEditable = this.inlineEditableColumns.includes(field);
+                    let cellContent = row[field] || '';
+                    if (isEditable) {
+                        cellContent = `<span class="inline-editable" data-field="${field}" data-id="${rowId}">${cellContent}</span>`;
+                    }
+                    html += `<td${columnClass ? ` class="${columnClass}"` : ''}>${cellContent}</td>`;
+                    }
+                );
             // Action column at end
             if (this.actionConfig.position === 'end') {
                 html += '<td class="uk-table-shrink">';
@@ -197,14 +218,16 @@ class DataTablesJS {
             }
 
             html += '</tr>';
-        });
+            }
+        );
 
         tbody.innerHTML = html;
         this.bindTableEvents();
         this.updateBulkActionButtons();
     }
 
-    renderActionButtons(rowId) {
+    renderActionButtons(rowId)
+    {
         let html = '';
         
         if (this.actionConfig.show_edit) {
@@ -217,49 +240,65 @@ class DataTablesJS {
 
         // Custom actions
         if (this.actionConfig.custom_actions) {
-            this.actionConfig.custom_actions.forEach(action => {
+            this.actionConfig.custom_actions.forEach(
+                action => {
                 const icon = action.icon || 'link';
                 const title = action.title || '';
                 const className = action.class || 'btn-custom';
-                
                 html += `<a href="#" class="uk-icon-link ${className} uk-margin-small-right" uk-icon="${icon}" title="${title}"></a>`;
-            });
+                }
+            );
         }
 
         return html;
     }
 
-    bindTableEvents() {
+    bindTableEvents()
+    {
         // Edit buttons
-        document.querySelectorAll('.btn-edit').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.preventDefault();
-                const id = e.target.closest('tr').getAttribute('data-id');
-                this.showEditModal(id);
-            });
-        });
+        document.querySelectorAll('.btn-edit').forEach(
+            btn => {
+            btn.addEventListener(
+                    'click', (e) => {
+                    e.preventDefault();
+                    const id = e.target.closest('tr').getAttribute('data-id');
+                    this.showEditModal(id);
+                    }
+                );
+            }
+        );
 
         // Delete buttons
-        document.querySelectorAll('.btn-delete').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.preventDefault();
-                const id = e.target.closest('tr').getAttribute('data-id');
-                this.showDeleteModal(id);
-            });
-        });
+        document.querySelectorAll('.btn-delete').forEach(
+            btn => {
+            btn.addEventListener(
+                    'click', (e) => {
+                    e.preventDefault();
+                    const id = e.target.closest('tr').getAttribute('data-id');
+                    this.showDeleteModal(id);
+                    }
+                );
+            }
+        );
 
         // Inline edit
-        document.querySelectorAll('.inline-editable').forEach(span => {
-            span.addEventListener('dblclick', (e) => {
-                this.startInlineEdit(e.target);
-            });
-        });
+        document.querySelectorAll('.inline-editable').forEach(
+            span => {
+            span.addEventListener(
+                    'dblclick', (e) => {
+                    this.startInlineEdit(e.target);
+                    }
+                );
+            }
+        );
     }
 
     // === PAGINATION ===
-    renderPagination(data) {
+    renderPagination(data)
+    {
         const pagination = document.getElementById('datatables-pagination');
-        if (!pagination) return;
+        if (!pagination) { return;
+        }
 
         if (data.total_pages <= 1) {
             pagination.innerHTML = '';
@@ -307,24 +346,30 @@ class DataTablesJS {
         pagination.innerHTML = html;
     }
 
-    goToPage(page) {
+    goToPage(page)
+    {
         this.currentPage = page;
         this.loadData();
     }
 
-    renderInfo(data) {
+    renderInfo(data)
+    {
         const info = document.getElementById('datatables-info');
-        if (!info) return;
+        if (!info) { return;
+        }
 
         const start = (data.page - 1) * data.per_page + 1;
         const end = Math.min(start + data.per_page - 1, data.total);
         info.textContent = `Showing ${start} to ${end} of ${data.total} records`;
     }
 
-    updateSortIcons() {
-        document.querySelectorAll('.sort-icon').forEach(icon => {
+    updateSortIcons()
+    {
+        document.querySelectorAll('.sort-icon').forEach(
+            icon => {
             icon.setAttribute('uk-icon', 'triangle-up');
-        });
+            }
+        );
 
         const currentSortHeader = document.querySelector(`th[data-sort="${this.sortColumn}"] .sort-icon`);
         if (currentSortHeader) {
@@ -334,15 +379,19 @@ class DataTablesJS {
     }
 
     // === BULK ACTIONS ===
-    toggleSelectAll(checkbox) {
+    toggleSelectAll(checkbox)
+    {
         const rowCheckboxes = document.querySelectorAll('.row-checkbox');
-        rowCheckboxes.forEach(cb => {
+        rowCheckboxes.forEach(
+            cb => {
             cb.checked = checkbox.checked;
             this.toggleRowSelection(cb);
-        });
+            }
+        );
     }
 
-    toggleRowSelection(checkbox) {
+    toggleRowSelection(checkbox)
+    {
         const rowId = checkbox.value;
         if (checkbox.checked) {
             this.selectedIds.add(rowId);
@@ -357,7 +406,8 @@ class DataTablesJS {
         this.updateBulkActionButtons();
     }
 
-    updateBulkActionButtons() {
+    updateBulkActionButtons()
+    {
         const bulkSelect = document.getElementById('datatables-bulk-action');
         const executeBtn = document.getElementById('datatables-bulk-execute');
         
@@ -368,9 +418,11 @@ class DataTablesJS {
         }
     }
 
-    executeBulkAction() {
+    executeBulkAction()
+    {
         const bulkSelect = document.getElementById('datatables-bulk-action');
-        if (!bulkSelect || !bulkSelect.value) return;
+        if (!bulkSelect || !bulkSelect.value) { return;
+        }
 
         const action = bulkSelect.value;
         const selectedIds = Array.from(this.selectedIds);
@@ -383,28 +435,34 @@ class DataTablesJS {
         // Check if action requires confirmation
         const actionConfig = this.bulkActions[action];
         if (actionConfig && actionConfig.confirm) {
-            UIkit.modal.confirm(actionConfig.confirm).then(() => {
+            UIkit.modal.confirm(actionConfig.confirm).then(
+                () => {
                 this.performBulkAction(action, selectedIds);
-            }, () => {
+                }, () => {
                 // User cancelled
-            });
+                }
+            );
         } else {
             this.performBulkAction(action, selectedIds);
         }
     }
 
-    performBulkAction(action, selectedIds) {
+    performBulkAction(action, selectedIds)
+    {
         const formData = new FormData();
         formData.append('action', 'bulk_action');
         formData.append('bulk_action', action);
         formData.append('selected_ids', JSON.stringify(selectedIds));
 
-        fetch(window.location.href, {
-            method: 'POST',
-            body: formData
-        })
+        fetch(
+            window.location.href, {
+                method: 'POST',
+                body: formData
+            }
+        )
         .then(response => response.json())
-        .then(data => {
+        .then(
+            data => {
             if (data.success) {
                 this.selectedIds.clear();
                 this.loadData();
@@ -412,49 +470,61 @@ class DataTablesJS {
                 
                 // Reset bulk action controls
                 const bulkSelect = document.getElementById('datatables-bulk-action');
-                if (bulkSelect) bulkSelect.value = '';
+                if (bulkSelect) { bulkSelect.value = '';
+                }
                 
                 const selectAll = document.getElementById('select-all');
-                if (selectAll) selectAll.checked = false;
+                if (selectAll) { selectAll.checked = false;
+                }
                 
                 this.updateBulkActionButtons();
             } else {
-                UIkit.notification(data.message || 'Bulk action failed', {status: 'danger'});
+                    UIkit.notification(data.message || 'Bulk action failed', {status: 'danger'});
             }
-        })
-        .catch(error => {
+            }
+        )
+        .catch(
+            error => {
             console.error('Error:', error);
             UIkit.notification('An error occurred', {status: 'danger'});
-        });
+            }
+        );
     }
 
     // === FORM MODALS ===
-    showAddModal() {
+    showAddModal()
+    {
         UIkit.modal('#add-modal').show();
     }
 
-    showEditModal(id) {
+    showEditModal(id)
+    {
         this.loadRecordForEdit(id);
         UIkit.modal('#edit-modal').show();
     }
 
-    showDeleteModal(id) {
+    showDeleteModal(id)
+    {
         this.deleteId = id;
         UIkit.modal('#delete-modal').show();
     }
 
-    loadRecordForEdit(id) {
+    loadRecordForEdit(id)
+    {
         // Find row data and populate form
         const row = document.querySelector(`tr[data-id="${id}"]`);
-        if (!row) return;
+        if (!row) { return;
+        }
 
         // Set the primary key
         const pkField = document.getElementById(`edit-${this.primaryKey}`);
-        if (pkField) pkField.value = id;
+        if (pkField) { pkField.value = id;
+        }
 
         // Populate other fields based on row data
         const cells = row.querySelectorAll('td');
-        cells.forEach(cell => {
+        cells.forEach(
+            cell => {
             const editableSpan = cell.querySelector('.inline-editable');
             if (editableSpan) {
                 const field = editableSpan.getAttribute('data-field');
@@ -464,10 +534,12 @@ class DataTablesJS {
                     formField.value = value;
                 }
             }
-        });
+            }
+        );
     }
 
-    submitAddForm(event) {
+    submitAddForm(event)
+    {
         event.preventDefault();
         const form = event.target;
         const formData = new FormData(form);
@@ -477,7 +549,8 @@ class DataTablesJS {
         return false;
     }
 
-    submitEditForm(event) {
+    submitEditForm(event)
+    {
         event.preventDefault();
         const form = event.target;
         const formData = new FormData(form);
@@ -487,64 +560,82 @@ class DataTablesJS {
         return false;
     }
 
-    submitForm(formData, form, modalId, successMessage) {
-        fetch(window.location.href, {
-            method: 'POST',
-            body: formData
-        })
+    submitForm(formData, form, modalId, successMessage)
+    {
+        fetch(
+            window.location.href, {
+                method: 'POST',
+                body: formData
+            }
+        )
         .then(response => response.json())
-        .then(data => {
+        .then(
+            data => {
             if (data.success) {
                 UIkit.modal(`#${modalId}`).hide();
-                if (form) form.reset();
+                if (form) { form.reset();
+                }
                 this.loadData();
                 UIkit.notification(successMessage, {status: 'success'});
             } else {
-                UIkit.notification(data.message || 'Operation failed', {status: 'danger'});
+                    UIkit.notification(data.message || 'Operation failed', {status: 'danger'});
             }
-        })
-        .catch(error => {
+            }
+        )
+        .catch(
+            error => {
             console.error('Error:', error);
             UIkit.notification('An error occurred', {status: 'danger'});
-        });
+            }
+        );
     }
 
-    confirmDelete() {
-        if (!this.deleteId) return;
+    confirmDelete()
+    {
+        if (!this.deleteId) { return;
+        }
 
         const formData = new FormData();
         formData.append('action', 'delete_record');
         formData.append('id', this.deleteId);
 
-        fetch(window.location.href, {
-            method: 'POST',
-            body: formData
-        })
+        fetch(
+            window.location.href, {
+                method: 'POST',
+                body: formData
+            }
+        )
         .then(response => response.json())
-        .then(data => {
+        .then(
+            data => {
             if (data.success) {
                 UIkit.modal('#delete-modal').hide();
                 this.loadData();
                 UIkit.notification('Record deleted successfully', {status: 'success'});
             } else {
-                UIkit.notification(data.message || 'Failed to delete record', {status: 'danger'});
+                    UIkit.notification(data.message || 'Failed to delete record', {status: 'danger'});
             }
-        })
-        .catch(error => {
+            }
+        )
+        .catch(
+            error => {
             console.error('Error:', error);
             UIkit.notification('An error occurred', {status: 'danger'});
-        });
+            }
+        );
 
         this.deleteId = null;
     }
 
     // === INLINE EDITING ===
-    startInlineEdit(element) {
+    startInlineEdit(element)
+    {
         const field = element.getAttribute('data-field');
         const id = element.getAttribute('data-id');
         const currentValue = element.textContent;
 
-        if (!this.inlineEditableColumns.includes(field)) return;
+        if (!this.inlineEditableColumns.includes(field)) { return;
+        }
 
         const input = document.createElement('input');
         input.type = 'text';
@@ -566,15 +657,17 @@ class DataTablesJS {
         };
 
         input.addEventListener('blur', saveEdit);
-        input.addEventListener('keydown', (e) => {
+        input.addEventListener(
+            'keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
                 saveEdit();
             } else if (e.key === 'Escape') {
-                e.preventDefault();
-                cancelEdit();
+                    e.preventDefault();
+                    cancelEdit();
             }
-        });
+            }
+        );
 
         element.textContent = '';
         element.appendChild(input);
@@ -582,55 +675,67 @@ class DataTablesJS {
         input.select();
     }
 
-    saveInlineEdit(id, field, value, element) {
+    saveInlineEdit(id, field, value, element)
+    {
         const formData = new FormData();
         formData.append('action', 'inline_edit');
         formData.append('id', id);
         formData.append('field', field);
         formData.append('value', value);
 
-        fetch(window.location.href, {
-            method: 'POST',
-            body: formData
-        })
+        fetch(
+            window.location.href, {
+                method: 'POST',
+                body: formData
+            }
+        )
         .then(response => response.json())
-        .then(data => {
+        .then(
+            data => {
             if (data.success) {
                 element.textContent = value;
                 UIkit.notification('Field updated successfully', {status: 'success'});
             } else {
-                element.textContent = element.getAttribute('data-original') || '';
-                UIkit.notification(data.message || 'Failed to update field', {status: 'danger'});
+                    element.textContent = element.getAttribute('data-original') || '';
+                    UIkit.notification(data.message || 'Failed to update field', {status: 'danger'});
             }
-        })
-        .catch(error => {
+            }
+        )
+        .catch(
+            error => {
             console.error('Error:', error);
             element.textContent = element.getAttribute('data-original') || '';
             UIkit.notification('An error occurred', {status: 'danger'});
-        });
+            }
+        );
     }
 
     // === THEME MANAGEMENT ===
-    initTheme() {
+    initTheme()
+    {
         const savedTheme = localStorage.getItem('datatables_theme') || 'light';
         this.setTheme(savedTheme);
     }
 
-    toggleTheme() {
+    toggleTheme()
+    {
         const currentTheme = this.getCurrentTheme();
         const newTheme = currentTheme === 'light' ? 'dark' : 'light';
         this.setTheme(newTheme);
     }
 
-    setTheme(theme) {
+    setTheme(theme)
+    {
         // Update CSS link
         const themeLinks = document.querySelectorAll('link[href*="datatables-"]');
-        themeLinks.forEach(link => {
+        themeLinks.forEach(
+            link => {
             if (link.href.includes('datatables-light.css') || link.href.includes('datatables-dark.css')) {
                 const newHref = link.href.replace(/(datatables-)(light|dark)(\.css)/, `$1${theme}$3`);
                 link.href = newHref;
             }
-        });
+            }
+        );
 
         // Save preference
         localStorage.setItem('datatables_theme', theme);
@@ -643,12 +748,14 @@ class DataTablesJS {
             .replace(/datatables-theme-\w+/, '') + ` datatables-theme-${theme}`;
     }
 
-    getCurrentTheme() {
+    getCurrentTheme()
+    {
         return localStorage.getItem('datatables_theme') || 'light';
     }
 
     // === UTILITY METHODS ===
-    getColumnCount() {
+    getColumnCount()
+    {
         // Calculate total columns including actions and bulk selection
         let count = Object.keys(this.columns).length || 1;
         count++; // Actions column
@@ -658,7 +765,8 @@ class DataTablesJS {
         return count;
     }
 
-    getRowClass(rowId) {
+    getRowClass(rowId)
+    {
         // Generate row class with ID suffix - this implements the "testclass-111009" requirement
         const baseClass = 'datatables-row';
         return `${baseClass}-${rowId}`;
