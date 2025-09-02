@@ -32,7 +32,7 @@
     },
     "autoload": {
         "psr-4": {
-            "KPT\\DataTables\\": "src/"
+            "KPT\\DataTables\\": "src/class/"
         }
     },
     "autoload-dev": {
