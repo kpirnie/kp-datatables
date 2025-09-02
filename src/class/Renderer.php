@@ -56,7 +56,7 @@ class Renderer
     public function render(): string
     {
         // Build complete HTML structure
-        $html .= $this->renderContainer();      // Main table container
+        $html = $this->renderContainer();      // Main table container
         $html .= $this->renderModals();         // Add/Edit/Delete modals
         $html .= $this->renderInitScript();     // JavaScript initialization
 
