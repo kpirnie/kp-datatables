@@ -75,7 +75,7 @@ class Renderer
     public static function getCssIncludes(string $theme = 'light'): string
     {
         $html = "<!-- DataTables CSS -->\n";
-        $html .= "<link rel=\"stylesheet\" href=\"vendor/kevinpirnie/kpt-datatables/src/assets/css/datatables-{$theme}.css\">\n";
+        $html .= "<link rel=\"stylesheet\" href=\"vendor/kevinpirnie/kpt-datatables/src/assets/css/datatables-{$theme}.css\" />\n";
         return $html;
     }
 

@@ -33,7 +33,7 @@ class AjaxHandler
      *
      * @param DataTables $dataTable The DataTables instance with configuration
      */
-    public function __construct(DataTables $dataTable)
+    public function __construct( DataTables $dataTable )
     {
         $this->dataTable = $dataTable;
     }
@@ -48,41 +48,49 @@ class AjaxHandler
      * @return void
      * @throws InvalidArgumentException If the action is unknown or invalid
      */
-    public function handle(string $action): void
+    public function handle( string $action ): void
     {
         // Route the request to the appropriate handler method
-        switch ($action) {
+        switch ( $action ) {
             case 'fetch_data':
+
                 // Handle data retrieval for table display
-                $this->handleFetchData();
+                $this -> handleFetchData( );
                 break;
             case 'add_record':
+                
                 // Handle new record creation
-                $this->handleAddRecord();
+                $this -> handleAddRecord( );
                 break;
             case 'edit_record':
+                
                 // Handle existing record updates
-                $this->handleEditRecord();
+                $this -> handleEditRecord( );
                 break;
             case 'delete_record':
+                
                 // Handle single record deletion
-                $this->handleDeleteRecord();
+                $this -> handleDeleteRecord( );
                 break;
             case 'bulk_action':
+                
                 // Handle bulk operations on multiple records
-                $this->handleBulkAction();
+                $this -> handleBulkAction( );
                 break;
             case 'inline_edit':
+                
                 // Handle inline field editing
-                $this->handleInlineEdit();
+                $this -> handleInlineEdit( );
                 break;
             case 'upload_file':
+                
                 // Handle standalone file uploads
-                $this->handleFileUpload();
+                $this -> handleFileUpload( );
                 break;
             default:
+                
                 // Unknown action - throw exception
-                throw new InvalidArgumentException("Unknown action: {$action}");
+                throw new InvalidArgumentException( "Unknown action: {$action}" );
         }
     }
 
@@ -95,34 +103,38 @@ class AjaxHandler
      *
      * @return void (outputs JSON and exits)
      */
-    private function handleFetchData(): void
+    private function handleFetchData( ): void
     {
-        // Extract and validate request parameters
-        $page = (int) ($_GET['page'] ?? 1);
-        $perPage = (int) ($_GET['per_page'] ?? $this->dataTable->getRecordsPerPage());
-        $search = $_GET['search'] ?? '';
-        $searchColumn = $_GET['search_column'] ?? '';
-        $sortColumn = $_GET['sort_column'] ?? '';
-        $sortDirection = $_GET['sort_direction'] ?? 'ASC';
+        // extract the paging
+        $page = filter_var( $_GET['page'] ?? null, FILTER_VALIDATE_INT, [ 'options' => ['default' => 1] ] );
+        $perPage = filter_var( $_GET['per_page'] ?? null, FILTER_VALIDATE_INT, [ 'options' => ['default' => $this -> dataTable -> getRecordsPerPage( )] ] );
+
+        // extract the search
+        $search = trim( filter_var( $_GET['search'] ?? '', FILTER_SANITIZE_STRING, FILTER_FLAG_STRIP_LOW ) );
+        $searchColumn = trim( filter_var( $_GET['search_column'] ?? '', FILTER_SANITIZE_STRING, FILTER_FLAG_STRIP_LOW ) );
+        
+        // extract the sorting
+        $sortColumn = trim( filter_var( $_GET['sort_column'] ?? '', FILTER_SANITIZE_STRING, FILTER_FLAG_STRIP_LOW ) );
+        $sortDirection = trim( filter_var( $_GET['sort_direction'] ?? '', FILTER_SANITIZE_STRING, FILTER_FLAG_STRIP_LOW ) );
 
         // Build the main SELECT query with all parameters
-        $query = $this->buildSelectQuery($search, $searchColumn, $sortColumn, $sortDirection, $page, $perPage);
+        $query = $this -> buildSelectQuery( $search, $searchColumn, $sortColumn, $sortDirection, $page, $perPage );
 
         // Build a separate COUNT query for pagination metadata
-        $countQuery = $this->buildCountQuery($search, $searchColumn);
+        $countQuery = $this -> buildCountQuery( $search, $searchColumn );
 
         // Execute both queries
-        $data = $this->dataTable->getDatabase()->raw($query['sql'], $query['params']);
-        $total = $this->dataTable->getDatabase()->raw($countQuery['sql'], $countQuery['params']);
+        $data = $this -> dataTable -> getDatabase( ) -> raw( $query['sql'], $query['params'] );
+        $total = $this -> dataTable -> getDatabase( ) -> raw( $countQuery['sql'], $countQuery['params'] );
 
         // Extract total count from result
         $totalRecords = $total ? $total[0]->total : 0;
 
         // Calculate total pages (handle division by zero for "all" records)
-        $totalPages = $perPage === 0 ? 1 : ceil($totalRecords / $perPage);
+        $totalPages = $perPage === 0 ? 1 : ceil( $totalRecords / $perPage );
 
         // Send JSON response with data and metadata
-        header('Content-Type: application/json');
+        header( 'Content-Type: application/json' );
         echo json_encode(
             [
             'success' => true,
@@ -133,6 +145,8 @@ class AjaxHandler
             'total_pages' => $totalPages
             ]
         );
+
+        // make sure we exit so nothing else gets outputted
         exit;
     }
 
@@ -144,36 +158,36 @@ class AjaxHandler
      *
      * @return void (outputs JSON and exits)
      */
-    private function handleAddRecord(): void
+    private function handleAddRecord( ): void
     {
         // Get POST data and remove the action parameter
         $data = $_POST;
-        unset($data['action']);
+        unset( $data['action'] );
 
         // Process any file uploads in the request
-        $data = $this->processFileUploads($data);
+        $data = $this -> processFileUploads( $data );
 
         // Prepare SQL INSERT statement
-        $fields = array_keys($data);
-        $placeholders = array_fill(0, count($fields), '?'); // Create ? placeholders for each field
+        $fields = array_keys( $data );
+        $placeholders = array_fill( 0, count( $fields ), '?' ); // Create ? placeholders for each field
 
         // Build the INSERT query
-        $query = "INSERT INTO {$this->dataTable->getTableName()} (" .
-                 implode(', ', $fields) .
+        $query = "INSERT INTO {$this -> dataTable -> getTableName( )} (" .
+                 implode( ', ', $fields ) .
                  ") VALUES (" .
-                 implode(', ', $placeholders) .
+                 implode( ', ', $placeholders ) .
                  ")";
 
         // Execute the query with the data values
-        $result = $this->dataTable->getDatabase()->raw($query, array_values($data));
+        $result = $this -> dataTable -> getDatabase( ) -> raw( $query, array_values( $data ) );
 
         // Prepare response
         $success = $result !== false;
         $message = $success ? 'Record added successfully' : 'Failed to add record';
-        $insertId = $success ? $this->dataTable->getDatabase()->getLastId() : null;
+        $insertId = $success ? $this -> dataTable -> getDatabase( ) -> getLastId( ) : null;
 
         // Send JSON response
-        header('Content-Type: application/json');
+        header( 'Content-Type: application/json' );
         echo json_encode(
             [
             'success' => $success,
@@ -181,6 +195,8 @@ class AjaxHandler
             'id' => $insertId
             ]
         );
+
+        // make sure we exit so nothing else gets outputted
         exit;
     }
 
@@ -193,7 +209,7 @@ class AjaxHandler
      * @return void (outputs JSON and exits)
      * @throws InvalidArgumentException If no record ID is provided
      */
-    private function handleEditRecord(): void
+    private function handleEditRecord( ): void
     {
         // Extract and validate the record ID
         $id = $_POST['id'] ?? null;
