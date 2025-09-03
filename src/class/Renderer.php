@@ -173,7 +173,7 @@ class Renderer
 
         $html .= "</div>\n";
         $html .= "</div>\n";
-        
+
         // second row
         $html .= "<div class=\"uk-grid-small uk-width-1-1\" uk-grid>\n";
 
@@ -395,7 +395,7 @@ class Renderer
 
         return $html;
     }
-    
+
 
     /**
      * Render pagination controls and record information with footer styling
@@ -594,18 +594,18 @@ class Renderer
                 $html .= "<label class=\"uk-form-label\" for=\"{$fieldId}\">{$label}" .
                         ($required ? " <span class=\"uk-text-danger\">*</span>" : "") . "</label>\n";
                 $html .= "<div class=\"uk-form-controls\">\n";
-                
+
                 $baseClass = 'uk-select';
                 $fieldClass = $customClass ? "{$baseClass} {$customClass}" : $baseClass;
                 $attrString = $this->buildAttributeString($attributes);
-                
+
                 $html .= "<select class=\"{$fieldClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" " .
                         "{$attrString} " . ($required ? "required" : "") . ">\n";
-                
+
                 // Boolean options
                 $selected0 = ($value == '0' || $value === false) ? ' selected' : '';
                 $selected1 = ($value == '1' || $value === true) ? ' selected' : '';
-                
+
                 $html .= "<option value=\"0\"{$selected0}>Inactive</option>\n";
                 $html .= "<option value=\"1\"{$selected1}>Active</option>\n";
                 $html .= "</select>\n";

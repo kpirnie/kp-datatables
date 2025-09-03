@@ -195,7 +195,7 @@ class DataTables
      * @var array
      */
     private array $editFormConfig = [
-        'title' => 'Edit Record', 
+        'title' => 'Edit Record',
         'fields' => [],
         'ajax' => true
     ];
@@ -356,34 +356,54 @@ class DataTables
         $type = strtolower($columnType);
 
         // Handle boolean/checkbox fields first (most specific)
-        if (strpos($type, 'tinyint(1)') !== false || strpos($type, 'boolean') !== false || strpos($type, 'bit(1)') !== false) return 'boolean';
-        
+        if (strpos($type, 'tinyint(1)') !== false || strpos($type, 'boolean') !== false || strpos($type, 'bit(1)') !== false) {
+            return 'boolean';
+        }
+
         // Handle other integer types
-        if (strpos($type, 'int') !== false || strpos($type, 'integer') !== false) return 'number';
-        
+        if (strpos($type, 'int') !== false || strpos($type, 'integer') !== false) {
+            return 'number';
+        }
+
         // Handle decimal/float types
-        if (strpos($type, 'decimal') !== false || strpos($type, 'float') !== false || strpos($type, 'double') !== false) return 'number';
-        
+        if (strpos($type, 'decimal') !== false || strpos($type, 'float') !== false || strpos($type, 'double') !== false) {
+            return 'number';
+        }
+
         // Handle date/time types
-        if (strpos($type, 'datetime') !== false || strpos($type, 'timestamp') !== false) return 'datetime-local';
-        if (strpos($type, 'date') !== false) return 'date';
-        if (strpos($type, 'time') !== false) return 'time';
-        
+        if (strpos($type, 'datetime') !== false || strpos($type, 'timestamp') !== false) {
+            return 'datetime-local';
+        }
+        if (strpos($type, 'date') !== false) {
+            return 'date';
+        }
+        if (strpos($type, 'time') !== false) {
+            return 'time';
+        }
+
         // Handle text types
-        if (strpos($type, 'text') !== false || strpos($type, 'longtext') !== false || strpos($type, 'mediumtext') !== false) return 'textarea';
-        
+        if (strpos($type, 'text') !== false || strpos($type, 'longtext') !== false || strpos($type, 'mediumtext') !== false) {
+            return 'textarea';
+        }
+
         // Handle enum types
-        if (strpos($type, 'enum') !== false) return 'select';
-        
+        if (strpos($type, 'enum') !== false) {
+            return 'select';
+        }
+
         // Handle varchar with common patterns
         if (strpos($type, 'varchar') !== false) {
             // Check for email patterns in column names or types
-            if (strpos($type, 'email') !== false) return 'email';
+            if (strpos($type, 'email') !== false) {
+                return 'email';
+            }
             return 'text';
         }
-        
+
         // Handle char types
-        if (strpos($type, 'char') !== false) return 'text';
+        if (strpos($type, 'char') !== false) {
+            return 'text';
+        }
 
         return 'text'; // Default fallback
     }
@@ -811,7 +831,7 @@ class DataTables
             'fields' => $fields,
             'ajax' => $ajax
         ];
-        
+
         Logger::debug("DataTables add form configured", ['field_count' => count($fields)]);
         return $this;
     }
@@ -831,7 +851,7 @@ class DataTables
             'fields' => $fields,
             'ajax' => $ajax
         ];
-        
+
         Logger::debug("DataTables edit form configured", ['field_count' => count($fields)]);
         return $this;
     }
@@ -1018,5 +1038,4 @@ class DataTables
     {
         return $this->editFormConfig;
     }
-
 }
