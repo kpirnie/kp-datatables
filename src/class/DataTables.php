@@ -8,6 +8,7 @@ use KPT\Database;
 use KPT\Logger;
 use Exception;
 use RuntimeException;
+use InvalidArgumentException;
 
 /**
  * DataTables - Advanced Database Table Management System
@@ -38,9 +39,16 @@ class DataTables
     /**
      * Database instance for all database operations
      *
-     * @var Database
+     * @var Database|null
      */
-    private Database $db;
+    private ?Database $db = null;
+
+    /**
+     * Database configuration array
+     *
+     * @var array
+     */
+    private array $dbConfig = [];
 
     /**
      * Name of the primary database table
@@ -52,11 +60,18 @@ class DataTables
     /**
      * Column configuration array
      *
-     * Format: ['column_name' => 'field_name'] or ['column_name' => ['field' => 'field_name', 'label' => 'Label']]
+     * Format: ['column_name' => 'Display Label'] or ['column_name' => ['label' => 'Label', 'type' => 'email']]
      *
      * @var array
      */
     private array $columns = [];
+
+    /**
+     * Table schema information loaded from database
+     *
+     * @var array
+     */
+    private array $tableSchema = [];
 
     /**
      * JOIN configuration for complex queries
@@ -101,28 +116,6 @@ class DataTables
      * @var bool
      */
     private bool $includeAllOption = true;
-
-    /**
-     * Configuration for the add record form
-     *
-     * @var array
-     */
-    private array $addFormConfig = [
-        'title' => 'Add Record',
-        'fields' => [],
-        'ajax' => true
-    ];
-
-    /**
-     * Configuration for the edit record form
-     *
-     * @var array
-     */
-    private array $editFormConfig = [
-        'title' => 'Edit Record',
-        'fields' => [],
-        'ajax' => true
-    ];
 
     /**
      * Whether search functionality is enabled
@@ -193,48 +186,253 @@ class DataTables
     private string $primaryKey = 'id';
 
     /**
-     * Constructor - Initialize DataTables with database connection
+     * Constructor - Initialize DataTables with database configuration
      *
-     * @param Database $database Configured database instance for all operations
+     * @param array $dbConfig Database configuration array (optional)
      */
-    public function __construct(Database $database)
+    public function __construct( array $dbConfig = [] )
     {
-        $this->db = $database;
+        if ( ! empty( $dbConfig ) ) {
+            $this -> dbConfig = $dbConfig;
+            $this -> initializeDatabase( );
+        }
+
         Logger::debug("DataTables instance created successfully");
     }
 
     /**
-     * Set the primary database table name
+     * Initialize database connection from configuration
+     *
+     * @return void
+     */
+    private function initializeDatabase(): void
+    {
+        if (!empty($this->dbConfig)) {
+            try {
+                $this->db = new Database((object)$this->dbConfig);
+                Logger::debug("Database connection initialized successfully");
+            } catch (Exception $e) {
+                Logger::error("Failed to initialize database connection", ['error' => $e->getMessage()]);
+                $this->db = null;
+            }
+        }
+    }
+
+    /**
+     * Set database configuration and initialize connection
+     *
+     * @param  array $config Database configuration array
+     * @return self Returns self for method chaining
+     */
+    public function database(array $config): self
+    {
+        $this->dbConfig = $config;
+        $this->initializeDatabase();
+        return $this;
+    }
+
+    /**
+     * Set the primary database table name and auto-detect schema
      *
      * This method specifies which table will be used for all CRUD operations.
-     * The table name will be used in all generated SQL queries.
+     * The table name will be used in all generated SQL queries. Also automatically
+     * loads the table schema to generate forms and validate data.
      *
      * @param  string $tableName The name of the database table
      * @return self Returns self for method chaining
+     * @throws RuntimeException If database connection is not available
      */
     public function table(string $tableName): self
     {
-        $this->tableName = $tableName;
+        $this->tableName = $this->sanitizeInput($tableName);
+        
+        // Only load schema if database is available
+        if ($this->db) {
+            try {
+                $this->loadTableSchema();
+            } catch (Exception $e) {
+                Logger::error("Failed to load table schema", ['table' => $tableName, 'error' => $e->getMessage()]);
+                // Continue without schema - basic functionality will still work
+            }
+        }
+        
         Logger::debug("DataTables table set", ['table' => $tableName]);
         return $this;
     }
 
     /**
-     * Configure the columns to display in the table
+     * Load table schema from database and auto-detect field types
      *
-     * Accepts either simple column names or complex configuration arrays.
-     * Complex format allows for field mapping, labels, and CSS classes.
+     * @return void
+     * @throws RuntimeException If database connection is not available
+     */
+    private function loadTableSchema(): void
+    {
+        if (!$this->db) {
+            throw new RuntimeException('Database connection required before loading schema');
+        }
+
+        try {
+            Logger::debug("Loading table schema", ['table' => $this->tableName]);
+            
+            // Get table structure using DESCRIBE with the fluent interface
+            $schema = $this->db->query("DESCRIBE `{$this->tableName}`")->fetch();
+            
+            if (!$schema || empty($schema)) {
+                throw new RuntimeException("Table '{$this->tableName}' does not exist or is not accessible");
+            }
+            
+            Logger::debug("Schema query returned", ['column_count' => count($schema)]);
+            
+            $this->tableSchema = [];
+
+            foreach ($schema as $column) {
+                $this->tableSchema[$column->Field] = [
+                    'type' => $this->parseColumnType($column->Type),
+                    'null' => $column->Null === 'YES',
+                    'key' => $column->Key,
+                    'default' => $column->Default,
+                    'extra' => $column->Extra
+                ];
+
+                // Auto-detect primary key
+                if ($column->Key === 'PRI') {
+                    $this->primaryKey = $column->Field;
+                }
+            }
+
+            // If no columns specified, use all non-primary key columns
+            if (empty($this->columns)) {
+                foreach ($this->tableSchema as $field => $info) {
+                    if ($field !== $this->primaryKey) {
+                        $this->columns[$field] = $this->generateColumnLabel($field);
+                    }
+                }
+            }
+
+            Logger::debug("Table schema loaded successfully", [
+                'columns' => count($this->tableSchema),
+                'primary_key' => $this->primaryKey
+            ]);
+            
+        } catch (Exception $e) {
+            Logger::error("Failed to load table schema", [
+                'table' => $this->tableName,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Parse MySQL column type to appropriate form field type with enhanced detection
+     *
+     * @param  string $columnType MySQL column type from DESCRIBE
+     * @return string HTML form field type
+     */
+    private function parseColumnType(string $columnType): string
+    {
+        $type = strtolower($columnType);
+
+        // Handle boolean/checkbox fields first (most specific)
+        if (strpos($type, 'tinyint(1)') !== false || strpos($type, 'boolean') !== false) return 'checkbox';
+        
+        // Handle other integer types
+        if (strpos($type, 'int') !== false || strpos($type, 'integer') !== false) return 'number';
+        
+        // Handle decimal/float types
+        if (strpos($type, 'decimal') !== false || strpos($type, 'float') !== false || strpos($type, 'double') !== false) return 'number';
+        
+        // Handle date/time types
+        if (strpos($type, 'datetime') !== false || strpos($type, 'timestamp') !== false) return 'datetime-local';
+        if (strpos($type, 'date') !== false) return 'date';
+        if (strpos($type, 'time') !== false) return 'time';
+        
+        // Handle text types
+        if (strpos($type, 'text') !== false || strpos($type, 'longtext') !== false || strpos($type, 'mediumtext') !== false) return 'textarea';
+        
+        // Handle enum types
+        if (strpos($type, 'enum') !== false) return 'select';
+        
+        // Handle varchar with common patterns
+        if (strpos($type, 'varchar') !== false) {
+            // Check for email patterns in column names or types
+            if (strpos($type, 'email') !== false) return 'email';
+            return 'text';
+        }
+        
+        // Handle char types
+        if (strpos($type, 'char') !== false) return 'text';
+
+        return 'text'; // Default fallback
+    }
+
+    /**
+     * Generate human-readable column label from database field name
+     *
+     * @param  string $field Database field name
+     * @return string Human-readable label
+     */
+    private function generateColumnLabel(string $field): string
+    {
+        return ucwords(str_replace(['_', '-'], ' ', $field));
+    }
+
+    /**
+     * Configure the columns to display in the table with enhanced field configuration
+     *
+     * Accepts column configurations where the array key is always the database column name.
+     * Values can be simple display labels or detailed configuration arrays with type overrides,
+     * form field options, CSS classes, and HTML attributes.
      *
      * Examples:
-     * - Simple: ['name', 'email', 'status']
-     * - Complex: ['name' => ['field' => 'u.name', 'label' => 'Full Name', 'class' => 'uk-text-bold']]
+     * - Simple: ['name' => 'Full Name', 'email' => 'Email Address']
+     * - Enhanced: ['active' => ['label' => 'Status', 'type' => 'checkbox', 'class' => 'uk-checkbox']]
+     * - With options: ['status' => ['label' => 'Status', 'type' => 'select', 'options' => ['active' => 'Active', 'inactive' => 'Inactive']]]
      *
      * @param  array $columns Array of column configurations
      * @return self Returns self for method chaining
      */
     public function columns(array $columns): self
     {
-        $this->columns = $columns;
+        $this->columns = [];
+        foreach ($columns as $column => $config) {
+            if (is_string($config)) {
+                // Simple: 'column_name' => 'Display Label'
+                $this->columns[$column] = $config;
+            } else {
+                // Enhanced: 'column_name' => ['label' => 'Label', 'type' => 'checkbox', etc.]
+                $this->columns[$column] = $config['label'] ?? $this->generateColumnLabel($column);
+                
+                // Store enhanced configuration in schema if available
+                if (isset($this->tableSchema[$column])) {
+                    // Override type if specified
+                    if (isset($config['type'])) {
+                        $this->tableSchema[$column]['override_type'] = $config['type'];
+                    }
+                    
+                    // Store form field options
+                    if (isset($config['options'])) {
+                        $this->tableSchema[$column]['form_options'] = $config['options'];
+                    }
+                    
+                    // Store CSS classes for form field
+                    if (isset($config['class'])) {
+                        $this->tableSchema[$column]['form_class'] = $config['class'];
+                    }
+                    
+                    // Store HTML attributes for form field
+                    if (isset($config['attributes'])) {
+                        $this->tableSchema[$column]['form_attributes'] = $config['attributes'];
+                    }
+                    
+                    // Store placeholder text
+                    if (isset($config['placeholder'])) {
+                        $this->tableSchema[$column]['form_placeholder'] = $config['placeholder'];
+                    }
+                }
+            }
+        }
         Logger::debug("DataTables columns configured", ['column_count' => count($columns)]);
         return $this;
     }
@@ -254,9 +452,9 @@ class DataTables
     {
         // Store JOIN configuration for later query building
         $this->joins[] = [
-            'type' => strtoupper($type),    // Normalize JOIN type to uppercase
-            'table' => $table,
-            'condition' => $condition
+            'type' => strtoupper($this->sanitizeInput($type)),    // Normalize JOIN type to uppercase
+            'table' => $this->sanitizeInput($table),
+            'condition' => $condition // Note: This needs careful validation in practice
         ];
 
         Logger::debug(
@@ -282,7 +480,7 @@ class DataTables
      */
     public function sortable(array $columns): self
     {
-        $this->sortableColumns = $columns;
+        $this->sortableColumns = array_map([$this, 'sanitizeInput'], $columns);
         Logger::debug("DataTables sortable columns set", ['columns' => $columns]);
         return $this;
     }
@@ -298,7 +496,7 @@ class DataTables
      */
     public function inlineEditable(array $columns): self
     {
-        $this->inlineEditableColumns = $columns;
+        $this->inlineEditableColumns = array_map([$this, 'sanitizeInput'], $columns);
         Logger::debug("DataTables inline editable columns set", ['columns' => $columns]);
         return $this;
     }
@@ -314,7 +512,7 @@ class DataTables
      */
     public function perPage(int $count): self
     {
-        $this->recordsPerPage = $count;
+        $this->recordsPerPage = max(1, $count);
         Logger::debug("DataTables records per page set", ['count' => $count]);
         return $this;
     }
@@ -331,7 +529,7 @@ class DataTables
      */
     public function pageSizeOptions(array $options, bool $includeAll = true): self
     {
-        $this->pageSizeOptions = $options;
+        $this->pageSizeOptions = array_map('intval', $options);
         $this->includeAllOption = $includeAll;
 
         Logger::debug(
@@ -346,48 +544,18 @@ class DataTables
     }
 
     /**
-     * Configure the add record form
+     * Enable or disable search functionality
      *
-     * Defines the modal form used for creating new records. The fields array
-     * specifies form elements and their configuration.
+     * Controls whether the search input and column selector are displayed.
+     * When enabled, provides both global and column-specific searching.
      *
-     * @param  string $title  Modal title for the add form
-     * @param  array  $fields Array of form field configurations
-     * @param  bool   $ajax   Whether to submit the form via AJAX (true) or traditional POST (false)
+     * @param  bool $enabled Whether search functionality should be enabled
      * @return self Returns self for method chaining
      */
-    public function addForm(string $title, array $fields, bool $ajax = true): self
+    public function search(bool $enabled = true): self
     {
-        $this->addFormConfig = [
-            'title' => $title,
-            'fields' => $fields,
-            'ajax' => $ajax
-        ];
-
-        Logger::debug("DataTables add form configured", ['title' => $title, 'ajax' => $ajax]);
-        return $this;
-    }
-
-    /**
-     * Configure the edit record form
-     *
-     * Defines the modal form used for editing existing records. Similar to addForm
-     * but will be pre-populated with existing record data.
-     *
-     * @param  string $title  Modal title for the edit form
-     * @param  array  $fields Array of form field configurations
-     * @param  bool   $ajax   Whether to submit the form via AJAX (true) or traditional POST (false)
-     * @return self Returns self for method chaining
-     */
-    public function editForm(string $title, array $fields, bool $ajax = true): self
-    {
-        $this->editFormConfig = [
-            'title' => $title,
-            'fields' => $fields,
-            'ajax' => $ajax
-        ];
-
-        Logger::debug("DataTables edit form configured", ['title' => $title, 'ajax' => $ajax]);
+        $this->searchEnabled = $enabled;
+        Logger::debug("DataTables search configured", ['enabled' => $enabled]);
         return $this;
     }
 
@@ -419,35 +587,6 @@ class DataTables
         );
 
         return $this;
-    }
-
-    /**
-     * Enable or disable search functionality
-     *
-     * Controls whether the search input and column selector are displayed.
-     * When enabled, provides both global and column-specific searching.
-     *
-     * @param  bool $enabled Whether search functionality should be enabled
-     * @return self Returns self for method chaining
-     */
-    public function search(bool $enabled = true): self
-    {
-        $this->searchEnabled = $enabled;
-        Logger::debug("DataTables search configured", ['enabled' => $enabled]);
-        return $this;
-    }
-
-    /**
-     * Disable search functionality (convenience method)
-     *
-     * Shorthand method for ->search(false) to improve readability when
-     * disabling search functionality.
-     *
-     * @return self Returns self for method chaining
-     */
-    public function noSearch(): self
-    {
-        return $this->search(false);
     }
 
     /**
@@ -532,7 +671,7 @@ class DataTables
      */
     public function primaryKey(string $column): self
     {
-        $this->primaryKey = $column;
+        $this->primaryKey = $this->sanitizeInput($column);
         Logger::debug("DataTables primary key set", ['column' => $column]);
         return $this;
     }
@@ -561,6 +700,154 @@ class DataTables
     }
 
     /**
+     * Sanitize input to prevent injection attacks
+     *
+     * @param  string $input Raw input string
+     * @return string Sanitized string
+     */
+    private function sanitizeInput(string $input): string
+    {
+        // Remove any non-alphanumeric characters except underscore, dash, and dot
+        return preg_replace('/[^a-zA-Z0-9_\-\.]/', '', trim($input));
+    }
+
+    /**
+     * Generate form fields automatically from table schema with enhanced configuration
+     *
+     * Creates form field configurations based on the database schema and enhanced
+     * column configuration. Always available for add/edit modals.
+     *
+     * @param  array $excludeFields Fields to exclude from form generation
+     * @return array Form field configurations
+     */
+    public function getFormFields(array $excludeFields = []): array
+    {
+        $fields = [];
+        
+        // Debug logging
+        Logger::debug("Getting form fields", [
+            'table_name' => $this->tableName,
+            'schema_count' => count($this->tableSchema),
+            'has_db' => !is_null($this->db)
+        ]);
+        
+        // If no schema loaded, try to load it
+        if (empty($this->tableSchema) && $this->db && !empty($this->tableName)) {
+            try {
+                Logger::debug("Attempting to load schema for form fields");
+                $this->loadTableSchema();
+            } catch (Exception $e) {
+                Logger::error("Failed to load schema for form fields", ['error' => $e->getMessage()]);
+                return [];
+            }
+        }
+        
+        // If still no schema, return empty
+        if (empty($this->tableSchema)) {
+            Logger::error("No table schema available for form generation", [
+                'table_name' => $this->tableName,
+                'db_available' => !is_null($this->db)
+            ]);
+            return [];
+        }
+        
+        foreach ($this->tableSchema as $fieldName => $fieldInfo) {
+            // Skip primary key and excluded fields
+            if ($fieldName === $this->primaryKey || in_array($fieldName, $excludeFields)) {
+                continue;
+            }
+
+            // Use override type if specified, otherwise use detected type
+            $fieldType = $fieldInfo['override_type'] ?? $fieldInfo['type'];
+            
+            $field = [
+                'type' => $fieldType,
+                'label' => $this->columns[$fieldName] ?? $this->generateColumnLabel($fieldName),
+                'required' => !$fieldInfo['null'] && $fieldInfo['default'] === null,
+                'placeholder' => $fieldInfo['form_placeholder'] ?? $this->generatePlaceholder($fieldName, $fieldType)
+            ];
+
+            // Add custom CSS class if specified
+            if (isset($fieldInfo['form_class'])) {
+                $field['class'] = $fieldInfo['form_class'];
+            }
+
+            // Add custom HTML attributes if specified
+            if (isset($fieldInfo['form_attributes'])) {
+                $field['attributes'] = $fieldInfo['form_attributes'];
+            }
+
+            // Handle select/enum fields
+            if ($fieldType === 'select') {
+                // Use custom options if provided, otherwise extract from enum
+                $field['options'] = $fieldInfo['form_options'] ?? $this->getEnumOptions($fieldName);
+            }
+
+            // Handle checkbox default value
+            if ($fieldType === 'checkbox') {
+                $field['value'] = $fieldInfo['default'] ?? '0';
+            }
+
+            $fields[$fieldName] = $field;
+        }
+
+        Logger::debug("Form fields generated", ['field_count' => count($fields)]);
+        return $fields;
+    }
+
+    /**
+     * Extract enum options from database column definition
+     *
+     * @param  string $fieldName Field name to get enum options for
+     * @return array Array of value => label pairs for enum options
+     */
+    private function getEnumOptions(string $fieldName): array
+    {
+        // Query to get enum values from column definition
+        $result = $this->db->query("SHOW COLUMNS FROM `{$this->tableName}` LIKE ?")
+                        ->bind([$fieldName])
+                        ->fetch();
+        
+        if (!empty($result)) {
+            $type = $result[0]->Type;
+            if (preg_match('/enum\((.*)\)/', $type, $matches)) {
+                $options = [];
+                $values = str_getcsv($matches[1], ',', "'");
+                foreach ($values as $value) {
+                    $options[$value] = ucfirst($value);
+                }
+                return $options;
+            }
+        }
+        return [];
+    }
+
+    /**
+     * Generate appropriate placeholder text for form fields
+     *
+     * @param  string $fieldName Database field name
+     * @param  string $fieldType Form field type
+     * @return string Placeholder text
+     */
+    private function generatePlaceholder(string $fieldName, string $fieldType): string
+    {
+        switch ($fieldType) {
+            case 'email':
+                return 'Enter email address';
+            case 'number':
+                return 'Enter number';
+            case 'date':
+                return 'Select date';
+            case 'datetime-local':
+                return 'Select date and time';
+            case 'time':
+                return 'Select time';
+            default:
+                return "Enter {$this->generateColumnLabel($fieldName)}";
+        }
+    }
+
+    /**
      * Render the complete DataTable HTML
      *
      * Generates all HTML, CSS includes, JavaScript includes, and initialization code
@@ -571,15 +858,15 @@ class DataTables
      * @throws RuntimeException If required configuration is missing
      */
     public function render(): string
-    {
+    {        
         try {
             // Validate required configuration
             if (empty($this->tableName)) {
                 throw new RuntimeException('Table name must be set before rendering');
             }
 
-            if (empty($this->columns)) {
-                throw new RuntimeException('Columns must be configured before rendering');
+            if (!$this->db) {
+                throw new RuntimeException('Database connection required before rendering');
             }
 
             // Create renderer and generate HTML
@@ -596,17 +883,22 @@ class DataTables
      *
      * Processes all AJAX requests for DataTables operations including data fetching,
      * CRUD operations, bulk actions, and file uploads. This method should be called
-     * before any HTML output when AJAX requests are detected.
+     * before any HTML output when AJAX requests are detected. Always handled internally.
      *
      * @return void (method outputs JSON and exits)
      */
     public function handleAjax(): void
     {
         try {
-            // Extract the action from POST or GET parameters
-            $action = $_POST['action'] ?? $_GET['action'] ?? '';
-            Logger::debug("DataTables handling AJAX request", ['action' => $action]);
+            // Extract and sanitize the action from POST or GET parameters
+            $action = $this->sanitizeInput($_POST['action'] ?? $_GET['action'] ?? '');
+            
+            if (empty($action)) {
+                throw new InvalidArgumentException('No action specified');
+            }
 
+            Logger::debug("DataTables handling AJAX request", ['action' => $action]);
+            
             // Delegate to the AJAX handler
             $handler = new AjaxHandler($this);
             $handler->handle($action);
@@ -617,7 +909,6 @@ class DataTables
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
             exit;
         }
-        exit;
     }
 
     // === GETTER METHODS FOR CONFIGURATION ACCESS ===
@@ -641,6 +932,16 @@ class DataTables
     public function getTableName(): string
     {
         return $this->tableName;
+    }
+
+    /**
+     * Get the table schema information
+     *
+     * @return array The table schema array
+     */
+    public function getTableSchema(): array
+    {
+        return $this->tableSchema;
     }
 
     /**
@@ -711,26 +1012,6 @@ class DataTables
     public function getIncludeAllOption(): bool
     {
         return $this->includeAllOption;
-    }
-
-    /**
-     * Get the add form configuration
-     *
-     * @return array Add form configuration array
-     */
-    public function getAddFormConfig(): array
-    {
-        return $this->addFormConfig;
-    }
-
-    /**
-     * Get the edit form configuration
-     *
-     * @return array Edit form configuration array
-     */
-    public function getEditFormConfig(): array
-    {
-        return $this->editFormConfig;
     }
 
     /**

@@ -15,7 +15,7 @@ namespace KPT\DataTables;
  * The renderer handles:
  * - CSS and JavaScript file inclusion with theme support
  * - Main table HTML with headers, body, and pagination
- * - Modal forms for add/edit operations
+ * - Modal forms for add/edit operations (auto-generated from schema)
  * - Control panels with search, bulk actions, and settings
  * - JavaScript initialization and configuration
  * - Responsive design elements
@@ -57,25 +57,35 @@ class Renderer
     {
         // Build complete HTML structure
         $html = $this->renderContainer();      // Main table container
-        $html .= $this->renderModals();         // Add/Edit/Delete modals
+        $html .= $this->renderModals();         // Add/Edit/Delete modals (auto-generated)
         $html .= $this->renderInitScript();     // JavaScript initialization
 
         return $html;
     }
 
     /**
-     * Render CSS file includes
+     * Render CSS file includes with improved footer positioning
      *
      * Generates the necessary <link> tags for external files.
      * Supports theme switching by detecting current theme from URL parameters
      * or cookies. Files are loaded from the vendor directory structure.
+     * Includes additional CSS for proper footer positioning.
      *
-     * @return string HTML with CSS and JS includes
+     * @param string $theme Theme name ('light' or 'dark')
+     * @return string HTML with CSS includes and footer positioning styles
      */
     public static function getCssIncludes(string $theme = 'light'): string
     {
         $html = "<!-- DataTables CSS -->\n";
         $html .= "<link rel=\"stylesheet\" href=\"vendor/kevinpirnie/kpt-datatables/src/assets/css/datatables-{$theme}.css\" />\n";
+        
+        // Add footer positioning CSS to ensure footer stays at bottom
+        $html .= "<style>\n";
+        $html .= "body { min-height: 100vh; display: flex; flex-direction: column; }\n";
+        $html .= ".datatables-container { flex: 1; }\n";
+        $html .= ".datatables-footer { margin-top: auto; }\n";
+        $html .= "</style>\n";
+        
         return $html;
     }
 
@@ -83,10 +93,9 @@ class Renderer
      * Render JavaScript file includes
      *
      * Generates the necessary <script> tags for external files.
-     * Supports theme switching by detecting current theme from URL parameters
-     * or cookies. Files are loaded from the vendor directory structure.
+     * Files are loaded from the vendor directory structure.
      *
-     * @return string HTML with CSS and JS includes
+     * @return string HTML with JavaScript includes
      */
     public static function getJsIncludes(): string
     {
@@ -110,7 +119,7 @@ class Renderer
         $containerClass = "datatables-container-{$tableName}";
 
         // Create main container with table-specific class
-        $html = "<div class=\"{$containerClass}\" data-table=\"{$tableName}\">\n";
+        $html = "<div class=\"{$containerClass} datatables-container\" data-table=\"{$tableName}\">\n";
 
         // Build container contents
         $html .= $this->renderControls();       // Top control panel
@@ -127,7 +136,8 @@ class Renderer
      *
      * Creates the top control panel containing add buttons, bulk actions,
      * theme toggle, search functionality, and page size selector.
-     * Uses UIKit3 grid system for responsive layout.
+     * Uses UIKit3 grid system for responsive layout. Add button is always
+     * available regardless of inline editing configuration.
      *
      * @return string HTML control panel
      */
@@ -136,14 +146,12 @@ class Renderer
         $html = "<div class=\"uk-card uk-card-default uk-card-body uk-margin-bottom\">\n";
         $html .= "<div class=\"uk-grid-small uk-child-width-auto\" uk-grid>\n";
 
-        // Add new record button (if editing is enabled)
-        if ($this->dataTable->getActionConfig()['show_edit']) {
-            $html .= "<div>\n";
-            $html .= "<button class=\"uk-button uk-button-primary\" type=\"button\" onclick=\"DataTables.showAddModal()\">\n";
-            $html .= "<span uk-icon=\"plus\"></span> Add Record\n";
-            $html .= "</button>\n";
-            $html .= "</div>\n";
-        }
+        // Add new record button - always available
+        $html .= "<div>\n";
+        $html .= "<button class=\"uk-button uk-button-primary\" type=\"button\" onclick=\"DataTables.showAddModal()\">\n";
+        $html .= "<span uk-icon=\"plus\"></span> Add Record\n";
+        $html .= "</button>\n";
+        $html .= "</div>\n";
 
         // Bulk actions dropdown and execute button (if enabled)
         $bulkActions = $this->dataTable->getBulkActions();
@@ -234,12 +242,9 @@ class Renderer
         $html .= "<select class=\"uk-select uk-width-small\" id=\"datatables-search-column\">\n";
         $html .= "<option value=\"all\">All Columns</option>\n";
 
-        // Add option for each configured column
-        foreach ($columns as $column => $config) {
-            // Extract display label and field name from configuration
-            $label = is_string($config) ? $column : ($config['label'] ?? $column);
-            $field = is_string($config) ? $config : ($config['field'] ?? $column);
-            $html .= "<option value=\"{$field}\">{$label}</option>\n";
+        // Add option for each configured column (key is column name, value is label)
+        foreach ($columns as $column => $label) {
+            $html .= "<option value=\"{$column}\">{$label}</option>\n";
         }
 
         $html .= "</select>\n";
@@ -325,20 +330,16 @@ class Renderer
             $html .= "<th class=\"uk-table-shrink\">Actions</th>\n";
         }
 
-        // Regular data columns
-        foreach ($columns as $column => $config) {
-            // Extract column configuration
-            $label = is_string($config) ? $column : ($config['label'] ?? $column);
-            $field = is_string($config) ? $config : ($config['field'] ?? $column);
-            $columnClass = $cssClasses['columns'][$column] ?? '';
-
+        // Regular data columns - key is column name, value is display label
+        foreach ($columns as $column => $label) {
             // Determine if column is sortable
-            $sortable = in_array($field, $sortableColumns);
+            $sortable = in_array($column, $sortableColumns);
+            $columnClass = $cssClasses['columns'][$column] ?? '';
             $thClass = $columnClass . ($sortable ? ' sortable' : '');
 
             // Build header cell
             $html .= "<th" . (!empty($thClass) ? " class=\"{$thClass}\"" : "") .
-                     ($sortable ? " data-sort=\"{$field}\"" : "") . ">";
+                     ($sortable ? " data-sort=\"{$column}\"" : "") . ">";
 
             if ($sortable) {
                 // Sortable header with click handler and sort indicator
@@ -379,16 +380,17 @@ class Renderer
     }
 
     /**
-     * Render pagination controls and record information
+     * Render pagination controls and record information with footer styling
      *
      * Creates the bottom section with record count information and pagination
      * controls. The pagination will be populated by JavaScript after data loads.
+     * Includes footer class for proper positioning at bottom of screen.
      *
      * @return string HTML pagination section
      */
     private function renderPagination(): string
     {
-        $html = "<div class=\"uk-card uk-card-default uk-card-body uk-margin-top\">\n";
+        $html = "<div class=\"uk-card uk-card-default uk-card-body uk-margin-top datatables-footer\">\n";
         $html .= "<div class=\"uk-flex uk-flex-between uk-flex-middle\">\n";
 
         // Record count information (updated by JavaScript)
@@ -411,49 +413,46 @@ class Renderer
     }
 
     /**
-     * Render all modal dialogs for forms
+     * Render all modal dialogs for forms (auto-generated from schema)
      *
      * Creates the modal dialogs used for add, edit, and delete operations.
      * Each modal is initially hidden and shown by JavaScript when needed.
+     * Forms are automatically generated based on database schema.
      *
      * @return string HTML for all modal dialogs
      */
     private function renderModals(): string
     {
-        $html = $this->renderAddModal();        // Add record form modal
-        $html .= $this->renderEditModal();      // Edit record form modal
+        $html = $this->renderAddModal();        // Add record form modal (auto-generated)
+        $html .= $this->renderEditModal();      // Edit record form modal (auto-generated)
         $html .= $this->renderDeleteModal();    // Delete confirmation modal
         return $html;
     }
 
     /**
-     * Render the add record modal form
+     * Render the add record modal form with auto-generated fields
      *
      * Creates a modal dialog containing a form for adding new records.
-     * The form fields are generated based on the addFormConfig and include
-     * proper validation, styling, and submission handling.
+     * The form fields are automatically generated based on the database schema
+     * and include proper validation, styling, and submission handling.
      *
      * @return string HTML add record modal
      */
     private function renderAddModal(): string
     {
-        $config = $this->dataTable->getAddFormConfig();
-        $title = $config['title'];
+        $formFields = $this->dataTable->getFormFields();
 
         // Modal container
         $html = "<div id=\"add-modal\" uk-modal>\n";
         $html .= "<div class=\"uk-modal-dialog uk-modal-body\">\n";
-        $html .= "<h2 class=\"uk-modal-title\">{$title}</h2>\n";
+        $html .= "<h2 class=\"uk-modal-title\">Add New Record</h2>\n";
 
-        // Form with conditional AJAX submission
-        $html .= "<form class=\"uk-form-stacked\" id=\"add-form\"" .
-                 ($config['ajax'] ? " onsubmit=\"return DataTables.submitAddForm(event)\"" : "") . ">\n";
+        // Form with AJAX submission (always AJAX, never in public files)
+        $html .= "<form class=\"uk-form-stacked\" id=\"add-form\" onsubmit=\"return DataTables.submitAddForm(event)\">\n";
 
-        // Generate form fields from configuration
-        if (!empty($config['fields'])) {
-            foreach ($config['fields'] as $field => $fieldConfig) {
-                $html .= $this->renderFormField($field, $fieldConfig);
-            }
+        // Generate form fields automatically from database schema
+        foreach ($formFields as $field => $config) {
+            $html .= $this->renderFormField($field, $config, 'add');
         }
 
         // Modal action buttons
@@ -470,37 +469,33 @@ class Renderer
     }
 
     /**
-     * Render the edit record modal form
+     * Render the edit record modal form with auto-generated fields
      *
      * Creates a modal dialog for editing existing records. Similar to the add modal
      * but includes a hidden field for the record ID and will be pre-populated
-     * with existing data by JavaScript.
+     * with existing data by JavaScript. Fields are auto-generated from schema.
      *
      * @return string HTML edit record modal
      */
     private function renderEditModal(): string
     {
-        $config = $this->dataTable->getEditFormConfig();
-        $title = $config['title'];
+        $formFields = $this->dataTable->getFormFields();
         $primaryKey = $this->dataTable->getPrimaryKey();
 
         // Modal container
         $html = "<div id=\"edit-modal\" uk-modal>\n";
         $html .= "<div class=\"uk-modal-dialog uk-modal-body\">\n";
-        $html .= "<h2 class=\"uk-modal-title\">{$title}</h2>\n";
+        $html .= "<h2 class=\"uk-modal-title\">Edit Record</h2>\n";
 
-        // Form with conditional AJAX submission
-        $html .= "<form class=\"uk-form-stacked\" id=\"edit-form\"" .
-                 ($config['ajax'] ? " onsubmit=\"return DataTables.submitEditForm(event)\"" : "") . ">\n";
+        // Form with AJAX submission (always AJAX, never in public files)
+        $html .= "<form class=\"uk-form-stacked\" id=\"edit-form\" onsubmit=\"return DataTables.submitEditForm(event)\">\n";
 
         // Hidden field for record ID (populated by JavaScript)
         $html .= "<input type=\"hidden\" name=\"{$primaryKey}\" id=\"edit-{$primaryKey}\">\n";
 
-        // Generate form fields from configuration
-        if (!empty($config['fields'])) {
-            foreach ($config['fields'] as $field => $fieldConfig) {
-                $html .= $this->renderFormField($field, $fieldConfig, 'edit');
-            }
+        // Generate form fields automatically from database schema
+        foreach ($formFields as $field => $config) {
+            $html .= $this->renderFormField($field, $config, 'edit');
         }
 
         // Modal action buttons
@@ -545,11 +540,12 @@ class Renderer
     }
 
     /**
-     * Render a single form field element
+     * Render a single form field element based on database schema with enhanced configuration
      *
      * Generates HTML for various form field types including text inputs, selects,
      * textareas, checkboxes, radio buttons, file uploads, and date/time fields.
      * Handles validation attributes, styling classes, and accessibility features.
+     * Field types are automatically determined from database schema or overridden.
      *
      * @param  string $field  Field name for form submission
      * @param  array  $config Field configuration array with type, label, validation, etc.
@@ -559,14 +555,14 @@ class Renderer
     private function renderFormField(string $field, array $config, string $prefix = 'add'): string
     {
         // Extract field configuration with defaults
-        $type = $config['type'] ?? 'text';
-        $label = $config['label'] ?? $field;
+        $type = $config['type'];
+        $label = $config['label'];
         $required = $config['required'] ?? false;
-        $value = $config['value'] ?? '';
         $placeholder = $config['placeholder'] ?? '';
         $options = $config['options'] ?? [];
-        $fieldClass = $config['class'] ?? '';
+        $customClass = $config['class'] ?? '';
         $attributes = $config['attributes'] ?? [];
+        $value = $config['value'] ?? '';
 
         // Generate unique IDs for form fields
         $fieldId = "{$prefix}-{$field}";
@@ -574,136 +570,122 @@ class Renderer
 
         // Start field container
         $html = "<div class=\"uk-margin\">\n";
-        $html .= "<label class=\"uk-form-label\" for=\"{$fieldId}\">{$label}" .
-                 ($required ? " <span class=\"uk-text-danger\">*</span>" : "") . "</label>\n";
-        $html .= "<div class=\"uk-form-controls\">\n";
-
-        // Base CSS classes for input elements
-        $baseClass = "uk-input {$fieldClass}";
-        $attrs = $this->buildAttributes($attributes);
-
-        // Generate field HTML based on type
+        
+        // Render field based on type
         switch ($type) {
-            case 'text':
-            case 'email':
-            case 'url':
-            case 'tel':
-            case 'number':
-            case 'password':
-                // Standard input fields
-                $html .= "<input type=\"{$type}\" class=\"{$baseClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" " .
-                     "value=\"{$value}\" placeholder=\"{$placeholder}\" " .
-                     ($required ? "required " : "") . $attrs . ">\n";
+            case 'checkbox':
+                // Checkbox field for boolean values (no separate label div)
+                $baseClass = 'uk-checkbox';
+                $fieldClass = $customClass ? "{$baseClass} {$customClass}" : $baseClass;
+                $attrString = $this->buildAttributeString($attributes);
+                
+                $html .= "<div class=\"uk-form-controls\">\n";
+                $html .= "<label>";
+                $html .= "<input type=\"checkbox\" class=\"{$fieldClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" value=\"1\" {$attrString}";
+                if ($value == '1' || $value === true) {
+                    $html .= " checked";
+                }
+                $html .= "> {$label}";
+                if ($required) {
+                    $html .= " <span class=\"uk-text-danger\">*</span>";
+                }
+                $html .= "</label>\n";
+                $html .= "</div>\n";
                 break;
 
             case 'textarea':
-                // Multi-line text input
-                $html .= "<textarea class=\"uk-textarea {$fieldClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" " .
-                     "placeholder=\"{$placeholder}\" " . ($required ? "required " : "") . $attrs . ">{$value}</textarea>\n";
+                // Multi-line text input for TEXT columns
+                $html .= "<label class=\"uk-form-label\" for=\"{$fieldId}\">{$label}" .
+                        ($required ? " <span class=\"uk-text-danger\">*</span>" : "") . "</label>\n";
+                $html .= "<div class=\"uk-form-controls\">\n";
+                
+                $baseClass = 'uk-textarea';
+                $fieldClass = $customClass ? "{$baseClass} {$customClass}" : $baseClass;
+                $attrString = $this->buildAttributeString($attributes);
+                
+                $html .= "<textarea class=\"{$fieldClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" " .
+                        "placeholder=\"{$placeholder}\" {$attrString} " . ($required ? "required" : "") . "></textarea>\n";
+                $html .= "</div>\n";
                 break;
 
             case 'select':
-                // Dropdown selection
-                $html .= "<select class=\"uk-select {$fieldClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" " .
-                     ($required ? "required " : "") . $attrs . ">\n";
-
+                // Dropdown selection for ENUM columns
+                $html .= "<label class=\"uk-form-label\" for=\"{$fieldId}\">{$label}" .
+                        ($required ? " <span class=\"uk-text-danger\">*</span>" : "") . "</label>\n";
+                $html .= "<div class=\"uk-form-controls\">\n";
+                
+                $baseClass = 'uk-select';
+                $fieldClass = $customClass ? "{$baseClass} {$customClass}" : $baseClass;
+                $attrString = $this->buildAttributeString($attributes);
+                
+                $html .= "<select class=\"{$fieldClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" " .
+                        "{$attrString} " . ($required ? "required" : "") . ">\n";
+                
                 // Add empty option if field is not required
                 if (!$required) {
                     $html .= "<option value=\"\">-- Select --</option>\n";
                 }
-
-                // Add all configured options
+                
+                // Add all options (from enum or custom)
                 foreach ($options as $optValue => $optLabel) {
-                    $selected = $optValue == $value ? ' selected' : '';
+                    $selected = ($value == $optValue) ? ' selected' : '';
                     $html .= "<option value=\"{$optValue}\"{$selected}>{$optLabel}</option>\n";
                 }
                 $html .= "</select>\n";
-                break;
-
-            case 'checkbox':
-                // Single checkbox
-                $checked = $value ? ' checked' : '';
-                $html .= "<label><input type=\"checkbox\" class=\"uk-checkbox {$fieldClass}\" " .
-                     "id=\"{$fieldId}\" name=\"{$fieldName}\" value=\"1\"{$checked} {$attrs}> {$label}</label>\n";
-                break;
-
-            case 'radio':
-                // Radio button group
-                foreach ($options as $optValue => $optLabel) {
-                    $checked = $optValue == $value ? ' checked' : '';
-                    $html .= "<label class=\"uk-margin-small-right\"><input type=\"radio\" class=\"uk-radio {$fieldClass}\" " .
-                         "name=\"{$fieldName}\" value=\"{$optValue}\"{$checked} {$attrs}> {$optLabel}</label>\n";
-                }
-                break;
-
-            case 'file':
-                // File upload with UIKit3 custom styling
-                $allowedExts = $this->dataTable->getFileUploadConfig()['allowed_extensions'];
-                $accept = !empty($allowedExts) ? ' accept=".' . implode(',.', $allowedExts) . '"' : '';
-
-                $html .= "<div uk-form-custom=\"target: true\">\n";
-                $html .= "<input type=\"file\" id=\"{$fieldId}\" name=\"{$fieldName}\" {$accept} {$attrs}>\n";
-                $html .= "<input class=\"uk-input {$fieldClass}\" type=\"text\" placeholder=\"Select file...\" disabled>\n";
                 $html .= "</div>\n";
                 break;
 
-            case 'date':
-                // Date picker
-                $html .= "<input type=\"date\" class=\"{$baseClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" " .
-                     "value=\"{$value}\" " . ($required ? "required " : "") . $attrs . ">\n";
+            case 'file':
+                // File upload field
+                $html .= "<label class=\"uk-form-label\" for=\"{$fieldId}\">{$label}" .
+                        ($required ? " <span class=\"uk-text-danger\">*</span>" : "") . "</label>\n";
+                $html .= "<div class=\"uk-form-controls\">\n";
+                
+                $baseClass = 'uk-input';
+                $fieldClass = $customClass ? "{$baseClass} {$customClass}" : $baseClass;
+                $attrString = $this->buildAttributeString($attributes);
+                
+                $html .= "<input type=\"file\" class=\"{$fieldClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" " .
+                        "{$attrString} " . ($required ? "required" : "") . ">\n";
+                $html .= "</div>\n";
                 break;
 
-            case 'datetime':
-                // Date and time picker
-                $html .= "<input type=\"datetime-local\" class=\"{$baseClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" " .
-                     "value=\"{$value}\" " . ($required ? "required " : "") . $attrs . ">\n";
+            default:
+                // Standard input fields (text, email, number, date, datetime-local, time, etc.)
+                $html .= "<label class=\"uk-form-label\" for=\"{$fieldId}\">{$label}" .
+                        ($required ? " <span class=\"uk-text-danger\">*</span>" : "") . "</label>\n";
+                $html .= "<div class=\"uk-form-controls\">\n";
+                
+                $baseClass = 'uk-input';
+                $fieldClass = $customClass ? "{$baseClass} {$customClass}" : $baseClass;
+                $attrString = $this->buildAttributeString($attributes);
+                
+                $html .= "<input type=\"{$type}\" class=\"{$fieldClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" " .
+                        "placeholder=\"{$placeholder}\" value=\"{$value}\" {$attrString} " . 
+                        ($required ? "required" : "") . ">\n";
+                $html .= "</div>\n";
                 break;
-
-            case 'time':
-                // Time picker
-                $html .= "<input type=\"time\" class=\"{$baseClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" " .
-                     "value=\"{$value}\" " . ($required ? "required " : "") . $attrs . ">\n";
-                break;
-
-            case 'hidden':
-                // Hidden field (no container div needed)
-                $html = "<input type=\"hidden\" id=\"{$fieldId}\" name=\"{$fieldName}\" value=\"{$value}\" {$attrs}>\n";
-                return $html; // Return early to skip container closing tags
         }
 
         // Close field container
-        $html .= "</div>\n";
         $html .= "</div>\n";
 
         return $html;
     }
 
     /**
-     * Build HTML attributes string from array
-     *
-     * Converts an associative array of attributes into a properly formatted
-     * HTML attributes string. Handles boolean attributes correctly.
+     * Build HTML attribute string from array
      *
      * @param  array $attributes Associative array of attribute name => value pairs
-     * @return string Formatted HTML attributes string
+     * @return string HTML attribute string
      */
-    private function buildAttributes(array $attributes): string
+    private function buildAttributeString(array $attributes): string
     {
-        $attrs = [];
-
+        $attrParts = [];
         foreach ($attributes as $name => $value) {
-            if (is_bool($value)) {
-                // Boolean attributes (e.g., disabled, readonly)
-                if ($value) {
-                    $attrs[] = $name;
-                }
-            } else {
-                // Standard name="value" attributes
-                $attrs[] = "{$name}=\"{$value}\"";
-            }
+            $attrParts[] = "{$name}=\"{$value}\"";
         }
-
-        return implode(' ', $attrs);
+        return implode(' ', $attrParts);
     }
 
     /**

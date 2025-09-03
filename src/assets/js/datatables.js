@@ -22,6 +22,7 @@ class DataTablesJS {
         this.bulkActions = config.bulkActions || {};
         this.actionConfig = config.actionConfig || {};
         this.columns = config.columns || {};
+        this.cssClasses = config.cssClasses || {};
         
         // State
         this.currentPage = 1;
@@ -131,6 +132,7 @@ class DataTablesJS {
         const params = new URLSearchParams(
             {
                 action: 'fetch_data',
+                table: this.tableName,
                 page: this.currentPage,
                 per_page: this.perPage,
                 search: this.search,
@@ -196,16 +198,14 @@ class DataTablesJS {
                     html += '</td>';
                 }
 
-                // Regular columns - iterate through the configured columns
+                // Regular columns - simplified structure where key=column, value=label
                 Object.keys(this.columns).forEach(
                     column => {
-                    const config = this.columns[column];
-                    const field = typeof config === 'string' ? config : (config.field || column);
-                    const columnClass = config.class || '';
-                    const isEditable = this.inlineEditableColumns.includes(field);
-                    let cellContent = row[field] || '';
+                    const columnClass = this.cssClasses?.columns?.[column] || '';
+                    const isEditable = this.inlineEditableColumns.includes(column);
+                    let cellContent = row[column] || '';
                     if (isEditable) {
-                        cellContent = `<span class="inline-editable" data-field="${field}" data-id="${rowId}">${cellContent}</span>`;
+                        cellContent = `<span class="inline-editable" data-field="${column}" data-id="${rowId}">${cellContent}</span>`;
                     }
                     html += `<td${columnClass ? ` class="${columnClass}"` : ''}>${cellContent}</td>`;
                     }
@@ -515,11 +515,14 @@ class DataTablesJS {
         const row = document.querySelector(`tr[data-id="${id}"]`);
         if (!row) { return; }
 
-        // Set the primary key
+        // Set the primary key field
         const pkField = document.getElementById(`edit-${this.primaryKey}`);
-        if (pkField) { pkField.value = id; }
+        if (pkField) { 
+            pkField.value = id; 
+            //console.log(`Set primary key field ${this.primaryKey} to ${id}`);
+        }
 
-        // NEW: Populate fields from all table cells, not just inline-editable
+        // Get all table cells from the row
         const cells = row.querySelectorAll('td');
         let cellIndex = 0;
         
@@ -529,16 +532,22 @@ class DataTablesJS {
         // Skip action column if at start
         if (this.actionConfig.position === 'start') cellIndex++;
         
-        // Map cells to columns
+        // Map cells to columns in order
         Object.keys(this.columns).forEach(column => {
-            const config = this.columns[column];
-            const field = typeof config === 'string' ? config : (config.field || column);
-            
             if (cells[cellIndex]) {
-                const value = cells[cellIndex].textContent.trim();
-                const formField = document.getElementById(`edit-${field}`);
+                // Get text content, handling inline editable spans
+                const cellElement = cells[cellIndex];
+                const editableSpan = cellElement.querySelector('.inline-editable');
+                const value = editableSpan ? editableSpan.textContent.trim() : cellElement.textContent.trim();
+                
+                const formField = document.getElementById(`edit-${column}`);
                 if (formField) {
-                    formField.value = value;
+                    if (formField.type === 'checkbox') {
+                        formField.checked = value === '1' || value.toLowerCase() === 'true';
+                    } else {
+                        formField.value = value;
+                    }
+                    //console.log(`Set field ${column} to ${value}`);
                 }
             }
             cellIndex++;
@@ -569,6 +578,8 @@ class DataTablesJS {
 
     submitForm(formData, form, modalId, successMessage)
     {
+        formData.append('table', this.tableName);
+        
         fetch(
             window.location.href, {
                 method: 'POST',
@@ -774,9 +785,9 @@ class DataTablesJS {
 
     getRowClass(rowId)
     {
-        // Generate row class with ID suffix - this implements the "testclass-111009" requirement
-        const baseClass = 'datatables-row';
-        return `${baseClass}-${rowId}`;
+        // Use configured row class base or default
+        const baseClass = this.cssClasses?.tr || 'datatables-row';
+        return baseClass ? `${baseClass}-${rowId}` : '';
     }
 }
 
