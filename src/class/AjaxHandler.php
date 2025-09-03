@@ -309,8 +309,8 @@ class AjaxHandler
         if (!is_array($ids)) {
             return [];
         }
-        
-        return array_filter(array_map('intval', $ids), function($id) {
+
+        return array_filter(array_map('intval', $ids), function ($id) {
             return $id > 0;
         });
     }
@@ -335,7 +335,7 @@ class AjaxHandler
 
         // Type-specific validation based on detected field type
         $fieldType = $fieldInfo['type'];
-        
+
         switch ($fieldType) {
             case 'number':
                 if (!is_numeric($value)) {
@@ -402,7 +402,7 @@ class AjaxHandler
         // Build SELECT field list from column configuration
         $selectFields = [];
         $columns = $this->dataTable->getColumns();
-        
+
         // If no columns configured, get all columns from schema
         if (empty($columns)) {
             $schema = $this->dataTable->getTableSchema();
@@ -491,7 +491,7 @@ class AjaxHandler
         // Add same WHERE conditions as the main query
         if (!empty($search)) {
             $columns = $this->dataTable->getColumns();
-            
+
             // Use schema if no columns configured
             if (empty($columns)) {
                 $schema = $this->dataTable->getTableSchema();
@@ -499,7 +499,7 @@ class AjaxHandler
             } else {
                 $columns = array_keys($columns);
             }
-            
+
             if (!empty($searchColumn) && $searchColumn !== 'all') {
                 // Search specific column
                 $sql .= " WHERE `{$searchColumn}` LIKE ?";
@@ -530,7 +530,7 @@ class AjaxHandler
      * using the Database class fluent interface instead of raw SQL execution.
      *
      * @param  string $search        Search term to filter results
-     * @param  string $searchColumn  Specific column to search (or 'all' for global search)  
+     * @param  string $searchColumn  Specific column to search (or 'all' for global search)
      * @param  string $sortColumn    Column to sort by
      * @param  string $sortDirection Sort direction (ASC or DESC)
      * @param  int    $page          Page number for pagination
@@ -542,15 +542,15 @@ class AjaxHandler
         // Build SELECT fields list from configuration
         $selectFields = $this->getSelectFields();
         $sql = "SELECT " . implode(', ', $selectFields) . " FROM `{$this->dataTable->getTableName()}`";
-        
+
         // Add JOIN clauses from DataTables configuration
         foreach ($this->dataTable->getJoins() as $join) {
             $sql .= " {$join['type']} JOIN {$join['table']} ON {$join['condition']}";
         }
-        
+
         // Initialize parameters array for prepared statement
         $params = [];
-        
+
         // Add WHERE clause for search functionality
         if (!empty($search)) {
             if (!empty($searchColumn) && $searchColumn !== 'all') {
@@ -564,36 +564,36 @@ class AjaxHandler
                     $searchConditions[] = "`{$column}` LIKE ?";
                     $params[] = "%{$search}%";
                 }
-                
+
                 // Only add WHERE clause if we have searchable columns
                 if (!empty($searchConditions)) {
                     $sql .= " WHERE " . implode(' OR ', $searchConditions);
                 }
             }
         }
-        
+
         // Add ORDER BY clause for sorting
         if (!empty($sortColumn) && in_array($sortColumn, $this->dataTable->getSortableColumns())) {
             // Validate and normalize sort direction
             $direction = strtoupper($sortDirection) === 'DESC' ? 'DESC' : 'ASC';
             $sql .= " ORDER BY `{$sortColumn}` {$direction}";
         }
-        
+
         // Add LIMIT clause for pagination
         if ($perPage > 0) {
             // Calculate offset for pagination
             $offset = ($page - 1) * $perPage;
             $sql .= " LIMIT {$offset}, {$perPage}";
         }
-        
+
         // Execute query using Database fluent interface
         $query = $this->dataTable->getDatabase()->query($sql);
-        
+
         // Bind parameters if any were added
         if (!empty($params)) {
             $query->bind($params);
         }
-        
+
         // Fetch and return results
         return $query->fetch();
     }
@@ -613,15 +613,15 @@ class AjaxHandler
     {
         // Build basic COUNT query
         $sql = "SELECT COUNT(*) as total FROM `{$this->dataTable->getTableName()}`";
-        
+
         // Add same JOIN clauses as the main data query
         foreach ($this->dataTable->getJoins() as $join) {
             $sql .= " {$join['type']} JOIN {$join['table']} ON {$join['condition']}";
         }
-        
+
         // Initialize parameters array for prepared statement
         $params = [];
-        
+
         // Add WHERE clause for search (same logic as data query)
         if (!empty($search)) {
             // Get column list from configuration or schema
@@ -634,7 +634,7 @@ class AjaxHandler
                 // Use configured column names
                 $columns = array_keys($columns);
             }
-            
+
             if (!empty($searchColumn) && $searchColumn !== 'all') {
                 // Search specific column only
                 $sql .= " WHERE `{$searchColumn}` LIKE ?";
@@ -646,22 +646,22 @@ class AjaxHandler
                     $searchConditions[] = "`{$column}` LIKE ?";
                     $params[] = "%{$search}%";
                 }
-                
+
                 // Only add WHERE clause if we have searchable columns
                 if (!empty($searchConditions)) {
                     $sql .= " WHERE " . implode(' OR ', $searchConditions);
                 }
             }
         }
-        
+
         // Execute query using Database fluent interface
         $query = $this->dataTable->getDatabase()->query($sql);
-        
+
         // Bind parameters if any were added
         if (!empty($params)) {
             $query->bind($params);
         }
-        
+
         // Fetch single result and return
         return $query->single()->fetch();
     }
@@ -679,7 +679,7 @@ class AjaxHandler
     {
         $selectFields = [];
         $columns = $this->dataTable->getColumns();
-        
+
         // Use configured columns if available
         if (empty($columns)) {
             // Fallback to table schema if no columns configured
@@ -699,10 +699,10 @@ class AjaxHandler
                 $selectFields[] = "`{$column}`";
             }
         }
-        
+
         return $selectFields;
     }
-    
+
     /**
 ` * Handle data fetching for table display with enhanced input sanitization
  *
@@ -712,54 +712,54 @@ class AjaxHandler
  *
  * @return void (outputs JSON and exits)
  */
-private function handleFetchData(): void
-{
-    // Extract and validate pagination parameters with bounds checking
-    $page = $this->validateInteger($_GET['page'] ?? 1, 1);
-    $perPage = $this->validateInteger($_GET['per_page'] ?? $this->dataTable->getRecordsPerPage(), 0, 1000);
+    private function handleFetchData(): void
+    {
+        // Extract and validate pagination parameters with bounds checking
+        $page = $this->validateInteger($_GET['page'] ?? 1, 1);
+        $perPage = $this->validateInteger($_GET['per_page'] ?? $this->dataTable->getRecordsPerPage(), 0, 1000);
 
-    // Sanitize search inputs with proper escaping
-    $search = $this->sanitizeSearchInput($_GET['search'] ?? '');
-    $searchColumn = $this->sanitizeColumnName($_GET['search_column'] ?? '');
+        // Sanitize search inputs with proper escaping
+        $search = $this->sanitizeSearchInput($_GET['search'] ?? '');
+        $searchColumn = $this->sanitizeColumnName($_GET['search_column'] ?? '');
 
-    // Sanitize and validate sort inputs
-    $sortColumn = $this->sanitizeColumnName($_GET['sort_column'] ?? '');
-    $sortDirection = $this->sanitizeSortDirection($_GET['sort_direction'] ?? 'ASC');
+        // Sanitize and validate sort inputs
+        $sortColumn = $this->sanitizeColumnName($_GET['sort_column'] ?? '');
+        $sortDirection = $this->sanitizeSortDirection($_GET['sort_direction'] ?? 'ASC');
 
-    // Validate sort column exists in configuration
-    if (!empty($sortColumn)) {
-        $validColumns = array_keys($this->dataTable->getColumns());
-        if (!in_array($sortColumn, $validColumns)) {
-            $sortColumn = ''; // Reset invalid column
+        // Validate sort column exists in configuration
+        if (!empty($sortColumn)) {
+            $validColumns = array_keys($this->dataTable->getColumns());
+            if (!in_array($sortColumn, $validColumns)) {
+                $sortColumn = ''; // Reset invalid column
+            }
         }
-    }
 
-    // Execute data query using fluent interface
-    $data = $this->executeDataQuery($search, $searchColumn, $sortColumn, $sortDirection, $page, $perPage);
+        // Execute data query using fluent interface
+        $data = $this->executeDataQuery($search, $searchColumn, $sortColumn, $sortDirection, $page, $perPage);
 
-    // Execute count query using fluent interface  
-    $total = $this->executeCountQuery($search, $searchColumn);
+        // Execute count query using fluent interface
+        $total = $this->executeCountQuery($search, $searchColumn);
 
-    // Extract total count from result
-    $totalRecords = $total ? $total->total : 0;
+        // Extract total count from result
+        $totalRecords = $total ? $total->total : 0;
 
-    // Calculate total pages (handle division by zero for "all" records)
-    $totalPages = $perPage === 0 ? 1 : ceil($totalRecords / $perPage);
+        // Calculate total pages (handle division by zero for "all" records)
+        $totalPages = $perPage === 0 ? 1 : ceil($totalRecords / $perPage);
 
-    // Send JSON response with data and metadata
-    header('Content-Type: application/json');
-    echo json_encode([
+        // Send JSON response with data and metadata
+        header('Content-Type: application/json');
+        echo json_encode([
         'success' => true,
         'data' => $data ?: [], // Ensure array even if no data
         'total' => $totalRecords,
         'page' => $page,
         'per_page' => $perPage,
         'total_pages' => $totalPages
-    ]);
+        ]);
 
-    // Make sure we exit so nothing else gets outputted
-    exit;
-}
+        // Make sure we exit so nothing else gets outputted
+        exit;
+    }
 
 /**
  * Handle new record creation with schema validation
@@ -769,60 +769,60 @@ private function handleFetchData(): void
  *
  * @return void (outputs JSON and exits)
  */
-private function handleAddRecord(): void
-{
-    // Get and sanitize POST data
-    $data = $this->sanitizeFormData($_POST);
-    $schema = $this->dataTable->getTableSchema();
+    private function handleAddRecord(): void
+    {
+        // Get and sanitize POST data
+        $data = $this->sanitizeFormData($_POST);
+        $schema = $this->dataTable->getTableSchema();
 
-    // Validate and filter data against database schema
-    $validatedData = [];
-    foreach ($data as $field => $value) {
-        if (isset($schema[$field]) && $field !== $this->dataTable->getPrimaryKey()) {
-            $validatedData[$field] = $this->validateFieldValue($field, $value, $schema[$field]);
+        // Validate and filter data against database schema
+        $validatedData = [];
+        foreach ($data as $field => $value) {
+            if (isset($schema[$field]) && $field !== $this->dataTable->getPrimaryKey()) {
+                $validatedData[$field] = $this->validateFieldValue($field, $value, $schema[$field]);
+            }
         }
-    }
 
-    // Process any file uploads in the request
-    $validatedData = $this->processFileUploads($validatedData);
+        // Process any file uploads in the request
+        $validatedData = $this->processFileUploads($validatedData);
 
-    if (empty($validatedData)) {
-        throw new InvalidArgumentException('No valid data to insert');
-    }
+        if (empty($validatedData)) {
+            throw new InvalidArgumentException('No valid data to insert');
+        }
 
-    // Prepare SQL INSERT statement with escaped field names
-    $fields = array_keys($validatedData);
-    $placeholders = array_fill(0, count($fields), '?'); // Create ? placeholders for each field
+        // Prepare SQL INSERT statement with escaped field names
+        $fields = array_keys($validatedData);
+        $placeholders = array_fill(0, count($fields), '?'); // Create ? placeholders for each field
 
-    // Build the INSERT query with backticked field names for security
-    $query = "INSERT INTO `{$this->dataTable->getTableName()}` (`" .
+        // Build the INSERT query with backticked field names for security
+        $query = "INSERT INTO `{$this->dataTable->getTableName()}` (`" .
              implode('`, `', $fields) .
              "`) VALUES (" .
              implode(', ', $placeholders) .
              ")";
 
-    // Execute the query with the validated data values using fluent interface
-    $result = $this->dataTable->getDatabase()
+        // Execute the query with the validated data values using fluent interface
+        $result = $this->dataTable->getDatabase()
                              ->query($query)
                              ->bind(array_values($validatedData))
                              ->execute();
 
-    // Prepare response
-    $success = $result !== false;
-    $message = $success ? 'Record added successfully' : 'Failed to add record';
-    $insertId = $success ? $this->dataTable->getDatabase()->getLastId() : null;
+        // Prepare response
+        $success = $result !== false;
+        $message = $success ? 'Record added successfully' : 'Failed to add record';
+        $insertId = $success ? $this->dataTable->getDatabase()->getLastId() : null;
 
-    // Send JSON response
-    header('Content-Type: application/json');
-    echo json_encode([
+        // Send JSON response
+        header('Content-Type: application/json');
+        echo json_encode([
         'success' => $success,
         'message' => $message,
         'id' => $insertId
-    ]);
+        ]);
 
-    // Make sure we exit so nothing else gets outputted
-    exit;
-}
+        // Make sure we exit so nothing else gets outputted
+        exit;
+    }
 
 /**
  * Handle existing record updates with enhanced validation
@@ -833,64 +833,66 @@ private function handleAddRecord(): void
  * @return void (outputs JSON and exits)
  * @throws InvalidArgumentException If no record ID is provided or data is invalid
  */
-private function handleEditRecord(): void
-{
-    // Extract and validate the record ID using the actual primary key field name
-    $primaryKey = $this->dataTable->getPrimaryKey();
-    $id = $this->validateInteger($_POST[$primaryKey] ?? null);
-    if (!$id) {
-        throw new InvalidArgumentException('Valid record ID is required');
-    }
-
-    // Get POST data and remove action/primary key parameters
-    $data = $this->sanitizeFormData($_POST);
-    unset($data[$primaryKey]); // Remove primary key from update data
-
-    // Validate data against database schema
-    $schema = $this->dataTable->getTableSchema();
-    $validatedData = [];
-
-    foreach ($data as $field => $value) {
-        if (isset($schema[$field]) && $field !== $primaryKey) {
-            $validatedData[$field] = $this->validateFieldValue($field, $value, $schema[$field]);
+    private function handleEditRecord(): void
+    {
+        // Extract and validate the record ID using the actual primary key field name
+        $primaryKey = $this->dataTable->getPrimaryKey();
+        $id = $this->validateInteger($_POST[$primaryKey] ?? null);
+        if (!$id) {
+            throw new InvalidArgumentException('Valid record ID is required');
         }
-    }
 
-    // Process any file uploads in the request
-    $validatedData = $this->processFileUploads($validatedData);
+        // Get POST data and remove action/primary key parameters
+        $data = $this->sanitizeFormData($_POST);
+        unset($data[$primaryKey]); // Remove primary key from update data
 
-    if (empty($validatedData)) {
-        throw new InvalidArgumentException('No valid data to update');
-    }
+        // Validate data against database schema
+        $schema = $this->dataTable->getTableSchema();
+        $validatedData = [];
 
-    // Prepare SQL UPDATE statement with escaped field names
-    $fields = array_keys($validatedData);
-    $setClause = implode(' = ?, ', array_map(function($f) { return "`{$f}`"; }, $fields)) . ' = ?';
+        foreach ($data as $field => $value) {
+            if (isset($schema[$field]) && $field !== $primaryKey) {
+                $validatedData[$field] = $this->validateFieldValue($field, $value, $schema[$field]);
+            }
+        }
 
-    // Build the UPDATE query
-    $query = "UPDATE `{$this->dataTable->getTableName()}` SET {$setClause} WHERE `{$primaryKey}` = ?";
+        // Process any file uploads in the request
+        $validatedData = $this->processFileUploads($validatedData);
 
-    // Combine validated data values with the ID for parameters
-    $params = array_merge(array_values($validatedData), [$id]);
+        if (empty($validatedData)) {
+            throw new InvalidArgumentException('No valid data to update');
+        }
 
-    // Execute the update query using fluent interface
-    $result = $this->dataTable->getDatabase()
+        // Prepare SQL UPDATE statement with escaped field names
+        $fields = array_keys($validatedData);
+        $setClause = implode(' = ?, ', array_map(function ($f) {
+            return "`{$f}`";
+        }, $fields)) . ' = ?';
+
+        // Build the UPDATE query
+        $query = "UPDATE `{$this->dataTable->getTableName()}` SET {$setClause} WHERE `{$primaryKey}` = ?";
+
+        // Combine validated data values with the ID for parameters
+        $params = array_merge(array_values($validatedData), [$id]);
+
+        // Execute the update query using fluent interface
+        $result = $this->dataTable->getDatabase()
                              ->query($query)
                              ->bind($params)
                              ->execute();
 
-    // Prepare response
-    $success = $result !== false;
-    $message = $success ? 'Record updated successfully' : 'Failed to update record';
+        // Prepare response
+        $success = $result !== false;
+        $message = $success ? 'Record updated successfully' : 'Failed to update record';
 
-    // Send JSON response
-    header('Content-Type: application/json');
-    echo json_encode([
+        // Send JSON response
+        header('Content-Type: application/json');
+        echo json_encode([
         'success' => $success,
         'message' => $message
-    ]);
-    exit;
-}
+        ]);
+        exit;
+    }
 
     /**
      * Handle single record deletion with ID validation
@@ -1065,5 +1067,4 @@ private function handleEditRecord(): void
         ]);
         exit;
     }
-
 }

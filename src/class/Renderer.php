@@ -78,14 +78,14 @@ class Renderer
     {
         $html = "<!-- DataTables CSS -->\n";
         $html .= "<link rel=\"stylesheet\" href=\"vendor/kevinpirnie/kpt-datatables/src/assets/css/datatables-{$theme}.css\" />\n";
-        
+
         // Add footer positioning CSS to ensure footer stays at bottom
         $html .= "<style>\n";
         $html .= "body { min-height: 100vh; display: flex; flex-direction: column; }\n";
         $html .= ".datatables-container { flex: 1; }\n";
         $html .= ".datatables-footer { margin-top: auto; }\n";
         $html .= "</style>\n";
-        
+
         return $html;
     }
 
@@ -570,7 +570,7 @@ class Renderer
 
         // Start field container
         $html = "<div class=\"uk-margin\">\n";
-        
+
         // Render field based on type
         switch ($type) {
             case 'checkbox':
@@ -578,7 +578,7 @@ class Renderer
                 $baseClass = 'uk-checkbox';
                 $fieldClass = $customClass ? "{$baseClass} {$customClass}" : $baseClass;
                 $attrString = $this->buildAttributeString($attributes);
-                
+
                 $html .= "<div class=\"uk-form-controls\">\n";
                 $html .= "<label>";
                 $html .= "<input type=\"checkbox\" class=\"{$fieldClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" value=\"1\" {$attrString}";
@@ -598,11 +598,11 @@ class Renderer
                 $html .= "<label class=\"uk-form-label\" for=\"{$fieldId}\">{$label}" .
                         ($required ? " <span class=\"uk-text-danger\">*</span>" : "") . "</label>\n";
                 $html .= "<div class=\"uk-form-controls\">\n";
-                
+
                 $baseClass = 'uk-textarea';
                 $fieldClass = $customClass ? "{$baseClass} {$customClass}" : $baseClass;
                 $attrString = $this->buildAttributeString($attributes);
-                
+
                 $html .= "<textarea class=\"{$fieldClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" " .
                         "placeholder=\"{$placeholder}\" {$attrString} " . ($required ? "required" : "") . "></textarea>\n";
                 $html .= "</div>\n";
@@ -613,19 +613,19 @@ class Renderer
                 $html .= "<label class=\"uk-form-label\" for=\"{$fieldId}\">{$label}" .
                         ($required ? " <span class=\"uk-text-danger\">*</span>" : "") . "</label>\n";
                 $html .= "<div class=\"uk-form-controls\">\n";
-                
+
                 $baseClass = 'uk-select';
                 $fieldClass = $customClass ? "{$baseClass} {$customClass}" : $baseClass;
                 $attrString = $this->buildAttributeString($attributes);
-                
+
                 $html .= "<select class=\"{$fieldClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" " .
                         "{$attrString} " . ($required ? "required" : "") . ">\n";
-                
+
                 // Add empty option if field is not required
                 if (!$required) {
                     $html .= "<option value=\"\">-- Select --</option>\n";
                 }
-                
+
                 // Add all options (from enum or custom)
                 foreach ($options as $optValue => $optLabel) {
                     $selected = ($value == $optValue) ? ' selected' : '';
@@ -640,11 +640,11 @@ class Renderer
                 $html .= "<label class=\"uk-form-label\" for=\"{$fieldId}\">{$label}" .
                         ($required ? " <span class=\"uk-text-danger\">*</span>" : "") . "</label>\n";
                 $html .= "<div class=\"uk-form-controls\">\n";
-                
+
                 $baseClass = 'uk-input';
                 $fieldClass = $customClass ? "{$baseClass} {$customClass}" : $baseClass;
                 $attrString = $this->buildAttributeString($attributes);
-                
+
                 $html .= "<input type=\"file\" class=\"{$fieldClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" " .
                         "{$attrString} " . ($required ? "required" : "") . ">\n";
                 $html .= "</div>\n";
@@ -655,13 +655,13 @@ class Renderer
                 $html .= "<label class=\"uk-form-label\" for=\"{$fieldId}\">{$label}" .
                         ($required ? " <span class=\"uk-text-danger\">*</span>" : "") . "</label>\n";
                 $html .= "<div class=\"uk-form-controls\">\n";
-                
+
                 $baseClass = 'uk-input';
                 $fieldClass = $customClass ? "{$baseClass} {$customClass}" : $baseClass;
                 $attrString = $this->buildAttributeString($attributes);
-                
+
                 $html .= "<input type=\"{$type}\" class=\"{$fieldClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" " .
-                        "placeholder=\"{$placeholder}\" value=\"{$value}\" {$attrString} " . 
+                        "placeholder=\"{$placeholder}\" value=\"{$value}\" {$attrString} " .
                         ($required ? "required" : "") . ">\n";
                 $html .= "</div>\n";
                 break;
