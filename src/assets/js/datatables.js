@@ -41,72 +41,61 @@ class DataTablesJS {
     {
         this.bindEvents();
         this.loadData();
-        this.initTheme();
     }
 
     // === EVENT BINDING ===
     bindEvents()
     {
         // Search input
-        const searchInput = document.getElementById('datatables-search');
-        if (searchInput) {
+        document.querySelectorAll('.datatables-search').forEach(searchInput => {
             let searchTimeout;
-            searchInput.addEventListener(
-                'input', (e) => {
-                    clearTimeout(searchTimeout);
-                    searchTimeout = setTimeout(
-                    () => {
-                            this.search = e.target.value;
-                            this.currentPage = 1;
-                            this.loadData();
-                    }, 300
-                );
-                }
-            );
-        }
+            searchInput.addEventListener('input', (e) => {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    this.search = e.target.value;
+                    this.currentPage = 1;
+                    this.loadData();
+                }, 300);
+            });
+        });
 
         // Search column selector
-        const searchColumn = document.getElementById('datatables-search-column');
-        if (searchColumn) {
-            searchColumn.addEventListener(
-                'change', (e) => {
-                    this.searchColumn = e.target.value;
-                    this.currentPage = 1;
-                    this.loadData();
-                }
-            );
-        }
+        document.querySelectorAll('.datatables-search-column').forEach(searchColumn => {
+            searchColumn.addEventListener('change', (e) => {
+                this.searchColumn = e.target.value;
+                this.currentPage = 1;
+                this.loadData();
+            });
+        });
 
         // Page size selector
-        const pageSizeSelect = document.getElementById('datatables-page-size');
-        if (pageSizeSelect) {
-            pageSizeSelect.addEventListener(
-                'change', (e) => {
-                    this.perPage = parseInt(e.target.value);
-                    this.currentPage = 1;
-                    this.loadData();
-                }
-            );
-        }
+        document.querySelectorAll('.datatables-page-size').forEach(pageSizeSelect => {
+            pageSizeSelect.addEventListener('change', (e) => {
+                this.perPage = parseInt(e.target.value);
+                this.currentPage = 1;
+                
+                // Sync all page size selectors to the same value
+                document.querySelectorAll('.datatables-page-size').forEach(select => {
+                    select.value = e.target.value;
+                });
+                
+                this.loadData();
+            });
+        });
 
         // Bulk actions
         if (this.bulkActionsEnabled) {
-            const bulkSelect = document.getElementById('datatables-bulk-action');
-            if (bulkSelect) {
-                bulkSelect.addEventListener(
-                    'change', (e) => {
-                        const executeBtn = document.getElementById('datatables-bulk-execute');
-                        if (executeBtn) {
-                            executeBtn.disabled = !e.target.value || this.selectedIds.size === 0;
-                        }
-                    }
-                );
-            }
+            document.querySelectorAll('.datatables-bulk-action').forEach(bulkSelect => {
+                bulkSelect.addEventListener('change', (e) => {
+                    document.querySelectorAll('.datatables-bulk-execute').forEach(executeBtn => {
+                        executeBtn.disabled = !e.target.value || this.selectedIds.size === 0;
+                    });
+                });
+            });
         }
 
         // Sortable headers
-        document.addEventListener(
-            'click', (e) => {
+        document.addEventListener('click', (e) => {
             if (e.target.closest('.sortable-header')) {
                 const header = e.target.closest('th[data-sort]');
                 if (header) {
@@ -122,10 +111,9 @@ class DataTablesJS {
                     this.updateSortIcons();
                 }
             }
-            }
-        );
+        });
     }
-
+    
     // === DATA LOADING ===
     loadData()
     {
@@ -167,7 +155,7 @@ class DataTablesJS {
     // === TABLE RENDERING ===
     renderTable(data)
     {
-        const tbody = document.getElementById('datatables-tbody');
+        const tbody = document.querySelector('.datatables-tbody');
         if (!tbody) { return;
         }
 
@@ -177,6 +165,10 @@ class DataTablesJS {
             tbody.innerHTML = `<tr><td colspan="${columnCount}" class="uk-text-center uk-text-muted">No records found</td></tr>`;
             return;
         }
+
+        // Get table schema for field type information
+        const tableElement = document.querySelector('.datatables-table');
+        const tableSchema = tableElement ? JSON.parse(tableElement.dataset.columns || '{}') : {};
 
         let html = '';
         data.forEach(
@@ -204,9 +196,27 @@ class DataTablesJS {
                     const columnClass = this.cssClasses?.columns?.[column] || '';
                     const isEditable = this.inlineEditableColumns.includes(column);
                     let cellContent = row[column] || '';
-                    if (isEditable) {
-                        cellContent = `<span class="inline-editable" data-field="${column}" data-id="${rowId}">${cellContent}</span>`;
+                    
+                    // Get field type from schema
+                    const fieldType = tableSchema[column]?.override_type || tableSchema[column]?.type || 'text';
+                    
+                    // Handle boolean display with icons
+                    if (fieldType === 'boolean') {
+                        const isActive = cellContent == '1' || cellContent === 'true' || cellContent === true;
+                        const iconName = isActive ? 'check' : 'close';
+                        const iconClass = isActive ? 'uk-text-success' : 'uk-text-danger';
+                        
+                        if (isEditable) {
+                            cellContent = `<span class="inline-editable boolean-toggle" data-field="${column}" data-id="${rowId}" data-type="boolean" style="cursor: pointer;">`;
+                            cellContent += `<span uk-icon="${iconName}" class="${iconClass}"></span>`;
+                            cellContent += '</span>';
+                        } else {
+                            cellContent = `<span uk-icon="${iconName}" class="${iconClass}"></span>`;
+                        }
+                    } else if (isEditable) {
+                        cellContent = `<span class="inline-editable" data-field="${column}" data-id="${rowId}" data-type="${fieldType}">${cellContent}</span>`;
                     }
+                    
                     html += `<td${columnClass ? ` class="${columnClass}"` : ''}>${cellContent}</td>`;
                     }
                 );
@@ -225,7 +235,7 @@ class DataTablesJS {
         this.bindTableEvents();
         this.updateBulkActionButtons();
     }
-
+        
     renderActionButtons(rowId)
     {
         let html = '';
@@ -253,55 +263,24 @@ class DataTablesJS {
         return html;
     }
 
-    bindTableEvents()
+    // === PAGINATION ===
+    renderInfo(data)
     {
-        // Edit buttons
-        document.querySelectorAll('.btn-edit').forEach(
-            btn => {
-            btn.addEventListener(
-                    'click', (e) => {
-                    e.preventDefault();
-                    const id = e.target.closest('tr').getAttribute('data-id');
-                    this.showEditModal(id);
-                    }
-                );
-            }
-        );
-
-        // Delete buttons
-        document.querySelectorAll('.btn-delete').forEach(
-            btn => {
-            btn.addEventListener(
-                    'click', (e) => {
-                    e.preventDefault();
-                    const id = e.target.closest('tr').getAttribute('data-id');
-                    this.showDeleteModal(id);
-                    }
-                );
-            }
-        );
-
-        // Inline edit
-        document.querySelectorAll('.inline-editable').forEach(
-            span => {
-            span.addEventListener(
-                    'dblclick', (e) => {
-                    this.startInlineEdit(e.target);
-                    }
-                );
-            }
-        );
+        const start = (data.page - 1) * data.per_page + 1;
+        const end = Math.min(start + data.per_page - 1, data.total);
+        const infoText = `Showing ${start} to ${end} of ${data.total} records`;
+        
+        document.querySelectorAll('.datatables-info').forEach(info => {
+            info.textContent = infoText;
+        });
     }
 
-    // === PAGINATION ===
     renderPagination(data)
     {
-        const pagination = document.getElementById('datatables-pagination');
-        if (!pagination) { return;
-        }
-
         if (data.total_pages <= 1) {
-            pagination.innerHTML = '';
+            document.querySelectorAll('.datatables-pagination').forEach(pagination => {
+                pagination.innerHTML = '';
+            });
             return;
         }
 
@@ -309,58 +288,59 @@ class DataTablesJS {
         const currentPage = parseInt(data.page);
         const totalPages = parseInt(data.total_pages);
 
-        // Previous button
+        // First page button (<<)
         html += `<li${currentPage === 1 ? ' class="uk-disabled"' : ''}>`;
-        html += `<a href="#"${currentPage === 1 ? '' : ` onclick="DataTables.goToPage(${currentPage - 1})"`}>`;
+        html += `<a ${currentPage === 1 ? '' : ` onclick="DataTables.goToPage(1)"`} title="First Page">`;
+        html += '<span uk-icon="chevron-double-left"></span></a></li>';
+
+        // Previous button (<)
+        html += `<li${currentPage === 1 ? ' class="uk-disabled"' : ''}>`;
+        html += `<a ${currentPage === 1 ? '' : ` onclick="DataTables.goToPage(${currentPage - 1})"`} title="Previous Page">`;
         html += '<span uk-pagination-previous></span></a></li>';
 
-        // First page
-        if (currentPage > 3) {
-            html += '<li><a href="#" onclick="DataTables.goToPage(1)">1</a></li>';
-            if (currentPage > 4) {
+        // First page number
+        if (currentPage > 2) {
+            html += '<li><a onclick="DataTables.goToPage(1)">1</a></li>';
+            if (currentPage > 3) {
                 html += '<li class="uk-disabled"><span>...</span></li>';
             }
         }
 
-        // Page numbers
-        const start = Math.max(1, currentPage - 2);
-        const end = Math.min(totalPages, currentPage + 2);
+        // Page numbers - show only 3 pages around current page
+        const start = Math.max(1, currentPage - 1);
+        const end = Math.min(totalPages, currentPage + 1);
         for (let i = start; i <= end; i++) {
             html += `<li${i === currentPage ? ' class="uk-active"' : ''}>`;
-            html += `<a href="#"${i === currentPage ? '' : ` onclick="DataTables.goToPage(${i})"`}>${i}</a></li>`;
+            html += `<a ${i === currentPage ? '' : ` onclick="DataTables.goToPage(${i})"`}>${i}</a></li>`;
         }
 
-        // Last page
-        if (currentPage < totalPages - 2) {
-            if (currentPage < totalPages - 3) {
+        // Last page number
+        if (currentPage < totalPages - 1) {
+            if (currentPage < totalPages - 2) {
                 html += '<li class="uk-disabled"><span>...</span></li>';
             }
-            html += `<li><a href="#" onclick="DataTables.goToPage(${totalPages})">${totalPages}</a></li>`;
+            html += `<li><a onclick="DataTables.goToPage(${totalPages})">${totalPages}</a></li>`;
         }
 
-        // Next button
+        // Next button (>)
         html += `<li${currentPage === totalPages ? ' class="uk-disabled"' : ''}>`;
-        html += `<a href="#"${currentPage === totalPages ? '' : ` onclick="DataTables.goToPage(${currentPage + 1})"`}>`;
+        html += `<a ${currentPage === totalPages ? '' : ` onclick="DataTables.goToPage(${currentPage + 1})"`} title="Next Page">`;
         html += '<span uk-pagination-next></span></a></li>';
 
-        pagination.innerHTML = html;
+        // Last page button (>>)
+        html += `<li${currentPage === totalPages ? ' class="uk-disabled"' : ''}>`;
+        html += `<a ${currentPage === totalPages ? '' : ` onclick="DataTables.goToPage(${totalPages})"`} title="Last Page">`;
+        html += '<span uk-icon="chevron-double-right"></span></a></li>';
+
+        document.querySelectorAll('.datatables-pagination').forEach(pagination => {
+            pagination.innerHTML = html;
+        });
     }
 
     goToPage(page)
     {
         this.currentPage = page;
         this.loadData();
-    }
-
-    renderInfo(data)
-    {
-        const info = document.getElementById('datatables-info');
-        if (!info) { return;
-        }
-
-        const start = (data.page - 1) * data.per_page + 1;
-        const end = Math.min(start + data.per_page - 1, data.total);
-        info.textContent = `Showing ${start} to ${end} of ${data.total} records`;
     }
 
     updateSortIcons()
@@ -398,7 +378,7 @@ class DataTablesJS {
         } else {
             this.selectedIds.delete(rowId);
             // Uncheck "select all" if not all rows are selected
-            const selectAllCheckbox = document.getElementById('select-all');
+            const selectAllCheckbox = document.querySelector('.datatables-select-all');
             if (selectAllCheckbox) {
                 selectAllCheckbox.checked = false;
             }
@@ -408,19 +388,21 @@ class DataTablesJS {
 
     updateBulkActionButtons()
     {
-        const bulkSelect = document.getElementById('datatables-bulk-action');
-        const executeBtn = document.getElementById('datatables-bulk-execute');
+        const hasSelection = this.selectedIds.size > 0;
         
-        if (bulkSelect && executeBtn) {
-            const hasSelection = this.selectedIds.size > 0;
+        document.querySelectorAll('.datatables-bulk-action').forEach(bulkSelect => {
             bulkSelect.disabled = !hasSelection;
+        });
+        
+        document.querySelectorAll('.datatables-bulk-execute').forEach(executeBtn => {
+            const bulkSelect = executeBtn.previousElementSibling;
             executeBtn.disabled = !hasSelection || !bulkSelect.value;
-        }
+        });
     }
 
     executeBulkAction()
     {
-        const bulkSelect = document.getElementById('datatables-bulk-action');
+        const bulkSelect = document.querySelector('.datatables-bulk-action');
         if (!bulkSelect || !bulkSelect.value) { return;
         }
 
@@ -469,11 +451,11 @@ class DataTablesJS {
                 UIkit.notification(data.message || 'Bulk action completed', {status: 'success'});
                 
                 // Reset bulk action controls
-                const bulkSelect = document.getElementById('datatables-bulk-action');
+                const bulkSelect = document.querySelector('.datatables-bulk-action');
                 if (bulkSelect) { bulkSelect.value = '';
                 }
                 
-                const selectAll = document.getElementById('select-all');
+                const selectAll = document.querySelector('.datatables-select-all');
                 if (selectAll) { selectAll.checked = false;
                 }
                 
@@ -645,24 +627,137 @@ class DataTablesJS {
         this.deleteId = null;
     }
 
-    // === INLINE EDITING ===
+    bindTableEvents()
+    {
+        // Edit buttons
+        document.querySelectorAll('.btn-edit').forEach(
+            btn => {
+                btn.addEventListener(
+                    'click', (e) => {
+                        e.preventDefault();
+                        const id = e.target.closest('tr').getAttribute('data-id');
+                        this.showEditModal(id);
+                    }
+                );
+            }
+        );
+
+        // Delete buttons
+        document.querySelectorAll('.btn-delete').forEach(
+            btn => {
+                btn.addEventListener(
+                    'click', (e) => {
+                        e.preventDefault();
+                        const id = e.target.closest('tr').getAttribute('data-id');
+                        this.showDeleteModal(id);
+                    }
+                );
+            }
+        );
+
+        // Inline edit for regular fields - improved selector
+        document.querySelectorAll('td .inline-editable:not(.boolean-toggle)').forEach(
+            span => {
+                span.addEventListener(
+                    'dblclick', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        this.startInlineEdit(e.target);
+                    }
+                );
+            }
+        );
+
+        // Boolean toggle for boolean fields - improved selector
+        document.querySelectorAll('td .boolean-toggle').forEach(
+            span => {
+                span.addEventListener(
+                    'click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        this.toggleBoolean(e.target.closest('.boolean-toggle'));
+                    }
+                );
+            }
+        );
+    }   
+
     startInlineEdit(element)
     {
         const field = element.getAttribute('data-field');
         const id = element.getAttribute('data-id');
+        const fieldType = element.getAttribute('data-type') || 'text';
         const currentValue = element.textContent;
 
         if (!this.inlineEditableColumns.includes(field)) { return;
         }
 
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.value = currentValue;
-        input.className = 'uk-input uk-form-small';
-        input.style.width = '100px';
+        let inputElement;
+        
+        // Create appropriate input based on field type
+        switch (fieldType) {
+            case 'select':
+                // Get schema information for options
+                const tableElement = document.querySelector('.datatables-table');
+                const tableSchema = tableElement ? JSON.parse(tableElement.dataset.columns || '{}') : {};
+                const options = tableSchema[field]?.form_options || {};
+                
+                inputElement = document.createElement('select');
+                inputElement.className = 'uk-select uk-form-small';
+                
+                // Add options
+                for (const [value, label] of Object.entries(options)) {
+                    const option = document.createElement('option');
+                    option.value = value;
+                    option.textContent = label;
+                    if (value === currentValue) {
+                        option.selected = true;
+                    }
+                    inputElement.appendChild(option);
+                }
+                break;
+                
+            case 'textarea':
+                inputElement = document.createElement('textarea');
+                inputElement.className = 'uk-textarea uk-form-small';
+                inputElement.value = currentValue;
+                inputElement.style.minHeight = '60px';
+                break;
+                
+            case 'number':
+                inputElement = document.createElement('input');
+                inputElement.type = 'number';
+                inputElement.className = 'uk-input uk-form-small';
+                inputElement.value = currentValue;
+                inputElement.style.width = '100px';
+                break;
+                
+            case 'date':
+                inputElement = document.createElement('input');
+                inputElement.type = 'date';
+                inputElement.className = 'uk-input uk-form-small';
+                inputElement.value = currentValue;
+                inputElement.style.width = '150px';
+                break;
+                
+            case 'datetime-local':
+                inputElement = document.createElement('input');
+                inputElement.type = 'datetime-local';
+                inputElement.className = 'uk-input uk-form-small';
+                inputElement.value = currentValue;
+                inputElement.style.width = '200px';
+                break;
+                
+            default: // text, email, etc.
+                inputElement = document.createElement('input');
+                inputElement.type = fieldType === 'email' ? 'email' : 'text';
+                inputElement.className = 'uk-input uk-form-small';
+                inputElement.value = currentValue;
+                inputElement.style.width = '150px';
+        }
 
         const saveEdit = () => {
-            const newValue = input.value;
+            const newValue = inputElement.value;
             if (newValue !== currentValue) {
                 this.saveInlineEdit(id, field, newValue, element);
             } else {
@@ -674,8 +769,8 @@ class DataTablesJS {
             element.textContent = currentValue;
         };
 
-        input.addEventListener('blur', saveEdit);
-        input.addEventListener(
+        inputElement.addEventListener('blur', saveEdit);
+        inputElement.addEventListener(
             'keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
@@ -688,9 +783,24 @@ class DataTablesJS {
         );
 
         element.textContent = '';
-        element.appendChild(input);
-        input.focus();
-        input.select();
+        element.appendChild(inputElement);
+        inputElement.focus();
+        if (inputElement.select) {
+            inputElement.select();
+        }
+    }
+
+    toggleBoolean(element)
+    {
+        const field = element.getAttribute('data-field');
+        const id = element.getAttribute('data-id');
+        
+        // Get current value from the icon
+        const currentIcon = element.querySelector('[uk-icon]');
+        const isCurrentlyActive = currentIcon.getAttribute('uk-icon') === 'check';
+        const newValue = isCurrentlyActive ? '0' : '1';
+        
+        this.saveInlineEdit(id, field, newValue, element);
     }
 
     saveInlineEdit(id, field, value, element)
@@ -711,7 +821,16 @@ class DataTablesJS {
         .then(
             data => {
             if (data.success) {
-                element.textContent = value;
+                // Handle boolean fields differently
+                if (element.classList.contains('boolean-toggle')) {
+                    const isActive = value == '1' || value === 'true' || value === true;
+                    const iconName = isActive ? 'check' : 'close';
+                    const iconClass = isActive ? 'uk-text-success' : 'uk-text-danger';
+                    
+                    element.innerHTML = `<span uk-icon="${iconName}" class="${iconClass}"></span>`;
+                } else {
+                    element.textContent = value;
+                }
                 UIkit.notification('Field updated successfully', {status: 'success'});
             } else {
                     element.textContent = element.getAttribute('data-original') || '';
@@ -726,49 +845,6 @@ class DataTablesJS {
             UIkit.notification('An error occurred', {status: 'danger'});
             }
         );
-    }
-
-    // === THEME MANAGEMENT ===
-    initTheme()
-    {
-        const savedTheme = localStorage.getItem('datatables_theme') || 'light';
-        this.setTheme(savedTheme);
-    }
-
-    toggleTheme()
-    {
-        const currentTheme = this.getCurrentTheme();
-        const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-        this.setTheme(newTheme);
-    }
-
-    setTheme(theme)
-    {
-        // Update CSS link
-        const themeLinks = document.querySelectorAll('link[href*="datatables-"]');
-        themeLinks.forEach(
-            link => {
-            if (link.href.includes('datatables-light.css') || link.href.includes('datatables-dark.css')) {
-                const newHref = link.href.replace(/(datatables-)(light|dark)(\.css)/, `$1${theme}$3`);
-                link.href = newHref;
-            }
-            }
-        );
-
-        // Save preference
-        localStorage.setItem('datatables_theme', theme);
-        
-        // Set cookie as fallback
-        document.cookie = `datatables_theme=${theme}; path=/; max-age=31536000`;
-        
-        // Update body class for additional styling
-        document.body.className = document.body.className
-            .replace(/datatables-theme-\w+/, '') + ` datatables-theme-${theme}`;
-    }
-
-    getCurrentTheme()
-    {
-        return localStorage.getItem('datatables_theme') || 'light';
     }
 
     // === UTILITY METHODS ===

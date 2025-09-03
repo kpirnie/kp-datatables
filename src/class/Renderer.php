@@ -124,7 +124,7 @@ class Renderer
         // Build container contents
         $html .= $this->renderControls();       // Top control panel
         $html .= $this->renderTable();          // Main data table
-        $html .= $this->renderPagination();     // Bottom pagination
+        $html .= $this->renderControls();     // Bottom control panel
 
         $html .= "</div>\n";
 
@@ -144,37 +144,53 @@ class Renderer
     private function renderControls(): string
     {
         $html = "<div class=\"uk-card uk-card-default uk-card-body uk-margin-bottom\">\n";
-        $html .= "<div class=\"uk-grid-small uk-child-width-auto\" uk-grid>\n";
+
+        // first row
+        $html .= "<div class=\"uk-grid-small uk-width-1-1\" uk-grid>\n";
+
+        // first column
+        $html .= "  <div class=\"uk-width-1-2@s uk-grid-collapse uk-child-width-auto\" uk-grid>\n";
 
         // Add new record button - always available
-        $html .= "<div>\n";
-        $html .= "<button class=\"uk-button uk-button-primary\" type=\"button\" onclick=\"DataTables.showAddModal()\">\n";
-        $html .= "<span uk-icon=\"plus\"></span> Add Record\n";
-        $html .= "</button>\n";
-        $html .= "</div>\n";
+        $html .= "      <div>\n";
+        $html .= "          <a href=\"#\" class=\"uk-icon-link\" uk-icon=\"plus\" onclick=\"DataTables.showAddModal()\" uk-tooltip=\"Add a New Record\"></a>\n";
+        $html .= "      </div>\n";
 
         // Bulk actions dropdown and execute button (if enabled)
         $bulkActions = $this->dataTable->getBulkActions();
         if ($bulkActions['enabled']) {
             $html .= $this->renderBulkActions($bulkActions);
         }
+        $html .= "  </div>\n";
 
-        // Theme toggle button for light/dark mode switching
-        $html .= "<div>\n";
-        $html .= "<button class=\"uk-button uk-button-default\" type=\"button\" onclick=\"DataTables.toggleTheme()\">\n";
-        $html .= "<span uk-icon=\"paint-bucket\"></span> Toggle Theme\n";
-        $html .= "</button>\n";
-        $html .= "</div>\n";
+        // second column
+        $html .= "<div class=\"uk-width-1-2@s uk-grid-collapse uk-child-width-auto uk-flex-right\" uk-grid>\n";
 
         // Search functionality (if enabled)
         if ($this->dataTable->isSearchEnabled()) {
             $html .= $this->renderSearchForm();
         }
 
+        $html .= "</div>\n";
+        $html .= "</div>\n";
+        
+        // second row
+        $html .= "<div class=\"uk-grid-small uk-width-1-1\" uk-grid>\n";
+
+        // first column
+        $html .= "<div class=\"uk-width-1-2@s\">\n";
         // Records per page selector
         $html .= $this->renderPageSizeSelector();
+        $html .= "</div>\n";
+
+        // second column
+        $html .= "<div class=\"uk-width-1-2@s uk-flex-right\">\n";
+        $html .= $this->renderPagination();
+        $html .= "</div>\n";
+
 
         $html .= "</div>\n";
+
         $html .= "</div>\n";
 
         return $html;
@@ -195,7 +211,7 @@ class Renderer
         $html = "<div>\n";
 
         // Bulk action selector dropdown (initially disabled)
-        $html .= "<select class=\"uk-select uk-width-auto\" id=\"datatables-bulk-action\" disabled>\n";
+        $html .= "<select class=\"uk-select uk-width-auto datatables-bulk-action\" disabled>\n";
         $html .= "<option value=\"\">Bulk Actions</option>\n";
 
         // Add option for each configured bulk action
@@ -207,8 +223,8 @@ class Renderer
         $html .= "</select>\n";
 
         // Execute button (initially disabled)
-        $html .= "<button class=\"uk-button uk-button-default uk-margin-small-left\" type=\"button\" " .
-                 "id=\"datatables-bulk-execute\" onclick=\"DataTables.executeBulkAction()\" disabled>\n";
+        $html .= "<button class=\"uk-button uk-button-default uk-margin-small-left datatables-bulk-execute\" type=\"button\" " .
+                 "onclick=\"DataTables.executeBulkAction()\" disabled>\n";
         $html .= "<span uk-icon=\"play\"></span> Execute\n";
         $html .= "</button>\n";
         $html .= "</div>\n";
@@ -233,13 +249,13 @@ class Renderer
         $html = "<div>\n";
         $html .= "<div class=\"uk-inline uk-width-medium\">\n";
         $html .= "<span class=\"uk-form-icon\" uk-icon=\"search\"></span>\n";
-        $html .= "<input class=\"uk-input\" type=\"text\" placeholder=\"Search...\" id=\"datatables-search\">\n";
+        $html .= "<input class=\"uk-input datatables-search\" type=\"text\" placeholder=\"Search...\">\n";
         $html .= "</div>\n";
         $html .= "</div>\n";
 
         // Column selector dropdown
         $html .= "<div>\n";
-        $html .= "<select class=\"uk-select uk-width-small\" id=\"datatables-search-column\">\n";
+        $html .= "<select class=\"uk-select uk-width-small datatables-search-column\">\n";
         $html .= "<option value=\"all\">All Columns</option>\n";
 
         // Add option for each configured column (key is column name, value is label)
@@ -268,7 +284,7 @@ class Renderer
         $current = $this->dataTable->getRecordsPerPage();
 
         $html = "<div>\n";
-        $html .= "<select class=\"uk-select uk-width-auto\" id=\"datatables-page-size\">\n";
+        $html .= "Per Page: <select class=\"uk-select uk-width-auto datatables-page-size\">\n";
 
         // Add each configured page size option
         foreach ($options as $option) {
@@ -304,6 +320,7 @@ class Renderer
         $actionConfig = $this->dataTable->getActionConfig();
         $bulkActions = $this->dataTable->getBulkActions();
         $cssClasses = $this->dataTable->getCssClasses();
+        $tableSchema = $this->dataTable->getTableSchema();
 
         // Get CSS classes with defaults
         $tableClass = $cssClasses['table'] ?? 'uk-table';
@@ -312,7 +329,7 @@ class Renderer
 
         // Start table with scrollable container
         $html = "<div class=\"uk-overflow-auto\">\n";
-        $html .= "<table class=\"{$tableClass}\" id=\"datatables-table\">\n";
+        $html .= "<table class=\"{$tableClass} datatables-table\" data-columns='" . json_encode($tableSchema) . "'>\n";
 
         // === TABLE HEADER ===
         $html .= "<thead" . (!empty($theadClass) ? " class=\"{$theadClass}\"" : "") . ">\n";
@@ -321,7 +338,7 @@ class Renderer
         // Bulk selection master checkbox (if bulk actions enabled)
         if ($bulkActions['enabled']) {
             $html .= "<th class=\"uk-table-shrink\">\n";
-            $html .= "<label><input type=\"checkbox\" class=\"uk-checkbox\" id=\"select-all\" onchange=\"DataTables.toggleSelectAll(this)\"></label>\n";
+            $html .= "<label><input type=\"checkbox\" class=\"uk-checkbox datatables-select-all\" onchange=\"DataTables.toggleSelectAll(this)\"></label>\n";
             $html .= "</th>\n";
         }
 
@@ -339,7 +356,7 @@ class Renderer
 
             // Build header cell
             $html .= "<th" . (!empty($thClass) ? " class=\"{$thClass}\"" : "") .
-                     ($sortable ? " data-sort=\"{$column}\"" : "") . ">";
+                    ($sortable ? " data-sort=\"{$column}\"" : "") . ">";
 
             if ($sortable) {
                 // Sortable header with click handler and sort indicator
@@ -361,7 +378,7 @@ class Renderer
         $html .= "</thead>\n";
 
         // === TABLE BODY ===
-        $html .= "<tbody" . (!empty($tbodyClass) ? " class=\"{$tbodyClass}\"" : "") . " id=\"datatables-tbody\">\n";
+        $html .= "<tbody class=\"datatables-tbody" . (!empty($tbodyClass) ? " {$tbodyClass}" : "") . "\" id=\"datatables-tbody\">\n";
 
         // Calculate total columns for loading placeholder
         $totalColumns = count($columns) + 1; // +1 for actions
@@ -378,6 +395,7 @@ class Renderer
 
         return $html;
     }
+    
 
     /**
      * Render pagination controls and record information with footer styling
@@ -390,23 +408,19 @@ class Renderer
      */
     private function renderPagination(): string
     {
-        $html = "<div class=\"uk-card uk-card-default uk-card-body uk-margin-top datatables-footer\">\n";
-        $html .= "<div class=\"uk-flex uk-flex-between uk-flex-middle\">\n";
-
-        // Record count information (updated by JavaScript)
-        $html .= "<div class=\"uk-text-meta\" id=\"datatables-info\">\n";
-        $html .= "Showing 0 to 0 of 0 records\n";
-        $html .= "</div>\n";
+        $html = "<div class=\"uk-flex uk-flex-right\">\n";
 
         // Pagination controls container (populated by JavaScript)
         $html .= "<div>\n";
-        $html .= "<ul class=\"uk-pagination\" id=\"datatables-pagination\">\n";
+        $html .= "<div class=\"uk-text-meta uk-text-right datatables-info\" id=\"datatables-info\">\n";
+        $html .= "Showing 0 to 0 of 0 records\n";
+        $html .= "</div>\n";
+        $html .= "<ul class=\"uk-pagination datatables-pagination\" id=\"datatables-pagination\">\n";
         $html .= "<li class=\"uk-disabled\"><span uk-pagination-previous></span></li>\n";
         $html .= "<li class=\"uk-disabled\"><span uk-pagination-next></span></li>\n";
         $html .= "</ul>\n";
         $html .= "</div>\n";
 
-        $html .= "</div>\n";
         $html .= "</div>\n";
 
         return $html;
@@ -430,27 +444,25 @@ class Renderer
     }
 
     /**
-     * Render the add record modal form with auto-generated fields
-     *
-     * Creates a modal dialog containing a form for adding new records.
-     * The form fields are automatically generated based on the database schema
-     * and include proper validation, styling, and submission handling.
+     * Render the add record modal form with custom fields
      *
      * @return string HTML add record modal
      */
     private function renderAddModal(): string
     {
-        $formFields = $this->dataTable->getFormFields();
+        $formConfig = $this->dataTable->getAddFormConfig();
+        $formFields = $formConfig['fields'];
+        $title = $formConfig['title'];
 
         // Modal container
         $html = "<div id=\"add-modal\" uk-modal>\n";
         $html .= "<div class=\"uk-modal-dialog uk-modal-body\">\n";
-        $html .= "<h2 class=\"uk-modal-title\">Add New Record</h2>\n";
+        $html .= "<h2 class=\"uk-modal-title\">{$title}</h2>\n";
 
-        // Form with AJAX submission (always AJAX, never in public files)
+        // Form with AJAX submission
         $html .= "<form class=\"uk-form-stacked\" id=\"add-form\" onsubmit=\"return DataTables.submitAddForm(event)\">\n";
 
-        // Generate form fields automatically from database schema
+        // Generate form fields from configuration
         foreach ($formFields as $field => $config) {
             $html .= $this->renderFormField($field, $config, 'add');
         }
@@ -469,31 +481,29 @@ class Renderer
     }
 
     /**
-     * Render the edit record modal form with auto-generated fields
-     *
-     * Creates a modal dialog for editing existing records. Similar to the add modal
-     * but includes a hidden field for the record ID and will be pre-populated
-     * with existing data by JavaScript. Fields are auto-generated from schema.
+     * Render the edit record modal form with custom fields
      *
      * @return string HTML edit record modal
      */
     private function renderEditModal(): string
     {
-        $formFields = $this->dataTable->getFormFields();
+        $formConfig = $this->dataTable->getEditFormConfig();
+        $formFields = $formConfig['fields'];
+        $title = $formConfig['title'];
         $primaryKey = $this->dataTable->getPrimaryKey();
 
         // Modal container
         $html = "<div id=\"edit-modal\" uk-modal>\n";
         $html .= "<div class=\"uk-modal-dialog uk-modal-body\">\n";
-        $html .= "<h2 class=\"uk-modal-title\">Edit Record</h2>\n";
+        $html .= "<h2 class=\"uk-modal-title\">{$title}</h2>\n";
 
-        // Form with AJAX submission (always AJAX, never in public files)
+        // Form with AJAX submission
         $html .= "<form class=\"uk-form-stacked\" id=\"edit-form\" onsubmit=\"return DataTables.submitEditForm(event)\">\n";
 
         // Hidden field for record ID (populated by JavaScript)
         $html .= "<input type=\"hidden\" name=\"{$primaryKey}\" id=\"edit-{$primaryKey}\">\n";
 
-        // Generate form fields automatically from database schema
+        // Generate form fields from configuration
         foreach ($formFields as $field => $config) {
             $html .= $this->renderFormField($field, $config, 'edit');
         }
@@ -563,6 +573,12 @@ class Renderer
         $customClass = $config['class'] ?? '';
         $attributes = $config['attributes'] ?? [];
         $value = $config['value'] ?? '';
+        $default = $config['default'] ?? '';
+
+        // Use default value if no value is set
+        if (empty($value) && !empty($default)) {
+            $value = $default;
+        }
 
         // Generate unique IDs for form fields
         $fieldId = "{$prefix}-{$field}";
@@ -573,6 +589,28 @@ class Renderer
 
         // Render field based on type
         switch ($type) {
+            case 'boolean':
+                // Boolean toggle field rendered as select for forms
+                $html .= "<label class=\"uk-form-label\" for=\"{$fieldId}\">{$label}" .
+                        ($required ? " <span class=\"uk-text-danger\">*</span>" : "") . "</label>\n";
+                $html .= "<div class=\"uk-form-controls\">\n";
+                
+                $baseClass = 'uk-select';
+                $fieldClass = $customClass ? "{$baseClass} {$customClass}" : $baseClass;
+                $attrString = $this->buildAttributeString($attributes);
+                
+                $html .= "<select class=\"{$fieldClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" " .
+                        "{$attrString} " . ($required ? "required" : "") . ">\n";
+                
+                // Boolean options
+                $selected0 = ($value == '0' || $value === false) ? ' selected' : '';
+                $selected1 = ($value == '1' || $value === true) ? ' selected' : '';
+                
+                $html .= "<option value=\"0\"{$selected0}>Inactive</option>\n";
+                $html .= "<option value=\"1\"{$selected1}>Active</option>\n";
+                $html .= "</select>\n";
+                $html .= "</div>\n";
+                break;
             case 'checkbox':
                 // Checkbox field for boolean values (no separate label div)
                 $baseClass = 'uk-checkbox';

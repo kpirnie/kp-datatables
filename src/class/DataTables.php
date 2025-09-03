@@ -159,7 +159,7 @@ class DataTables
      * @var array
      */
     private array $cssClasses = [
-        'table' => 'uk-table uk-table-striped uk-table-hover',
+        'table' => 'uk-table uk-table-striped uk-table-hover uk-margin-bottom',
         'thead' => '',
         'tbody' => '',
         'tfoot' => '',
@@ -176,6 +176,28 @@ class DataTables
         'upload_path' => 'uploads/',
         'allowed_extensions' => ['jpg', 'jpeg', 'png', 'gif', 'pdf', 'doc', 'docx'],
         'max_file_size' => 10485760    // 10MB in bytes
+    ];
+
+    /**
+     * Add form configuration
+     *
+     * @var array
+     */
+    private array $addFormConfig = [
+        'title' => 'Add New Record',
+        'fields' => [],
+        'ajax' => true
+    ];
+
+    /**
+     * Edit form configuration
+     *
+     * @var array
+     */
+    private array $editFormConfig = [
+        'title' => 'Edit Record', 
+        'fields' => [],
+        'ajax' => true
     ];
 
     /**
@@ -334,54 +356,34 @@ class DataTables
         $type = strtolower($columnType);
 
         // Handle boolean/checkbox fields first (most specific)
-        if (strpos($type, 'tinyint(1)') !== false || strpos($type, 'boolean') !== false) {
-            return 'checkbox';
-        }
-
+        if (strpos($type, 'tinyint(1)') !== false || strpos($type, 'boolean') !== false || strpos($type, 'bit(1)') !== false) return 'boolean';
+        
         // Handle other integer types
-        if (strpos($type, 'int') !== false || strpos($type, 'integer') !== false) {
-            return 'number';
-        }
-
+        if (strpos($type, 'int') !== false || strpos($type, 'integer') !== false) return 'number';
+        
         // Handle decimal/float types
-        if (strpos($type, 'decimal') !== false || strpos($type, 'float') !== false || strpos($type, 'double') !== false) {
-            return 'number';
-        }
-
+        if (strpos($type, 'decimal') !== false || strpos($type, 'float') !== false || strpos($type, 'double') !== false) return 'number';
+        
         // Handle date/time types
-        if (strpos($type, 'datetime') !== false || strpos($type, 'timestamp') !== false) {
-            return 'datetime-local';
-        }
-        if (strpos($type, 'date') !== false) {
-            return 'date';
-        }
-        if (strpos($type, 'time') !== false) {
-            return 'time';
-        }
-
+        if (strpos($type, 'datetime') !== false || strpos($type, 'timestamp') !== false) return 'datetime-local';
+        if (strpos($type, 'date') !== false) return 'date';
+        if (strpos($type, 'time') !== false) return 'time';
+        
         // Handle text types
-        if (strpos($type, 'text') !== false || strpos($type, 'longtext') !== false || strpos($type, 'mediumtext') !== false) {
-            return 'textarea';
-        }
-
+        if (strpos($type, 'text') !== false || strpos($type, 'longtext') !== false || strpos($type, 'mediumtext') !== false) return 'textarea';
+        
         // Handle enum types
-        if (strpos($type, 'enum') !== false) {
-            return 'select';
-        }
-
+        if (strpos($type, 'enum') !== false) return 'select';
+        
         // Handle varchar with common patterns
         if (strpos($type, 'varchar') !== false) {
             // Check for email patterns in column names or types
-            if (strpos($type, 'email') !== false) {
-                return 'email';
-            }
+            if (strpos($type, 'email') !== false) return 'email';
             return 'text';
         }
-
+        
         // Handle char types
-        if (strpos($type, 'char') !== false) {
-            return 'text';
-        }
+        if (strpos($type, 'char') !== false) return 'text';
 
         return 'text'; // Default fallback
     }
@@ -731,142 +733,6 @@ class DataTables
     }
 
     /**
-     * Generate form fields automatically from table schema with enhanced configuration
-     *
-     * Creates form field configurations based on the database schema and enhanced
-     * column configuration. Always available for add/edit modals.
-     *
-     * @param  array $excludeFields Fields to exclude from form generation
-     * @return array Form field configurations
-     */
-    public function getFormFields(array $excludeFields = []): array
-    {
-        $fields = [];
-
-        // Debug logging
-        Logger::debug("Getting form fields", [
-            'table_name' => $this->tableName,
-            'schema_count' => count($this->tableSchema),
-            'has_db' => !is_null($this->db)
-        ]);
-
-        // If no schema loaded, try to load it
-        if (empty($this->tableSchema) && $this->db && !empty($this->tableName)) {
-            try {
-                Logger::debug("Attempting to load schema for form fields");
-                $this->loadTableSchema();
-            } catch (Exception $e) {
-                Logger::error("Failed to load schema for form fields", ['error' => $e->getMessage()]);
-                return [];
-            }
-        }
-
-        // If still no schema, return empty
-        if (empty($this->tableSchema)) {
-            Logger::error("No table schema available for form generation", [
-                'table_name' => $this->tableName,
-                'db_available' => !is_null($this->db)
-            ]);
-            return [];
-        }
-
-        foreach ($this->tableSchema as $fieldName => $fieldInfo) {
-            // Skip primary key and excluded fields
-            if ($fieldName === $this->primaryKey || in_array($fieldName, $excludeFields)) {
-                continue;
-            }
-
-            // Use override type if specified, otherwise use detected type
-            $fieldType = $fieldInfo['override_type'] ?? $fieldInfo['type'];
-
-            $field = [
-                'type' => $fieldType,
-                'label' => $this->columns[$fieldName] ?? $this->generateColumnLabel($fieldName),
-                'required' => !$fieldInfo['null'] && $fieldInfo['default'] === null,
-                'placeholder' => $fieldInfo['form_placeholder'] ?? $this->generatePlaceholder($fieldName, $fieldType)
-            ];
-
-            // Add custom CSS class if specified
-            if (isset($fieldInfo['form_class'])) {
-                $field['class'] = $fieldInfo['form_class'];
-            }
-
-            // Add custom HTML attributes if specified
-            if (isset($fieldInfo['form_attributes'])) {
-                $field['attributes'] = $fieldInfo['form_attributes'];
-            }
-
-            // Handle select/enum fields
-            if ($fieldType === 'select') {
-                // Use custom options if provided, otherwise extract from enum
-                $field['options'] = $fieldInfo['form_options'] ?? $this->getEnumOptions($fieldName);
-            }
-
-            // Handle checkbox default value
-            if ($fieldType === 'checkbox') {
-                $field['value'] = $fieldInfo['default'] ?? '0';
-            }
-
-            $fields[$fieldName] = $field;
-        }
-
-        Logger::debug("Form fields generated", ['field_count' => count($fields)]);
-        return $fields;
-    }
-
-    /**
-     * Extract enum options from database column definition
-     *
-     * @param  string $fieldName Field name to get enum options for
-     * @return array Array of value => label pairs for enum options
-     */
-    private function getEnumOptions(string $fieldName): array
-    {
-        // Query to get enum values from column definition
-        $result = $this->db->query("SHOW COLUMNS FROM `{$this->tableName}` LIKE ?")
-                        ->bind([$fieldName])
-                        ->fetch();
-
-        if (!empty($result)) {
-            $type = $result[0]->Type;
-            if (preg_match('/enum\((.*)\)/', $type, $matches)) {
-                $options = [];
-                $values = str_getcsv($matches[1], ',', "'");
-                foreach ($values as $value) {
-                    $options[$value] = ucfirst($value);
-                }
-                return $options;
-            }
-        }
-        return [];
-    }
-
-    /**
-     * Generate appropriate placeholder text for form fields
-     *
-     * @param  string $fieldName Database field name
-     * @param  string $fieldType Form field type
-     * @return string Placeholder text
-     */
-    private function generatePlaceholder(string $fieldName, string $fieldType): string
-    {
-        switch ($fieldType) {
-            case 'email':
-                return 'Enter email address';
-            case 'number':
-                return 'Enter number';
-            case 'date':
-                return 'Select date';
-            case 'datetime-local':
-                return 'Select date and time';
-            case 'time':
-                return 'Select time';
-            default:
-                return "Enter {$this->generateColumnLabel($fieldName)}";
-        }
-    }
-
-    /**
      * Render the complete DataTable HTML
      *
      * Generates all HTML, CSS includes, JavaScript includes, and initialization code
@@ -928,6 +794,46 @@ class DataTables
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
             exit;
         }
+    }
+
+    /**
+     * Configure the add form with custom fields
+     *
+     * @param  string $title Form title
+     * @param  array  $fields Field configurations
+     * @param  bool   $ajax Whether form should use AJAX submission
+     * @return self Returns self for method chaining
+     */
+    public function addForm(string $title, array $fields, bool $ajax = true): self
+    {
+        $this->addFormConfig = [
+            'title' => $title,
+            'fields' => $fields,
+            'ajax' => $ajax
+        ];
+        
+        Logger::debug("DataTables add form configured", ['field_count' => count($fields)]);
+        return $this;
+    }
+
+    /**
+     * Configure the edit form with custom fields
+     *
+     * @param  string $title Form title
+     * @param  array  $fields Field configurations
+     * @param  bool   $ajax Whether form should use AJAX submission
+     * @return self Returns self for method chaining
+     */
+    public function editForm(string $title, array $fields, bool $ajax = true): self
+    {
+        $this->editFormConfig = [
+            'title' => $title,
+            'fields' => $fields,
+            'ajax' => $ajax
+        ];
+        
+        Logger::debug("DataTables edit form configured", ['field_count' => count($fields)]);
+        return $this;
     }
 
     // === GETTER METHODS FOR CONFIGURATION ACCESS ===
@@ -1092,4 +998,25 @@ class DataTables
     {
         return $this->primaryKey;
     }
+
+    /**
+     * Get the add form configuration
+     *
+     * @return array Add form configuration array
+     */
+    public function getAddFormConfig(): array
+    {
+        return $this->addFormConfig;
+    }
+
+    /**
+     * Get the edit form configuration
+     *
+     * @return array Edit form configuration array
+     */
+    public function getEditFormConfig(): array
+    {
+        return $this->editFormConfig;
+    }
+
 }
