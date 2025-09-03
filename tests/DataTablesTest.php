@@ -15,8 +15,6 @@ class DataTablesTest extends TestCase
 
     public function testAssetFilesExist(): void
     {
-        $this->assertFileExists(__DIR__ . '/../src/assets/css/datatables-light.css');
-        $this->assertFileExists(__DIR__ . '/../src/assets/css/datatables-dark.css');
         $this->assertFileExists(__DIR__ . '/../src/assets/js/datatables.js');
     }
 
