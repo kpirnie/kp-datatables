@@ -25,7 +25,7 @@ namespace KPT\DataTables;
  * @author  Kevin Pirnie <me@kpirnie.com>
  * @package KPT\DataTables
  */
-class Renderer
+class Renderer extends DataTablesBase
 {
     /**
      * Constructor - Initialize renderer with DataTables configuration
@@ -34,7 +34,16 @@ class Renderer
      */
     public function __construct(?DataTables $dataTable = null)
     {
-        // Empty - DataTables now extends this class
+        /*
+        if ($dataTable) {
+            // Copy properties from DataTables instance
+            foreach (get_object_vars($dataTable) as $property => $value) {
+                if (property_exists($this, $property)) {
+                    $this->$property = $value;
+                }
+            }
+        }
+        */
     }
 
     /**
@@ -304,10 +313,12 @@ class Renderer
 
             if ($sortable) {
                 // Sortable header with click handler and sort indicator
-                $html .= "<span class=\"sortable-header\">{$label} <span class=\"sort-icon\" uk-icon=\"triangle-up\"></span></span>";
+                $displayLabel = is_array($label) ? ($label['label'] ?? $column) : $label;
+                $html .= "<span class=\"sortable-header\">{$displayLabel} <span class=\"sort-icon\" uk-icon=\"triangle-up\"></span></span>";
             } else {
                 // Non-sortable header
-                $html .= $label;
+                $displayLabel = is_array($label) ? ($label['label'] ?? $column) : $label;
+                $html .= $displayLabel;
             }
 
             $html .= "</th>\n";
