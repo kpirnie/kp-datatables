@@ -206,15 +206,19 @@ class DataTablesJS {
                         const iconName = isActive ? 'check' : 'close';
                         const iconClass = isActive ? 'uk-text-success' : 'uk-text-danger';
                         
+                        // Store the raw value for form population
+                        const rawValue = cellContent; // Keep original value
+                        
                         if (isEditable) {
-                            cellContent = `<span class="inline-editable boolean-toggle" data-field="${column}" data-id="${rowId}" data-type="boolean" style="cursor: pointer;">`;
+                            cellContent = `<span class="inline-editable boolean-toggle" data-field="${column}" data-id="${rowId}" data-type="boolean" data-value="${rawValue}" style="cursor: pointer;">`;
                             cellContent += `<span uk-icon="${iconName}" class="${iconClass}"></span>`;
                             cellContent += '</span>';
                         } else {
-                            cellContent = `<span uk-icon="${iconName}" class="${iconClass}"></span>`;
+                            cellContent = `<span data-value="${rawValue}"><span uk-icon="${iconName}" class="${iconClass}"></span></span>`;
                         }
                     } else if (isEditable) {
-                        cellContent = `<span class="inline-editable" data-field="${column}" data-id="${rowId}" data-type="${fieldType}">${cellContent}</span>`;
+                        // Add inline-editable class and attributes for non-boolean editable fields
+                        cellContent = `<span class="inline-editable" data-field="${column}" data-id="${rowId}" data-type="${fieldType}" style="cursor: pointer;">${cellContent}</span>`;
                     }
                     
                     html += `<td${columnClass ? ` class="${columnClass}"` : ''}>${cellContent}</td>`;
@@ -235,29 +239,95 @@ class DataTablesJS {
         this.bindTableEvents();
         this.updateBulkActionButtons();
     }
-        
+
     renderActionButtons(rowId)
     {
         let html = '';
         
-        if (this.actionConfig.show_edit) {
-            html += '<a href="#" class="uk-icon-link btn-edit uk-margin-small-right" uk-icon="pencil" title="Edit"></a>';
-        }
-        
-        if (this.actionConfig.show_delete) {
-            html += '<a href="#" class="uk-icon-link btn-delete uk-margin-small-right" uk-icon="trash" title="Delete"></a>';
-        }
-
-        // Custom actions
-        if (this.actionConfig.custom_actions) {
-            this.actionConfig.custom_actions.forEach(
-                action => {
-                const icon = action.icon || 'link';
-                const title = action.title || '';
-                const className = action.class || 'btn-custom';
-                html += `<a href="#" class="uk-icon-link ${className} uk-margin-small-right" uk-icon="${icon}" title="${title}"></a>`;
+        // Check if we have action groups configured
+        if (this.actionConfig.groups && this.actionConfig.groups.length > 0) {
+            let groupCount = 0;
+            const totalGroups = this.actionConfig.groups.length;
+            
+            this.actionConfig.groups.forEach(group => {
+                groupCount++;
+                
+                if (Array.isArray(group)) {
+                    // Array of built-in actions like ['edit', 'delete']
+                    let actionCount = 0;
+                    const totalActions = group.length;
+                    
+                    group.forEach(actionItem => {
+                        actionCount++;
+                        
+                        switch (actionItem) {
+                            case 'edit':
+                                html += '<a href="#" class="uk-icon-link btn-edit" uk-icon="pencil" title="Edit"></a>';
+                                break;
+                            case 'delete':
+                                html += '<a href="#" class="uk-icon-link btn-delete" uk-icon="trash" title="Delete"></a>';
+                                break;
+                        }
+                        
+                        // Add separator within group if not the last action
+                        if (actionCount < totalActions) {
+                            html += ' ';
+                        }
+                    });
+                } else if (typeof group === 'object') {
+                    // Object of custom actions
+                    let actionCount = 0;
+                    const actionKeys = Object.keys(group);
+                    const totalActions = actionKeys.length;
+                    
+                    actionKeys.forEach(actionKey => {
+                        actionCount++;
+                        const actionConfig = group[actionKey];
+                        
+                        const icon = actionConfig.icon || 'link';
+                        const title = actionConfig.title || '';
+                        const className = actionConfig.class || 'btn-custom';
+                        const onclick = actionConfig.onclick || '';
+                        
+                        html += '<a href="#" class="uk-icon-link ' + className + '" uk-icon="' + icon + '" title="' + title + '"';
+                        if (onclick) {
+                            html += ' onclick="' + onclick + '"';
+                        }
+                        html += '></a>';
+                        
+                        // Add separator within group if not the last action
+                        if (actionCount < totalActions) {
+                            html += ' ';
+                        }
+                    });
                 }
-            );
+                
+                // Add group separator if not the last group
+                if (groupCount < totalGroups) {
+                    html += ' <span class="uk-text-muted">|</span> ';
+                }
+            });
+        } else {
+            // Fallback to original behavior
+            if (this.actionConfig.show_edit) {
+                html += '<a href="#" class="uk-icon-link btn-edit uk-margin-small-right" uk-icon="pencil" title="Edit"></a>';
+            }
+            
+            if (this.actionConfig.show_delete) {
+                html += '<a href="#" class="uk-icon-link btn-delete uk-margin-small-right" uk-icon="trash" title="Delete"></a>';
+            }
+
+            // Custom actions
+            if (this.actionConfig.custom_actions) {
+                this.actionConfig.custom_actions.forEach(
+                    action => {
+                    const icon = action.icon || 'link';
+                    const title = action.title || '';
+                    const className = action.class || 'btn-custom';
+                    html += '<a href="#" class="uk-icon-link ' + className + ' uk-margin-small-right" uk-icon="' + icon + '" title="' + title + '"></a>';
+                    }
+                );
+            }
         }
 
         return html;
@@ -390,14 +460,58 @@ class DataTablesJS {
     {
         const hasSelection = this.selectedIds.size > 0;
         
-        document.querySelectorAll('.datatables-bulk-action').forEach(bulkSelect => {
-            bulkSelect.disabled = !hasSelection;
+        // Update all bulk action buttons
+        document.querySelectorAll('.datatables-bulk-action-btn').forEach(btn => {
+            btn.disabled = !hasSelection;
+        });
+    }
+
+    executeBulkActionDirect(action)
+    {
+        const selectedIds = Array.from(this.selectedIds);
+
+        if (selectedIds.length === 0) {
+            UIkit.notification('No records selected', {status: 'warning'});
+            return;
+        }
+
+        // Check if action requires confirmation
+        const actionButton = document.querySelector(`[data-action="${action}"]`);
+        const confirmMessage = actionButton ? actionButton.getAttribute('data-confirm') : '';
+        
+        if (confirmMessage) {
+            UIkit.modal.confirm(confirmMessage).then(
+                () => {
+                    this.performBulkAction(action, selectedIds);
+                }, () => {
+                    // User cancelled
+                }
+            );
+        } else {
+            this.performBulkAction(action, selectedIds);
+        }
+    }
+
+    /**
+     * Reset search functionality
+     */
+    resetSearch()
+    {
+        // Clear search input
+        document.querySelectorAll('.datatables-search').forEach(searchInput => {
+            searchInput.value = '';
         });
         
-        document.querySelectorAll('.datatables-bulk-execute').forEach(executeBtn => {
-            const bulkSelect = executeBtn.previousElementSibling;
-            executeBtn.disabled = !hasSelection || !bulkSelect.value;
+        // Reset search column to "all"
+        document.querySelectorAll('.datatables-search-column').forEach(searchColumn => {
+            searchColumn.value = 'all';
         });
+        
+        // Reset search state and reload data
+        this.search = '';
+        this.searchColumn = 'all';
+        this.currentPage = 1;
+        this.loadData();
     }
 
     executeBulkAction()
@@ -517,23 +631,55 @@ class DataTablesJS {
         // Map cells to columns in order
         Object.keys(this.columns).forEach(column => {
             if (cells[cellIndex]) {
-                // Get text content, handling inline editable spans
+                // Get text content, handling inline editable spans and boolean fields
                 const cellElement = cells[cellIndex];
-                const editableSpan = cellElement.querySelector('.inline-editable');
-                const value = editableSpan ? editableSpan.textContent.trim() : cellElement.textContent.trim();
+                let value;
+                
+                // Check for boolean fields first - be more specific in the search
+                const booleanToggle = cellElement.querySelector('.boolean-toggle[data-value]');
+                const booleanSpan = cellElement.querySelector('span[data-value]');
+                
+                if (booleanToggle) {
+                    value = booleanToggle.getAttribute('data-value');
+                    // Handle empty data-value by checking the icon type
+                    if (!value || value === '') {
+                        const icon = booleanToggle.querySelector('[uk-icon]');
+                        value = icon && icon.getAttribute('uk-icon') === 'check' ? '1' : '0';
+                    }
+                    console.log(`Found boolean toggle for ${column}, value: ${value}`);
+                } else if (booleanSpan) {
+                    value = booleanSpan.getAttribute('data-value');
+                    console.log(`Found boolean span for ${column}, value: ${value}`);
+                } else {
+                    // Handle regular fields and inline editable spans
+                    const editableSpan = cellElement.querySelector('.inline-editable');
+                    value = editableSpan ? editableSpan.textContent.trim() : cellElement.textContent.trim();
+                }
                 
                 const formField = document.getElementById(`edit-${column}`);
                 if (formField) {
                     if (formField.type === 'checkbox') {
-                        formField.checked = value === '1' || value.toLowerCase() === 'true';
+                        formField.checked = value === '1' || value === 'true' || value === true;
                     } else {
+                        // For select fields, ensure we match the exact value
                         formField.value = value;
+                        
+                        // If it's a select and value wasn't set, try to find matching option
+                        if (formField.tagName === 'SELECT' && formField.value !== value) {
+                            for (let option of formField.options) {
+                                if (option.value === value || option.value === String(value)) {
+                                    formField.value = option.value;
+                                    break;
+                                }
+                            }
+                        }
                     }
-                    //console.log(`Set field ${column} to ${value}`);
+                    console.log(`Set field ${column} to ${value} (type: ${typeof value})`);
                 }
             }
             cellIndex++;
         });
+        
     }
 
     submitAddForm(event)
@@ -828,9 +974,21 @@ class DataTablesJS {
                     const iconClass = isActive ? 'uk-text-success' : 'uk-text-danger';
                     
                     element.innerHTML = `<span uk-icon="${iconName}" class="${iconClass}"></span>`;
+                    element.setAttribute('data-value', value);
                 } else {
                     element.textContent = value;
                 }
+                
+                // Update edit form if it's open and has this field
+                const editForm = document.getElementById(`edit-${field}`);
+                if (editForm) {
+                    if (editForm.type === 'checkbox') {
+                        editForm.checked = value === '1' || value === 'true' || value === true;
+                    } else {
+                        editForm.value = value;
+                    }
+                }
+                
                 UIkit.notification('Field updated successfully', {status: 'success'});
             } else {
                     element.textContent = element.getAttribute('data-original') || '';
@@ -846,7 +1004,7 @@ class DataTablesJS {
             }
         );
     }
-
+    
     // === UTILITY METHODS ===
     getColumnCount()
     {
