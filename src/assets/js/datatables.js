@@ -646,10 +646,10 @@ class DataTablesJS {
                         const icon = booleanToggle.querySelector('[uk-icon]');
                         value = icon && icon.getAttribute('uk-icon') === 'check' ? '1' : '0';
                     }
-                    console.log(`Found boolean toggle for ${column}, value: ${value}`);
+                    //console.log(`Found boolean toggle for ${column}, value: ${value}`);
                 } else if (booleanSpan) {
                     value = booleanSpan.getAttribute('data-value');
-                    console.log(`Found boolean span for ${column}, value: ${value}`);
+                    //console.log(`Found boolean span for ${column}, value: ${value}`);
                 } else {
                     // Handle regular fields and inline editable spans
                     const editableSpan = cellElement.querySelector('.inline-editable');
@@ -674,7 +674,7 @@ class DataTablesJS {
                             }
                         }
                     }
-                    console.log(`Set field ${column} to ${value} (type: ${typeof value})`);
+                    //console.log(`Set field ${column} to ${value} (type: ${typeof value})`);
                 }
             }
             cellIndex++;
