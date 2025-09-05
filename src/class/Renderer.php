@@ -172,22 +172,9 @@ class Renderer extends DataTablesBase
         $html .= "</div>\n";
         $html .= "</div>\n";
 
-        // Column selector dropdown
-        $html .= "<div>\n";
-        $html .= "<select class=\"uk-select uk-width-small datatables-search-column\">\n";
-        $html .= "<option value=\"all\">All Columns</option>\n";
-
-        // Add option for each configured column (key is column name, value is label)
-        foreach ($columns as $column => $label) {
-            $html .= "<option value=\"{$column}\">{$label}</option>\n";
-        }
-
-        $html .= "</select>\n";
-        $html .= "</div>\n";
-
         // Reset search button
         $html .= "<div>\n";
-        $html .= "<button class=\"uk-button uk-button-default uk-button-small\" type=\"button\" ";
+        $html .= "<button class=\"uk-button uk-button-default refreshbutton\" type=\"button\" ";
         $html .= "onclick=\"DataTables.resetSearch()\" uk-tooltip=\"Reset Search\">\n";
         $html .= "<span uk-icon=\"refresh\"></span>\n";
         $html .= "</button>\n";
@@ -197,35 +184,58 @@ class Renderer extends DataTablesBase
     }
 
     /**
-     * Render page size selector dropdown
+     * Render page size selector dropdown or button group
      *
-     * Creates a dropdown allowing users to change how many records are displayed
+     * Creates a dropdown or button group allowing users to change how many records are displayed
      * per page. Includes all configured options and optionally an "All records" choice.
      *
+     * @param bool $asButtonGroup Whether to render as button group instead of select
      * @return string HTML page size selector
      */
-    protected function renderPageSizeSelector(): string
+    protected function renderPageSizeSelector(bool $asButtonGroup = false): string
     {
         $options = $this->getPageSizeOptions();
         $includeAll = $this->getIncludeAllOption();
         $current = $this->getRecordsPerPage();
 
-        $html = "<div>\n";
-        $html .= "Per Page: <select class=\"uk-select uk-width-auto datatables-page-size\">\n";
+        if ($asButtonGroup) {
+            $html = "<div>\n";
+            $html .= "Per Page: <div class=\"uk-button-group\">\n";
 
-        // Add each configured page size option
-        foreach ($options as $option) {
-            $selected = $option === $current ? ' selected' : '';
-            $html .= "<option value=\"{$option}\"{$selected}>{$option} records</option>\n";
+            // Add each configured page size option as button
+            foreach ($options as $option) {
+                $activeClass = $option === $current ? ' uk-button-primary' : ' uk-button-default';
+                $html .= "<a class=\"uk-button uk-button-small{$activeClass} datatables-page-size-btn\" ";
+                $html .= "href=\"#\" data-size=\"{$option}\" onclick=\"DataTables.changePageSize({$option})\">{$option}</a>\n";
+            }
+
+            // Add "All records" option if enabled
+            if ($includeAll) {
+                $activeClass = $current === 0 ? ' uk-button-primary' : ' uk-button-default';
+                $html .= "<a class=\"uk-button uk-button-small{$activeClass} datatables-page-size-btn\" ";
+                $html .= "href=\"#\" data-size=\"0\" onclick=\"DataTables.changePageSize(0)\">All</a>\n";
+            }
+
+            $html .= "</div>\n";
+            $html .= "</div>\n";
+        } else {
+            $html = "<div>\n";
+            $html .= "Per Page: <select class=\"uk-select uk-width-auto datatables-page-size\">\n";
+
+            // Add each configured page size option
+            foreach ($options as $option) {
+                $selected = $option === $current ? ' selected' : '';
+                $html .= "<option value=\"{$option}\"{$selected}>{$option} records</option>\n";
+            }
+
+            // Add "All records" option if enabled (value of 0 means no limit)
+            if ($includeAll) {
+                $html .= "<option value=\"0\">All records</option>\n";
+            }
+
+            $html .= "</select>\n";
+            $html .= "</div>\n";
         }
-
-        // Add "All records" option if enabled (value of 0 means no limit)
-        if ($includeAll) {
-            $html .= "<option value=\"0\">All records</option>\n";
-        }
-
-        $html .= "</select>\n";
-        $html .= "</div>\n";
 
         return $html;
     }

@@ -743,9 +743,9 @@ class DataTables extends Renderer
      *
      * @return string HTML page size selector
      */
-    public function renderPageSizeSelectorComponent(): string
+    public function renderPageSizeSelectorComponent(bool $asButtonGroup = false): string
     {
-        return $this->renderPageSizeSelector();
+        return $this->renderPageSizeSelector($asButtonGroup);
     }
 
     /**

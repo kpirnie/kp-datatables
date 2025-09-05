@@ -29,7 +29,6 @@ class DataTablesJS {
         this.sortColumn = '';
         this.sortDirection = 'ASC';
         this.search = '';
-        this.searchColumn = 'all';
         this.deleteId = null;
         this.selectedIds = new Set();
         
@@ -56,15 +55,6 @@ class DataTablesJS {
                     this.currentPage = 1;
                     this.loadData();
                 }, 300);
-            });
-        });
-
-        // Search column selector
-        document.querySelectorAll('.datatables-search-column').forEach(searchColumn => {
-            searchColumn.addEventListener('change', (e) => {
-                this.searchColumn = e.target.value;
-                this.currentPage = 1;
-                this.loadData();
             });
         });
 
@@ -125,7 +115,6 @@ class DataTablesJS {
                 page: this.currentPage,
                 per_page: this.perPage,
                 search: this.search,
-                search_column: this.searchColumn,
                 sort_column: this.sortColumn,
                 sort_direction: this.sortDirection
             }
@@ -513,14 +502,8 @@ class DataTablesJS {
             searchInput.value = '';
         });
         
-        // Reset search column to "all"
-        document.querySelectorAll('.datatables-search-column').forEach(searchColumn => {
-            searchColumn.value = 'all';
-        });
-        
         // Reset search state and reload data
         this.search = '';
-        this.searchColumn = 'all';
         this.currentPage = 1;
         this.loadData();
     }
@@ -987,6 +970,7 @@ class DataTablesJS {
                     element.innerHTML = `<span uk-icon="${iconName}" class="${iconClass}"></span>`;
                     element.setAttribute('data-value', value);
                 } else if (element.getAttribute('data-type') === 'select') {
+                    
                     // Handle select fields - show label but store value
                     const tableElement = document.querySelector('.datatables-table');
                     const tableSchema = tableElement ? JSON.parse(tableElement.dataset.columns || '{}') : {};
@@ -1036,6 +1020,31 @@ class DataTablesJS {
             count++; // Bulk selection column
         }
         return count;
+    }
+
+    changePageSize(newSize)
+    {
+        this.perPage = parseInt(newSize);
+        this.currentPage = 1;
+        
+        // Update button group active states
+        document.querySelectorAll('.datatables-page-size-btn').forEach(btn => {
+            const btnSize = parseInt(btn.getAttribute('data-size'));
+            if (btnSize === this.perPage) {
+                btn.classList.remove('uk-button-default');
+                btn.classList.add('uk-button-primary');
+            } else {
+                btn.classList.remove('uk-button-primary');
+                btn.classList.add('uk-button-default');
+            }
+        });
+        
+        // Also sync select dropdowns if present
+        document.querySelectorAll('.datatables-page-size').forEach(select => {
+            select.value = newSize;
+        });
+        
+        this.loadData();
     }
 
     getRowClass(rowId)
