@@ -97,6 +97,7 @@ class DataTablesJS {
         // Sortable headers
         document.addEventListener('click', (e) => {
             if (e.target.closest('.sortable-header')) {
+                console.log('sort clicked');
                 const header = e.target.closest('th[data-sort]');
                 if (header) {
                     const column = header.getAttribute('data-sort');
@@ -215,6 +216,16 @@ class DataTablesJS {
                             cellContent += '</span>';
                         } else {
                             cellContent = `<span data-value="${rawValue}"><span uk-icon="${iconName}" class="${iconClass}"></span></span>`;
+                        }
+                    // Handle select display with labels
+                    } else if (fieldType === 'select') {
+                        const selectOptions = tableSchema[column]?.form_options || {};
+                        const displayLabel = selectOptions[cellContent] || cellContent;
+                        
+                        if (isEditable) {
+                            cellContent = `<span class="inline-editable" data-field="${column}" data-id="${rowId}" data-type="${fieldType}" data-value="${cellContent}" style="cursor: pointer;">${displayLabel}</span>`;
+                        } else {
+                            cellContent = displayLabel;
                         }
                     } else if (isEditable) {
                         // Add inline-editable class and attributes for non-boolean editable fields
@@ -833,10 +844,10 @@ class DataTablesJS {
         const field = element.getAttribute('data-field');
         const id = element.getAttribute('data-id');
         const fieldType = element.getAttribute('data-type') || 'text';
-        const currentValue = element.textContent;
+        // Get current value - check for stored data-value first, then fallback to text content
+        const currentValue = element.getAttribute('data-value') || element.textContent;
 
-        if (!this.inlineEditableColumns.includes(field)) { return;
-        }
+        if (!this.inlineEditableColumns.includes(field)) { return; }
 
         let inputElement;
         
@@ -849,7 +860,7 @@ class DataTablesJS {
                 const options = tableSchema[field]?.form_options || {};
                 
                 inputElement = document.createElement('select');
-                inputElement.className = 'uk-select uk-form-small';
+                inputElement.className = 'uk-select uk-width-1-1';
                 
                 // Add options
                 for (const [value, label] of Object.entries(options)) {
@@ -865,41 +876,41 @@ class DataTablesJS {
                 
             case 'textarea':
                 inputElement = document.createElement('textarea');
-                inputElement.className = 'uk-textarea uk-form-small';
+                inputElement.className = 'uk-textarea uk-width-1-1';
                 inputElement.value = currentValue;
-                inputElement.style.minHeight = '60px';
+                //inputElement.style.minHeight = '60px';
                 break;
                 
             case 'number':
                 inputElement = document.createElement('input');
                 inputElement.type = 'number';
-                inputElement.className = 'uk-input uk-form-small';
+                inputElement.className = 'uk-input uk-width-1-1';
                 inputElement.value = currentValue;
-                inputElement.style.width = '100px';
+                //inputElement.style.width = '100px';
                 break;
                 
             case 'date':
                 inputElement = document.createElement('input');
                 inputElement.type = 'date';
-                inputElement.className = 'uk-input uk-form-small';
+                inputElement.className = 'uk-input uk-width-1-1';
                 inputElement.value = currentValue;
-                inputElement.style.width = '150px';
+                //inputElement.style.width = '150px';
                 break;
                 
             case 'datetime-local':
                 inputElement = document.createElement('input');
                 inputElement.type = 'datetime-local';
-                inputElement.className = 'uk-input uk-form-small';
+                inputElement.className = 'uk-input uk-width-1-1';
                 inputElement.value = currentValue;
-                inputElement.style.width = '200px';
+                //inputElement.style.width = '200px';
                 break;
                 
             default: // text, email, etc.
                 inputElement = document.createElement('input');
                 inputElement.type = fieldType === 'email' ? 'email' : 'text';
-                inputElement.className = 'uk-input uk-form-small';
+                inputElement.className = 'uk-input uk-width-1-1';
                 inputElement.value = currentValue;
-                inputElement.style.width = '150px';
+                //inputElement.style.width = '150px';
         }
 
         const saveEdit = () => {
@@ -975,6 +986,16 @@ class DataTablesJS {
                     
                     element.innerHTML = `<span uk-icon="${iconName}" class="${iconClass}"></span>`;
                     element.setAttribute('data-value', value);
+                } else if (element.getAttribute('data-type') === 'select') {
+                    // Handle select fields - show label but store value
+                    const tableElement = document.querySelector('.datatables-table');
+                    const tableSchema = tableElement ? JSON.parse(tableElement.dataset.columns || '{}') : {};
+                    const field = element.getAttribute('data-field');
+                    const selectOptions = tableSchema[field]?.form_options || {};
+                    const displayLabel = selectOptions[value] || value;
+                    
+                    element.setAttribute('data-value', value);
+                    element.textContent = displayLabel;
                 } else {
                     element.textContent = value;
                 }

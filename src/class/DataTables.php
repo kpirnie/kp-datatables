@@ -714,7 +714,7 @@ class DataTables extends Renderer
     public static function getJsIncludes(): string
     {
         $html = "<!-- DataTables JavaScript -->\n";
-        $html .= "<script src=\"vendor/kevinpirnie/kpt-datatables/src/assets/js/datatables.js\"></script>\n";
+        $html .= "<script src=\"/vendor/kevinpirnie/kpt-datatables/src/assets/js/datatables.js\"></script>\n";
         return $html;
     }
 
