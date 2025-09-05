@@ -28,7 +28,7 @@ Advanced PHP DataTables library with CRUD operations, search, sorting, paginatio
 Install via Composer:
 
 ```bash
-composer require kpirnie/kpt-datatables
+composer require kevinpirnie/kpt-datatables
 ```
 
 ## Dependencies
@@ -45,11 +45,10 @@ This package depends on:
 <?php
 require 'vendor/autoload.php';
 
-use KPT\Database;
 use KPT\DataTables\DataTables;
 
-// Configure database
-$dbConfig = (object)[
+// Option 1: Configure database via constructor
+$dbConfig = [
     'server' => 'localhost',
     'schema' => 'your_database',
     'username' => 'your_username',
@@ -58,29 +57,43 @@ $dbConfig = (object)[
     'collation' => 'utf8mb4_unicode_ci'
 ];
 
-$db = new Database($dbConfig);
-$dataTable = new DataTables($db);
+$dataTable = new DataTables($dbConfig);
+
+// Option 2: Configure database via method chaining
+$dataTable = new DataTables();
+$dataTable->database($dbConfig);
 ```
 
-### 2. Simple Table
+### 2. Include Required Assets
 
 ```php
-// Handle AJAX requests
+// Include JavaScript files
+echo DataTables::getJsIncludes();
+```
+
+### 3. Handle AJAX Requests
+
+```php
+// Handle AJAX requests (before any HTML output)
 if (isset($_POST['action']) || isset($_GET['action'])) {
     $dataTable->handleAjax();
 }
+```
 
+### 4. Simple Table
+
+```php
 // Configure and render table
 echo $dataTable
     ->table('users')
     ->columns([
-        'id' => ['label' => 'ID', 'field' => 'id'],
-        'name' => ['label' => 'Full Name', 'field' => 'name'],
-        'email' => ['label' => 'Email Address', 'field' => 'email'],
-        'created_at' => ['label' => 'Created', 'field' => 'created_at']
+        'id' => 'ID',
+        'name' => 'Full Name',
+        'email' => 'Email Address',
+        'created_at' => 'Created'
     ])
     ->sortable(['name', 'email', 'created_at'])
-    ->render();
+    ->renderDataTableComponent();
 ```
 
 ## Advanced Usage
@@ -88,17 +101,17 @@ echo $dataTable
 ### Complete Configuration Example
 
 ```php
-$dataTable = new DataTables($db);
+$dataTable = new DataTables($dbConfig);
 
-$dataTable
+echo $dataTable
     ->table('users')
     ->primaryKey('user_id') // Default: 'id'
     ->columns([
-        'user_id' => ['label' => 'ID', 'field' => 'u.user_id'],
-        'name' => ['label' => 'Name', 'field' => 'u.name', 'class' => 'uk-text-bold'],
-        'email' => ['label' => 'Email', 'field' => 'u.email'],
-        'role_name' => ['label' => 'Role', 'field' => 'r.role_name'],
-        'status' => ['label' => 'Status', 'field' => 'u.status']
+        'user_id' => 'ID',
+        'name' => 'Name',
+        'email' => 'Email',
+        'role_name' => 'Role',
+        'status' => 'Status'
     ])
     
     // JOIN other tables
@@ -120,8 +133,10 @@ $dataTable
             'class' => 'uk-button-secondary',
             'confirm' => 'Activate selected users?',
             'callback' => function($ids, $db, $table) {
-                return $db->raw("UPDATE {$table} SET status = 'active' WHERE user_id IN (" . 
-                              implode(',', array_fill(0, count($ids), '?')) . ")", $ids);
+                return $db->query("UPDATE {$table} SET status = 'active' WHERE user_id IN (" . 
+                              implode(',', array_fill(0, count($ids), '?')) . ")")
+                          ->bind($ids)
+                          ->execute();
             }
         ]
     ])
@@ -141,8 +156,7 @@ $dataTable
             'type' => 'text',
             'label' => 'Full Name',
             'required' => true,
-            'placeholder' => 'Enter full name',
-            'class' => 'uk-input-large'
+            'placeholder' => 'Enter full name'
         ],
         'email' => [
             'type' => 'email',
@@ -192,7 +206,36 @@ $dataTable
     // File upload configuration
     ->fileUpload('uploads/avatars/', ['jpg', 'jpeg', 'png', 'gif'], 5242880) // 5MB limit
     
-    ->render();
+    ->renderDataTableComponent();
+```
+
+## Enhanced Column Configuration
+
+### Simple Configuration
+```php
+->columns([
+    'name' => 'Full Name',
+    'email' => 'Email Address'
+])
+```
+
+### Enhanced Configuration with Type Overrides
+```php
+->columns([
+    'active' => [
+        'label' => 'Status',
+        'type' => 'boolean',
+        'class' => 'uk-text-center'
+    ],
+    'category_id' => [
+        'label' => 'Category',
+        'type' => 'select',
+        'options' => [
+            '1' => 'Category 1',
+            '2' => 'Category 2'
+        ]
+    ]
+])
 ```
 
 ## Field Types
@@ -233,6 +276,19 @@ $dataTable
 ]
 ```
 
+### Boolean/Checkbox
+```php
+'active' => [
+    'type' => 'boolean', // Renders as select in forms, toggle in table
+    'label' => 'Active Status'
+],
+'newsletter' => [
+    'type' => 'checkbox',
+    'label' => 'Subscribe to Newsletter',
+    'value' => '1'
+]
+```
+
 ### Radio Buttons
 ```php
 'status' => [
@@ -244,15 +300,6 @@ $dataTable
         'pending' => 'Pending'
     ],
     'value' => 'active'
-]
-```
-
-### Checkbox
-```php
-'newsletter' => [
-    'type' => 'checkbox',
-    'label' => 'Subscribe to Newsletter',
-    'value' => '1'
 ]
 ```
 
@@ -271,7 +318,7 @@ $dataTable
     'label' => 'Birth Date'
 ],
 'appointment' => [
-    'type' => 'datetime',
+    'type' => 'datetime-local',
     'label' => 'Appointment Date & Time'
 ],
 'meeting_time' => [
@@ -297,46 +344,34 @@ $dataTable
         'confirm' => 'Archive selected records?',
         'callback' => function($selectedIds, $database, $tableName) {
             $placeholders = implode(',', array_fill(0, count($selectedIds), '?'));
-            return $database->raw(
-                "UPDATE {$tableName} SET archived = 1 WHERE id IN ({$placeholders})", 
-                $selectedIds
-            );
+            return $database->query("UPDATE {$tableName} SET archived = 1 WHERE id IN ({$placeholders})")
+                           ->bind($selectedIds)
+                           ->execute();
         },
         'success_message' => 'Records archived successfully',
         'error_message' => 'Failed to archive records'
-    ],
-    'export' => [
-        'label' => 'Export Selected',
-        'icon' => 'download',
-        'class' => 'uk-button-primary',
-        'callback' => function($selectedIds, $database, $tableName) {
-            // Custom export logic
-            return true;
-        }
     ]
 ])
 ```
 
-## Themes
+## Action Button Groups
 
-### Theme Toggle
-The package includes light and dark themes with automatic theme switching:
-
-```html
-<!-- Theme toggle button is automatically included -->
-<button onclick="DataTables.toggleTheme()">Toggle Theme</button>
-```
-
-### Custom CSS Classes
+### Grouped Actions with Separators
 ```php
-// Row classes with ID suffix (e.g., "highlight-123")
-->rowClass('highlight')
-
-// Column-specific classes
-->columnClasses([
-    'name' => 'uk-text-bold uk-text-primary',
-    'status' => 'uk-text-center',
-    'actions' => 'uk-text-nowrap'
+->actionGroups([
+    ['edit', 'delete'], // Group 1: built-in actions
+    [ // Group 2: custom actions
+        'email' => [
+            'icon' => 'mail',
+            'title' => 'Send Email',
+            'class' => 'btn-email'
+        ],
+        'export' => [
+            'icon' => 'download',
+            'title' => 'Export Data',
+            'class' => 'btn-export'
+        ]
+    ]
 ])
 ```
 
@@ -348,11 +383,11 @@ $dataTable
     ->join('INNER', 'customers c', 'o.customer_id = c.customer_id')
     ->join('LEFT', 'order_status s', 'o.status_id = s.status_id')
     ->columns([
-        'order_id' => ['label' => 'Order ID', 'field' => 'o.order_id'],
-        'customer_name' => ['label' => 'Customer', 'field' => 'c.name'],
-        'order_date' => ['label' => 'Date', 'field' => 'o.order_date'],
-        'status_name' => ['label' => 'Status', 'field' => 's.status_name'],
-        'total' => ['label' => 'Total', 'field' => 'o.total']
+        'order_id' => 'Order ID',
+        'customer_name' => 'Customer',
+        'order_date' => 'Date',
+        'status_name' => 'Status',
+        'total' => 'Total'
     ]);
 ```
 
@@ -385,13 +420,137 @@ $dataTable
 ### Enable/Disable Search
 ```php
 ->search(true)  // Enable search
-->noSearch()    // Disable search (shorthand for ->search(false))
+->search(false) // Disable search
 ```
 
-The search feature automatically includes:
-- Global search across all columns
-- Column-specific search dropdown
-- Real-time search with 300ms debounce
+## CSS Customization
+
+### Table Classes
+```php
+->tableClass('uk-table uk-table-striped uk-table-hover custom-table')
+```
+
+### Row Classes with ID Suffix
+```php
+->rowClass('highlight') // Creates classes like "highlight-123" for row with ID 123
+```
+
+### Column-Specific Classes
+```php
+->columnClasses([
+    'name' => 'uk-text-bold uk-text-primary',
+    'status' => 'uk-text-center',
+    'actions' => 'uk-text-nowrap'
+])
+```
+
+## Complete Working Example
+
+```php
+<?php
+require 'vendor/autoload.php';
+
+use KPT\DataTables\DataTables;
+
+// Database configuration
+$dbConfig = [
+    'server' => 'localhost',
+    'schema' => 'your_database',
+    'username' => 'your_username',
+    'password' => 'your_password',
+    'charset' => 'utf8mb4',
+    'collation' => 'utf8mb4_unicode_ci'
+];
+
+// Create DataTables instance
+$dataTable = new DataTables($dbConfig);
+
+// Handle AJAX requests first
+if (isset($_POST['action']) || isset($_GET['action'])) {
+    $dataTable->handleAjax();
+}
+?>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>DataTables Example</title>
+    <!-- UIKit CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uikit@3.16.14/dist/css/uikit.min.css" />
+    <!-- UIKit JS -->
+    <script src="https://cdn.jsdelivr.net/npm/uikit@3.16.14/dist/js/uikit.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/uikit@3.16.14/dist/js/uikit-icons.min.js"></script>
+    <?php echo DataTables::getJsIncludes(); ?>
+</head>
+<body>
+    <div class="uk-container uk-margin-top">
+        <?php
+        echo $dataTable
+            ->table('users')
+            ->columns([
+                'id' => 'ID',
+                'name' => 'Name',
+                'email' => 'Email',
+                'status' => [
+                    'label' => 'Status',
+                    'type' => 'boolean'
+                ]
+            ])
+            ->sortable(['name', 'email'])
+            ->inlineEditable(['name', 'email', 'status'])
+            ->bulkActions(true)
+            ->addForm('Add User', [
+                'name' => [
+                    'type' => 'text',
+                    'label' => 'Full Name',
+                    'required' => true
+                ],
+                'email' => [
+                    'type' => 'email',
+                    'label' => 'Email',
+                    'required' => true
+                ],
+                'status' => [
+                    'type' => 'boolean',
+                    'label' => 'Active',
+                    'value' => '1'
+                ]
+            ])
+            ->editForm('Edit User', [
+                'name' => [
+                    'type' => 'text',
+                    'label' => 'Full Name',
+                    'required' => true
+                ],
+                'email' => [
+                    'type' => 'email',
+                    'label' => 'Email',
+                    'required' => true
+                ],
+                'status' => [
+                    'type' => 'boolean',
+                    'label' => 'Active'
+                ]
+            ])
+            ->renderDataTableComponent();
+        ?>
+    </div>
+</body>
+</html>
+```
+
+## Auto-Generated Forms
+
+The library automatically generates forms based on your database schema:
+
+- **Text Fields**: VARCHAR, CHAR columns become text inputs
+- **Email Fields**: Columns with "email" in the name become email inputs
+- **Numbers**: INT, DECIMAL, FLOAT columns become number inputs
+- **Booleans**: TINYINT(1) columns become boolean toggles
+- **Dates**: DATE, DATETIME, TIMESTAMP columns become date/datetime inputs
+- **Text Areas**: TEXT, LONGTEXT columns become textareas
+- **Selects**: ENUM columns become select dropdowns
+
+You can override any auto-detected type using the enhanced column configuration.
 
 ## Events and Hooks
 
@@ -413,18 +572,43 @@ document.addEventListener('datatables:theme:changed', function(e) {
 });
 ```
 
-## Installation Page
+## API Methods
 
-For first-time setup, the package can generate an installation page if no database configuration is found:
+### Core Configuration
+- `table(string $tableName)` - Set the database table
+- `database(array $config)` - Configure database connection
+- `primaryKey(string $column)` - Set primary key column (default: 'id')
+- `columns(array $columns)` - Configure table columns
+- `join(string $type, string $table, string $condition)` - Add JOIN clause
 
-```php
-// Check if configuration exists
-if (!file_exists('settings/.config.json')) {
-    // Show installation page
-    include 'vendor/kpirnie/kpt-datatables/install.php';
-    exit;
-}
-```
+### Display Options
+- `sortable(array $columns)` - Set sortable columns
+- `inlineEditable(array $columns)` - Set inline editable columns
+- `search(bool $enabled)` - Enable/disable search
+- `perPage(int $count)` - Set records per page
+- `pageSizeOptions(array $options, bool $includeAll)` - Set page size options
+
+### Actions and Forms
+- `actions(string $position, bool $showEdit, bool $showDelete, array $customActions)` - Configure action buttons
+- `actionGroups(array $groups)` - Configure grouped actions with separators
+- `bulkActions(bool $enabled, array $actions)` - Configure bulk actions
+- `addForm(string $title, array $fields, bool $ajax)` - Configure add form
+- `editForm(string $title, array $fields, bool $ajax)` - Configure edit form
+
+### Styling
+- `tableClass(string $class)` - Set table CSS class
+- `rowClass(string $class)` - Set row CSS class base
+- `columnClasses(array $classes)` - Set column-specific CSS classes
+
+### File Handling
+- `fileUpload(string $path, array $extensions, int $maxSize)` - Configure file uploads
+
+### Rendering
+- `renderDataTableComponent()` - Generate complete HTML output
+- `handleAjax()` - Handle AJAX requests
+
+### Static Methods
+- `DataTables::getJsIncludes()` - Get JavaScript include tags
 
 ## Browser Support
 
@@ -454,7 +638,7 @@ composer test-coverage
 composer phpstan
 
 # Run code style check
-composer phpcs
+composer cs-check
 ```
 
 ## Security
@@ -490,4 +674,3 @@ The MIT License (MIT). Please see [License File](LICENSE) for more information.
 ---
 
 **Made with ❤️ by [Kevin Pirnie](https://kpirnie.com)**
-```
