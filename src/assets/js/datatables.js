@@ -225,7 +225,8 @@ class DataTablesJS {
                     cellContent = `<span class="inline-editable" data-field="${column}" data-id="${rowId}" data-type="${fieldType}" style="cursor: pointer;">${cellContent}</span>`;
                 }
                 
-                html += `<td${columnClass || tdClass ? ` class="${columnClass}${tdClass}"` : ''}>${cellContent}</td>`;
+                const classNames = [columnClass, tdClass].filter(c => c).join(' ');
+                html += `<td${classNames ? ` class="${classNames}"` : ''}>${cellContent}</td>`;
                 }
             );
 

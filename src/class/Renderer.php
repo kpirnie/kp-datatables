@@ -719,7 +719,8 @@ class Renderer extends DataTablesBase
         $html .= "        bulkActionsEnabled: " . ($bulkActions['enabled'] ? 'true' : 'false') . ",\n";
         $html .= "        bulkActions: " . json_encode($bulkActions['actions']) . ",\n";
         $html .= "        actionConfig: " . json_encode($actionConfig) . ",\n";
-        $html .= "        columns: " . json_encode($columns) . "\n";
+        $html .= "        columns: " . json_encode($columns) . ",\n";
+        $html .= "        cssClasses: " . json_encode($this->getCssClasses()) . "\n";
         $html .= "    });\n";
         $html .= "});\n";
         $html .= "</script>\n";
