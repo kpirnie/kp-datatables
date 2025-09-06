@@ -292,12 +292,25 @@ class DataTablesJS {
                         const icon = actionConfig.icon || 'link';
                         const title = actionConfig.title || '';
                         const className = actionConfig.class || 'btn-custom';
-                        const onclick = actionConfig.onclick || '';
+                        let href = actionConfig.href || '#';
+                        let onclick = actionConfig.onclick || '';
+                        const attributes = actionConfig.attributes || {};
                         
-                        html += '<a href="#" class="uk-icon-link ' + className + '" uk-icon="' + icon + '" title="' + title + '"';
+                        // Replace {id} placeholder with actual rowId in href and onclick
+                        href = href.replace('{id}', rowId);
+                        onclick = onclick.replace('{id}', rowId);
+                        
+                        html += '<a href="' + href + '" class="uk-icon-link ' + className + '" uk-icon="' + icon + '" title="' + title + '"';
                         if (onclick) {
                             html += ' onclick="' + onclick + '"';
                         }
+                        
+                        // Add custom attributes (also replace {id} in attribute values)
+                        for (const [attrName, attrValue] of Object.entries(attributes)) {
+                            const processedValue = String(attrValue).replace('{id}', rowId);
+                            html += ' ' + attrName + '="' + processedValue + '"';
+                        }
+                        
                         html += '></a>';
                         
                         // Add separator within group if not the last action
@@ -329,7 +342,26 @@ class DataTablesJS {
                     const icon = action.icon || 'link';
                     const title = action.title || '';
                     const className = action.class || 'btn-custom';
-                    html += '<a href="#" class="uk-icon-link ' + className + ' uk-margin-small-right" uk-icon="' + icon + '" title="' + title + '"></a>';
+                    let href = action.href || '#';
+                    let onclick = action.onclick || '';
+                    const attributes = action.attributes || {};
+                    
+                    // Replace {id} placeholder with actual rowId
+                    href = href.replace('{id}', rowId);
+                    onclick = onclick.replace('{id}', rowId);
+                    
+                    html += '<a href="' + href + '" class="uk-icon-link ' + className + ' uk-margin-small-right" uk-icon="' + icon + '" title="' + title + '"';
+                    if (onclick) {
+                        html += ' onclick="' + onclick + '"';
+                    }
+                    
+                    // Add custom attributes (also replace {id} in attribute values)
+                    for (const [attrName, attrValue] of Object.entries(attributes)) {
+                        const processedValue = String(attrValue).replace('{id}', rowId);
+                        html += ' ' + attrName + '="' + processedValue + '"';
+                    }
+                    
+                    html += '></a>';
                     }
                 );
             }
