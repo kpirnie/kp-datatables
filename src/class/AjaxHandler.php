@@ -55,7 +55,7 @@ class AjaxHandler
         // Whitelist of allowed actions for security
         $allowedActions = [
             'fetch_data', 'add_record', 'edit_record', 'delete_record',
-            'bulk_action', 'inline_edit', 'upload_file'
+            'bulk_action', 'inline_edit', 'upload_file', 'fetch_record'
         ];
 
         if (!in_array($action, $allowedActions)) {
@@ -67,6 +67,10 @@ class AjaxHandler
             case 'fetch_data':
                 // Handle data retrieval for table display
                 $this->handleFetchData();
+                break;
+            case 'fetch_record':
+                // Handle single record fetch for editing
+                $this->handleFetchRecord();
                 break;
             case 'add_record':
                 // Handle new record creation
@@ -704,14 +708,14 @@ class AjaxHandler
     }
 
     /**
-` * Handle data fetching for table display with enhanced input sanitization
- *
- * Processes requests for table data including pagination, sorting, and searching.
- * Builds and executes SQL queries based on the request parameters and returns
- * JSON response with data and metadata. All inputs are sanitized and validated.
- *
- * @return void (outputs JSON and exits)
- */
+     * Handle data fetching for table display with enhanced input sanitization
+     *
+     * Processes requests for table data including pagination, sorting, and searching.
+     * Builds and executes SQL queries based on the request parameters and returns
+     * JSON response with data and metadata. All inputs are sanitized and validated.
+     *
+     * @return void (outputs JSON and exits)
+     */
     private function handleFetchData(): void
     {
         // Extract and validate pagination parameters with bounds checking
@@ -761,14 +765,53 @@ class AjaxHandler
         exit;
     }
 
-/**
- * Handle new record creation with schema validation
- *
- * Processes POST data to create a new record in the database. Validates all
- * input against the database schema and handles file uploads if present.
- *
- * @return void (outputs JSON and exits)
- */
+    /**
+     * Handle single record fetch for editing
+     *
+     * Retrieves complete record data for populating edit forms. This ensures
+     * all form fields get populated regardless of which columns are visible in the table.
+     *
+     * @return void (outputs JSON and exits)
+     * @throws InvalidArgumentException If no record ID is provided
+     */
+    private function handleFetchRecord(): void
+    {
+        // Extract and validate the record ID
+        $id = $this->validateInteger($_GET['id'] ?? $_POST['id'] ?? null);
+        if (!$id) {
+            throw new InvalidArgumentException('Valid record ID is required');
+        }
+
+        // Build and execute SELECT query for single record
+        $query = "SELECT * FROM `{$this->dataTable->getTableName()}` WHERE `{$this->dataTable->getPrimaryKey()}` = ?";
+        $result = $this->dataTable->getDatabase()
+                                ->query($query)
+                                ->bind([$id])
+                                ->single()
+                                ->fetch();
+
+        // Check if record was found
+        $success = $result !== false;
+        $message = $success ? 'Record fetched successfully' : 'Record not found';
+
+        // Send JSON response
+        header('Content-Type: application/json');
+        echo json_encode([
+            'success' => $success,
+            'message' => $message,
+            'data' => $result ?: null
+        ]);
+        exit;
+    }
+
+    /**
+     * Handle new record creation with schema validation
+     *
+     * Processes POST data to create a new record in the database. Validates all
+     * input against the database schema and handles file uploads if present.
+     *
+     * @return void (outputs JSON and exits)
+     */
     private function handleAddRecord(): void
     {
         // Get and sanitize POST data

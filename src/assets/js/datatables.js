@@ -613,79 +613,71 @@ class DataTablesJS {
 
     loadRecordForEdit(id)
     {
-        // Find row data and populate form
-        const row = document.querySelector(`tr[data-id="${id}"]`);
-        if (!row) { return; }
+        // Fetch complete record data via AJAX instead of parsing table cells
+        const params = new URLSearchParams({
+            action: 'fetch_record',
+            id: id
+        });
 
+        fetch('?' + params.toString())
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.data) {
+                    // Populate all form fields with the fetched data
+                    this.populateEditForm(data.data);
+                } else {
+                    console.error('Failed to fetch record:', data.message);
+                    UIkit.notification(data.message || 'Failed to fetch record data', {status: 'danger'});
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching record:', error);
+                UIkit.notification('Error fetching record data', {status: 'danger'});
+            });
+    }
+    
+
+    populateEditForm(recordData)
+    {
         // Set the primary key field
         const pkField = document.getElementById(`edit-${this.primaryKey}`);
-        if (pkField) { 
-            pkField.value = id; 
-            //console.log(`Set primary key field ${this.primaryKey} to ${id}`);
+        if (pkField) {
+            pkField.value = recordData[this.primaryKey] || '';
         }
 
-        // Get all table cells from the row
-        const cells = row.querySelectorAll('td');
-        let cellIndex = 0;
+        // Get all form fields in the edit form
+        const editForm = document.getElementById('edit-form');
+        if (!editForm) return;
+
+        // Find all form inputs, selects, and textareas
+        const formElements = editForm.querySelectorAll('input, select, textarea');
         
-        // Skip bulk actions checkbox cell if present
-        if (this.bulkActionsEnabled) cellIndex++;
-        
-        // Skip action column if at start
-        if (this.actionConfig.position === 'start') cellIndex++;
-        
-        // Map cells to columns in order
-        Object.keys(this.columns).forEach(column => {
-            if (cells[cellIndex]) {
-                // Get text content, handling inline editable spans and boolean fields
-                const cellElement = cells[cellIndex];
-                let value;
-                
-                // Check for boolean fields first - be more specific in the search
-                const booleanToggle = cellElement.querySelector('.boolean-toggle[data-value]');
-                const booleanSpan = cellElement.querySelector('span[data-value]');
-                
-                if (booleanToggle) {
-                    value = booleanToggle.getAttribute('data-value');
-                    // Handle empty data-value by checking the icon type
-                    if (!value || value === '') {
-                        const icon = booleanToggle.querySelector('[uk-icon]');
-                        value = icon && icon.getAttribute('uk-icon') === 'check' ? '1' : '0';
-                    }
-                    //console.log(`Found boolean toggle for ${column}, value: ${value}`);
-                } else if (booleanSpan) {
-                    value = booleanSpan.getAttribute('data-value');
-                    //console.log(`Found boolean span for ${column}, value: ${value}`);
+        formElements.forEach(element => {
+            const fieldName = element.name;
+            
+            // Skip if no field name or if it's the primary key (already handled)
+            if (!fieldName || fieldName === this.primaryKey) return;
+            
+            // Get value from record data
+            const value = recordData[fieldName];
+            
+            if (value !== undefined && value !== null) {
+                if (element.type === 'checkbox') {
+                    element.checked = value == '1' || value === 'true' || value === true;
+                } else if (element.type === 'radio') {
+                    element.checked = element.value === String(value);
                 } else {
-                    // Handle regular fields and inline editable spans
-                    const editableSpan = cellElement.querySelector('.inline-editable');
-                    value = editableSpan ? editableSpan.textContent.trim() : cellElement.textContent.trim();
+                    element.value = value;
                 }
-                
-                const formField = document.getElementById(`edit-${column}`);
-                if (formField) {
-                    if (formField.type === 'checkbox') {
-                        formField.checked = value === '1' || value === 'true' || value === true;
-                    } else {
-                        // For select fields, ensure we match the exact value
-                        formField.value = value;
-                        
-                        // If it's a select and value wasn't set, try to find matching option
-                        if (formField.tagName === 'SELECT' && formField.value !== value) {
-                            for (let option of formField.options) {
-                                if (option.value === value || option.value === String(value)) {
-                                    formField.value = option.value;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    //console.log(`Set field ${column} to ${value} (type: ${typeof value})`);
+            } else {
+                // Clear field if no value found
+                if (element.type === 'checkbox' || element.type === 'radio') {
+                    element.checked = false;
+                } else {
+                    element.value = '';
                 }
             }
-            cellIndex++;
         });
-        
     }
 
     submitAddForm(event)
