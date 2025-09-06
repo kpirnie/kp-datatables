@@ -388,6 +388,7 @@ class Renderer extends DataTablesBase
         $formConfig = $this->getAddFormConfig();
         $formFields = $formConfig['fields'];
         $title = $formConfig['title'];
+        $formClass = $formConfig['class'] ?? '';
 
         // Modal container
         $html = "<div id=\"add-modal\" uk-modal>\n";
@@ -395,7 +396,7 @@ class Renderer extends DataTablesBase
         $html .= "<h2 class=\"uk-modal-title\">{$title}</h2>\n";
 
         // Form with AJAX submission
-        $html .= "<form class=\"uk-form-stacked\" id=\"add-form\" onsubmit=\"return DataTables.submitAddForm(event)\">\n";
+        $html .= "<form class=\"uk-form-stacked {$formClass}\" id=\"add-form\" onsubmit=\"return DataTables.submitAddForm(event)\">\n";
 
         // Generate form fields from configuration
         foreach ($formFields as $field => $config) {
@@ -403,7 +404,7 @@ class Renderer extends DataTablesBase
         }
 
         // Modal action buttons
-        $html .= "<div class=\"uk-margin-top uk-text-right\">\n";
+        $html .= "<div class=\"uk-width-1-1 uk-margin-top uk-text-right\">\n";
         $html .= "<button class=\"uk-button uk-button-default uk-modal-close\" type=\"button\">Cancel</button>\n";
         $html .= "<button class=\"uk-button uk-button-primary uk-margin-small-left\" type=\"submit\">Add Record</button>\n";
         $html .= "</div>\n";
@@ -426,6 +427,7 @@ class Renderer extends DataTablesBase
         $formFields = $formConfig['fields'];
         $title = $formConfig['title'];
         $primaryKey = $this->getPrimaryKey();
+        $formClass = $formConfig['class'] ?? '';
 
         // Modal container
         $html = "<div id=\"edit-modal\" uk-modal>\n";
@@ -433,7 +435,7 @@ class Renderer extends DataTablesBase
         $html .= "<h2 class=\"uk-modal-title\">{$title}</h2>\n";
 
         // Form with AJAX submission
-        $html .= "<form class=\"uk-form-stacked\" id=\"edit-form\" onsubmit=\"return DataTables.submitEditForm(event)\">\n";
+        $html .= "<form class=\"uk-form-stacked {$formClass}\" id=\"edit-form\" onsubmit=\"return DataTables.submitEditForm(event)\">\n";
 
         // Hidden field for record ID (populated by JavaScript)
         $html .= "<input type=\"hidden\" name=\"{$primaryKey}\" id=\"edit-{$primaryKey}\">\n";
@@ -444,7 +446,7 @@ class Renderer extends DataTablesBase
         }
 
         // Modal action buttons
-        $html .= "<div class=\"uk-margin-top uk-text-right\">\n";
+        $html .= "<div class=\"uk-width-1-1 uk-margin-top uk-text-right\">\n";
         $html .= "<button class=\"uk-button uk-button-default uk-modal-close\" type=\"button\">Cancel</button>\n";
         $html .= "<button class=\"uk-button uk-button-primary uk-margin-small-left\" type=\"submit\">Update Record</button>\n";
         $html .= "</div>\n";
@@ -521,7 +523,7 @@ class Renderer extends DataTablesBase
         $fieldName = $field;
 
         // Start field container
-        $html = "<div class=\"uk-margin\">\n";
+        $html = "<div class=\"{$customClass}\">\n";
 
         // Render field based on type
         switch ($type) {
@@ -533,13 +535,12 @@ class Renderer extends DataTablesBase
                 // Boolean toggle field rendered as select for forms
                 $html .= "<label class=\"uk-form-label\" for=\"{$fieldId}\">{$label}" .
                         ($required ? " <span class=\"uk-text-danger\">*</span>" : "") . "</label>\n";
-                $html .= "<div class=\"uk-form-controls\">\n";
 
-                $baseClass = 'uk-select';
-                $fieldClass = $customClass ? "{$baseClass} {$customClass}" : $baseClass;
+
+                $html .= "<div class=\"uk-form-controls\">\n";
                 $attrString = $this->buildAttributeString($attributes);
 
-                $html .= "<select class=\"{$fieldClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" " .
+                $html .= "<select class=\"uk-select\" id=\"{$fieldId}\" name=\"{$fieldName}\" " .
                         "{$attrString} " . ($required ? "required" : "") .
                         ($disabled ? " disabled" : "") . ">\n";
 
@@ -555,13 +556,11 @@ class Renderer extends DataTablesBase
 
             case 'checkbox':
                 // Checkbox field for boolean values (no separate label div)
-                $baseClass = 'uk-checkbox';
-                $fieldClass = $customClass ? "{$baseClass} {$customClass}" : $baseClass;
                 $attrString = $this->buildAttributeString($attributes);
 
                 $html .= "<div class=\"uk-form-controls\">\n";
                 $html .= "<label>";
-                $html .= "<input type=\"checkbox\" class=\"{$fieldClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" value=\"1\" {$attrString}";
+                $html .= "<input type=\"checkbox\" class=\"uk-checkbox\" id=\"{$fieldId}\" name=\"{$fieldName}\" value=\"1\" {$attrString}";
                 if ($value == '1' || $value === true) {
                     $html .= " checked";
                 }
@@ -582,8 +581,6 @@ class Renderer extends DataTablesBase
                         ($required ? " <span class=\"uk-text-danger\">*</span>" : "") . "</label>\n";
                 $html .= "<div class=\"uk-form-controls\">\n";
 
-                $baseClass = 'uk-radio';
-                $fieldClass = $customClass ? "{$baseClass} {$customClass}" : $baseClass;
                 $attrString = $this->buildAttributeString($attributes);
 
                 foreach ($options as $optValue => $optLabel) {
@@ -591,7 +588,7 @@ class Renderer extends DataTablesBase
                     $disabledAttr = $disabled ? ' disabled' : '';
 
                     $html .= "<label class=\"uk-margin-small-right\">";
-                    $html .= "<input type=\"radio\" class=\"{$fieldClass}\" name=\"{$fieldName}\" value=\"{$optValue}\" {$attrString}{$checked}{$disabledAttr}";
+                    $html .= "<input type=\"radio\" class=\"uk-radio\" name=\"{$fieldName}\" value=\"{$optValue}\" {$attrString}{$checked}{$disabledAttr}";
                     if ($required) {
                         $html .= " required";
                     }
@@ -607,11 +604,9 @@ class Renderer extends DataTablesBase
                         ($required ? " <span class=\"uk-text-danger\">*</span>" : "") . "</label>\n";
                 $html .= "<div class=\"uk-form-controls\">\n";
 
-                $baseClass = 'uk-textarea';
-                $fieldClass = $customClass ? "{$baseClass} {$customClass}" : $baseClass;
                 $attrString = $this->buildAttributeString($attributes);
 
-                $html .= "<textarea class=\"{$fieldClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" " .
+                $html .= "<textarea class=\"uk-textarea\" id=\"{$fieldId}\" name=\"{$fieldName}\" " .
                         "placeholder=\"{$placeholder}\" {$attrString} " . ($required ? "required" : "") .
                         ($disabled ? " disabled" : "") . "></textarea>\n";
                 $html .= "</div>\n";
@@ -623,11 +618,9 @@ class Renderer extends DataTablesBase
                         ($required ? " <span class=\"uk-text-danger\">*</span>" : "") . "</label>\n";
                 $html .= "<div class=\"uk-form-controls\">\n";
 
-                $baseClass = 'uk-select';
-                $fieldClass = $customClass ? "{$baseClass} {$customClass}" : $baseClass;
                 $attrString = $this->buildAttributeString($attributes);
 
-                $html .= "<select class=\"{$fieldClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" " .
+                $html .= "<select class=\"uk-select\" id=\"{$fieldId}\" name=\"{$fieldName}\" " .
                         "{$attrString} " . ($required ? "required" : "") .
                         ($disabled ? " disabled" : "") . ">\n";
 
@@ -651,11 +644,9 @@ class Renderer extends DataTablesBase
                         ($required ? " <span class=\"uk-text-danger\">*</span>" : "") . "</label>\n";
                 $html .= "<div class=\"uk-form-controls\">\n";
 
-                $baseClass = 'uk-input';
-                $fieldClass = $customClass ? "{$baseClass} {$customClass}" : $baseClass;
                 $attrString = $this->buildAttributeString($attributes);
 
-                $html .= "<input type=\"file\" class=\"{$fieldClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" " .
+                $html .= "<input type=\"file\" class=\"uk-input\" id=\"{$fieldId}\" name=\"{$fieldName}\" " .
                         "{$attrString} " . ($required ? "required" : "") .
                         ($disabled ? " disabled" : "") . ">\n";
                 $html .= "</div>\n";
@@ -667,11 +658,9 @@ class Renderer extends DataTablesBase
                         ($required ? " <span class=\"uk-text-danger\">*</span>" : "") . "</label>\n";
                 $html .= "<div class=\"uk-form-controls\">\n";
 
-                $baseClass = 'uk-input';
-                $fieldClass = $customClass ? "{$baseClass} {$customClass}" : $baseClass;
                 $attrString = $this->buildAttributeString($attributes);
 
-                $html .= "<input type=\"{$type}\" class=\"{$fieldClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" " .
+                $html .= "<input type=\"{$type}\" class=\"uk-input\" id=\"{$fieldId}\" name=\"{$fieldName}\" " .
                         "placeholder=\"{$placeholder}\" value=\"{$value}\" {$attrString} " .
                         ($required ? "required" : "") . ($disabled ? " disabled" : "") . ">\n";
                 $html .= "</div>\n";

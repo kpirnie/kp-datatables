@@ -671,12 +671,13 @@ class DataTables extends Renderer
      * @param  bool   $ajax Whether form should use AJAX submission
      * @return self Returns self for method chaining
      */
-    public function addForm(string $title, array $fields, bool $ajax = true): self
+    public function addForm(string $title, array $fields, bool $ajax = true, string $class = ''): self
     {
         $this->addFormConfig = [
             'title' => $title,
             'fields' => $fields,
-            'ajax' => $ajax
+            'ajax' => $ajax,
+            'class' => $class
         ];
 
         Logger::debug("DataTables add form configured", ['field_count' => count($fields)]);
@@ -691,12 +692,13 @@ class DataTables extends Renderer
      * @param  bool   $ajax Whether form should use AJAX submission
      * @return self Returns self for method chaining
      */
-    public function editForm(string $title, array $fields, bool $ajax = true): self
+    public function editForm(string $title, array $fields, bool $ajax = true, string $class = ''): self
     {
         $this->editFormConfig = [
             'title' => $title,
             'fields' => $fields,
-            'ajax' => $ajax
+            'ajax' => $ajax,
+            'class' => $class
         ];
 
         Logger::debug("DataTables edit form configured", ['field_count' => count($fields)]);

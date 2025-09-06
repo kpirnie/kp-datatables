@@ -170,7 +170,8 @@ abstract class DataTablesBase
     protected array $addFormConfig = [
         'title' => 'Add New Record',
         'fields' => [],
-        'ajax' => true
+        'ajax' => true,
+        'class' => '',
     ];
 
     /**
@@ -181,7 +182,8 @@ abstract class DataTablesBase
     protected array $editFormConfig = [
         'title' => 'Edit Record',
         'fields' => [],
-        'ajax' => true
+        'ajax' => true,
+        'class' => '',
     ];
 
     /**
