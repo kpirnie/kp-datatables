@@ -244,12 +244,25 @@ class DataTables extends Renderer
      */
     public function table(string $tableName): self
     {
-        $this->tableName = $this->sanitizeInput($tableName);
+        // Check if there's an alias (space followed by alias)
+        if (preg_match('/^([a-zA-Z0-9_]+)\s+([a-zA-Z0-9_]+)$/', trim($tableName), $matches)) {
+            // Table has alias: store both base table name and full name with alias
+            $this->baseTableName = $matches[1];  // Base table name for operations
+            $this->tableName = trim($tableName);  // Full name with alias for SELECT queries
+        } else {
+            // No alias: sanitize and store
+            $this->baseTableName = $this->sanitizeInput($tableName);
+            $this->tableName = $this->baseTableName;
+        }
 
         // Only load schema if database is available
         if ($this->db) {
             try {
+                // Use base table name for schema loading
+                $originalTableName = $this->tableName;
+                $this->tableName = $this->baseTableName;  // Temporarily set to base name
                 $this->loadTableSchema();
+                $this->tableName = $originalTableName;  // Restore full name with alias
             } catch (Exception $e) {
                 Logger::error("Failed to load table schema", ['table' => $tableName, 'error' => $e->getMessage()]);
                 // Continue without schema - basic functionality will still work
@@ -332,21 +345,17 @@ class DataTables extends Renderer
      */
     public function join(string $type, string $table, string $condition): self
     {
-        // Store JOIN configuration for later query building
         $this->joins[] = [
-            'type' => strtoupper($this->sanitizeInput($type)),    // Normalize JOIN type to uppercase
-            'table' => $this->sanitizeInput($table),
-            'condition' => $condition // Note: This needs careful validation in practice
+            'type' => strtoupper(trim($type)),    // Just normalize case and trim
+            'table' => trim($table),              // DON'T sanitize - preserve spaces for aliases
+            'condition' => trim($condition)       // DON'T sanitize - preserve column references
         ];
 
-        Logger::debug(
-            "DataTables JOIN added",
-            [
+        Logger::debug("DataTables JOIN added", [
             'type' => $type,
             'table' => $table,
             'condition' => $condition
-            ]
-        );
+        ]);
 
         return $this;
     }

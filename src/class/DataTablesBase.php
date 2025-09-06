@@ -42,6 +42,13 @@ abstract class DataTablesBase
     protected string $tableName = '';
 
     /**
+     * Base table name without alias (for operations like DELETE, UPDATE)
+     *
+     * @var string
+     */
+    protected string $baseTableName = '';
+
+    /**
      * Column configuration array
      *
      * Format: ['column_name' => 'Display Label'] or ['column_name' => ['label' => 'Label', 'type' => 'email']]
@@ -374,5 +381,15 @@ abstract class DataTablesBase
     public function getEditFormConfig(): array
     {
         return $this->editFormConfig;
+    }
+
+    /**
+     * Get the base table name (without alias)
+     *
+     * @return string The base table name for operations
+     */
+    public function getBaseTableName(): string
+    {
+        return $this->baseTableName ?: $this->tableName;
     }
 }

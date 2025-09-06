@@ -163,7 +163,9 @@ class DataTablesJS {
         data.forEach(
 
             row => {
-            const rowId = row[this.primaryKey];
+
+            // Find the ID value regardless of key format
+            const rowId = row['s.id'] || row['id'] || row[this.primaryKey] || Object.values(row)[0];
             const rowClass = this.getRowClass(rowId);
             html += `<tr${rowClass ? ` class="${rowClass} row-select"` : ''} data-id="${rowId}">`;
 

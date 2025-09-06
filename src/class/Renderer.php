@@ -103,8 +103,6 @@ class Renderer extends DataTablesBase
      */
     protected function renderBulkActions(array $bulkConfig): string
     {
-
-        // start the html output
         $html = "<div class=\"uk-grid-small uk-child-width-auto\" uk-grid>\n";
 
         // Add new record button - always available
@@ -112,26 +110,41 @@ class Renderer extends DataTablesBase
         $html .= "          <a href=\"#\" class=\"uk-icon-link\" uk-icon=\"plus\" onclick=\"DataTables.showAddModal(event)\" uk-tooltip=\"Add a New Record\"></a>\n";
         $html .= "      </div>\n";
 
-        $actionCount = 0;
-        $totalActions = count($bulkConfig['actions']);
+        // Check if we have action groups with bulk-capable actions
+        $actionConfig = $this->getActionConfig();
+        $hasGroupActions = false;
+        $groupActions = [];
 
-        // loop over the actions configured
-        foreach ($bulkConfig['actions'] as $action => $config) {
+        if (isset($actionConfig['groups'])) {
+            foreach ($actionConfig['groups'] as $group) {
+                if (is_array($group)) {
+                    foreach ($group as $actionKey => $actionData) {
+                        if ($actionKey === 'delete' || (is_string($actionData) && $actionData === 'delete')) {
+                            $hasGroupActions = true;
+                            $groupActions['delete'] = [
+                                'icon' => 'trash',
+                                'label' => 'Delete Selected',
+                                'confirm' => 'Are you sure you want to delete the selected records?'
+                            ];
+                        }
+                    }
+                }
+            }
+        }
+
+        // Use group actions if available, otherwise fall back to bulk actions
+        $actionsToRender = $hasGroupActions ? $groupActions : $bulkConfig['actions'];
+        
+        $actionCount = 0;
+        $totalActions = count($actionsToRender);
+
+        foreach ($actionsToRender as $action => $config) {
             $actionCount++;
 
-            // Get action configuration
             $icon = $config['icon'] ?? 'link';
             $label = $config['label'] ?? ucfirst($action);
-            $class = $config['class'] ?? '';
             $confirm = $config['confirm'] ?? '';
 
-            // Special handling for delete action
-            if ($action === 'delete') {
-                $icon = 'trash';
-                $class = '';
-            }
-
-            // create the html needed for the action
             $html .= "<div>\n";
             $html .= "<a class=\"uk-icon-link datatables-bulk-action-btn\" uk-icon=\"{$icon}\" ";
             $html .= "data-action=\"{$action}\" ";
@@ -140,15 +153,12 @@ class Renderer extends DataTablesBase
             $html .= "uk-tooltip=\"{$label}\" disabled></a>\n";
             $html .= "</div>\n";
 
-            // Add separator if not the last action
             if ($actionCount < $totalActions) {
                 $html .= "<div class=\"uk-text-muted\">|</div>\n";
             }
         }
 
         $html .= "</div>\n";
-
-        // return the html
         return $html;
     }
 
@@ -702,6 +712,14 @@ class Renderer extends DataTablesBase
         // Extract configuration for JavaScript
         $tableName = $this->getTableName();
         $primaryKey = $this->getPrimaryKey();
+        
+        // If primary key is qualified, pass just the column name to JavaScript
+        if (strpos($primaryKey, '.') !== false) {
+            $jsPrimaryKey = explode('.', $primaryKey)[1];
+        } else {
+            $jsPrimaryKey = $primaryKey;
+        }
+        
         $inlineEditableColumns = json_encode($this->getInlineEditableColumns());
         $bulkActions = $this->getBulkActions();
         $actionConfig = $this->getActionConfig();
@@ -710,10 +728,9 @@ class Renderer extends DataTablesBase
         // Generate initialization script
         $html = "<script>\n";
         $html .= "document.addEventListener('DOMContentLoaded', function() {\n";
-        $html .= "    // Initialize DataTables with configuration\n";
         $html .= "    window.DataTables = new DataTablesJS({\n";
         $html .= "        tableName: '{$tableName}',\n";
-        $html .= "        primaryKey: '{$primaryKey}',\n";
+        $html .= "        primaryKey: '{$jsPrimaryKey}',\n";  // Use unqualified for JS
         $html .= "        inlineEditableColumns: {$inlineEditableColumns},\n";
         $html .= "        perPage: " . $this->getRecordsPerPage() . ",\n";
         $html .= "        bulkActionsEnabled: " . ($bulkActions['enabled'] ? 'true' : 'false') . ",\n";
@@ -727,4 +744,5 @@ class Renderer extends DataTablesBase
 
         return $html;
     }
+
 }
