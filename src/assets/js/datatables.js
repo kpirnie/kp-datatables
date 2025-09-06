@@ -146,8 +146,7 @@ class DataTablesJS {
     renderTable(data)
     {
         const tbody = document.querySelector('.datatables-tbody');
-        if (!tbody) { return;
-        }
+        if (!tbody) { return; }
 
         const columnCount = this.getColumnCount();
 
@@ -162,71 +161,77 @@ class DataTablesJS {
 
         let html = '';
         data.forEach(
+
             row => {
             const rowId = row[this.primaryKey];
             const rowClass = this.getRowClass(rowId);
-            html += `<tr${rowClass ? ` class="${rowClass}"` : ''} data-id="${rowId}">`;
+            html += `<tr${rowClass ? ` class="${rowClass} row-select"` : ''} data-id="${rowId}">`;
+
             // Bulk selection checkbox
-                if (this.bulkActionsEnabled) {
-                    html += '<td class="uk-table-shrink">';
-                    html += `<label><input type="checkbox" class="uk-checkbox row-checkbox" value="${rowId}" onchange="DataTables.toggleRowSelection(this)"></label>`;
-                    html += '</td>';
-                }
+            if (this.bulkActionsEnabled) {
+                html += '<td class="uk-table-shrink row-check">';
+                html += `<label><input type="checkbox" class="uk-checkbox row-checkbox" value="${rowId}" onchange="DataTables.toggleRowSelection(this)"></label>`;
+                html += '</td>';
+            }
 
-                // Action column at start
-                if (this.actionConfig.position === 'start') {
-                    html += '<td class="uk-table-shrink">';
-                    html += this.renderActionButtons(rowId);
-                    html += '</td>';
-                }
+            // Action column at start
+            if (this.actionConfig.position === 'start') {
+                html += '<td class="uk-table-shrink row-action">';
+                html += this.renderActionButtons(rowId);
+                html += '</td>';
+            }
 
-                // Regular columns - simplified structure where key=column, value=label
-                Object.keys(this.columns).forEach(
-                    column => {
-                    const columnClass = this.cssClasses?.columns?.[column] || '';
-                    const isEditable = this.inlineEditableColumns.includes(column);
-                    let cellContent = row[column] || '';
+            // Regular columns - simplified structure where key=column, value=label
+            Object.keys(this.columns).forEach(
+                column => {
+                const columnClass = this.cssClasses?.columns?.[column] || '';
+                const isEditable = this.inlineEditableColumns.includes(column);
+                let cellContent = row[column] || '';
+                const tdClass = isEditable ? ' cell-edit' : '';
+                
+                // Get field type from schema
+                const fieldType = tableSchema[column]?.override_type || tableSchema[column]?.type || 'text';
+                
+                // Handle boolean display with icons
+                if (fieldType === 'boolean') {
+                    const isActive = cellContent == '1' || cellContent === 'true' || cellContent === true;
+                    const iconName = isActive ? 'check' : 'close';
+                    const iconClass = isActive ? 'uk-text-success' : 'uk-text-danger';
                     
-                    // Get field type from schema
-                    const fieldType = tableSchema[column]?.override_type || tableSchema[column]?.type || 'text';
+                    // Store the raw value for form population
+                    const rawValue = cellContent; // Keep original value
                     
-                    // Handle boolean display with icons
-                    if (fieldType === 'boolean') {
-                        const isActive = cellContent == '1' || cellContent === 'true' || cellContent === true;
-                        const iconName = isActive ? 'check' : 'close';
-                        const iconClass = isActive ? 'uk-text-success' : 'uk-text-danger';
-                        
-                        // Store the raw value for form population
-                        const rawValue = cellContent; // Keep original value
-                        
-                        if (isEditable) {
-                            cellContent = `<span class="inline-editable boolean-toggle" data-field="${column}" data-id="${rowId}" data-type="boolean" data-value="${rawValue}" style="cursor: pointer;">`;
-                            cellContent += `<span uk-icon="${iconName}" class="${iconClass}"></span>`;
-                            cellContent += '</span>';
-                        } else {
-                            cellContent = `<span data-value="${rawValue}"><span uk-icon="${iconName}" class="${iconClass}"></span></span>`;
-                        }
-                    // Handle select display with labels
-                    } else if (fieldType === 'select') {
-                        const selectOptions = tableSchema[column]?.form_options || {};
-                        const displayLabel = selectOptions[cellContent] || cellContent;
-                        
-                        if (isEditable) {
-                            cellContent = `<span class="inline-editable" data-field="${column}" data-id="${rowId}" data-type="${fieldType}" data-value="${cellContent}" style="cursor: pointer;">${displayLabel}</span>`;
-                        } else {
-                            cellContent = displayLabel;
-                        }
-                    } else if (isEditable) {
-                        // Add inline-editable class and attributes for non-boolean editable fields
-                        cellContent = `<span class="inline-editable" data-field="${column}" data-id="${rowId}" data-type="${fieldType}" style="cursor: pointer;">${cellContent}</span>`;
+                    if (isEditable) {
+                        cellContent = `<span class="inline-editable boolean-toggle" data-field="${column}" data-id="${rowId}" data-type="boolean" data-value="${rawValue}" style="cursor: pointer;">`;
+                        cellContent += `<span uk-icon="${iconName}" class="${iconClass}"></span>`;
+                        cellContent += '</span>';
+                    } else {
+                        cellContent = `<span data-value="${rawValue}"><span uk-icon="${iconName}" class="${iconClass}"></span></span>`;
                     }
+
+                // Handle select display with labels
+                } else if (fieldType === 'select') {
+                    const selectOptions = tableSchema[column]?.form_options || {};
+                    const displayLabel = selectOptions[cellContent] || cellContent;
                     
-                    html += `<td${columnClass ? ` class="${columnClass}"` : ''}>${cellContent}</td>`;
+                    if (isEditable) {
+                        cellContent = `<span class="inline-editable" data-field="${column}" data-id="${rowId}" data-type="${fieldType}" data-value="${cellContent}" style="cursor: pointer;">${displayLabel}</span>`;
+                    } else {
+                        cellContent = displayLabel;
                     }
-                );
+                } else if (isEditable) {
+
+                    // Add inline-editable class and attributes for non-boolean editable fields
+                    cellContent = `<span class="inline-editable" data-field="${column}" data-id="${rowId}" data-type="${fieldType}" style="cursor: pointer;">${cellContent}</span>`;
+                }
+                
+                html += `<td${columnClass || tdClass ? ` class="${columnClass}${tdClass}"` : ''}>${cellContent}</td>`;
+                }
+            );
+
             // Action column at end
             if (this.actionConfig.position === 'end') {
-                html += '<td class="uk-table-shrink">';
+                html += '<td class="uk-table-shrink row-action">';
                 html += this.renderActionButtons(rowId);
                 html += '</td>';
             }
@@ -466,8 +471,12 @@ class DataTablesJS {
         });
     }
 
-    executeBulkActionDirect(action)
+    executeBulkActionDirect(action, event)
     {
+
+        if (event) {
+            event.preventDefault();
+        }
         const selectedIds = Array.from(this.selectedIds);
 
         if (selectedIds.length === 0) {
@@ -582,8 +591,11 @@ class DataTablesJS {
     }
 
     // === FORM MODALS ===
-    showAddModal()
+    showAddModal(event)
     {
+        if (event) {
+            event.preventDefault();
+        }
         UIkit.modal('#add-modal').show();
     }
 
@@ -820,6 +832,24 @@ class DataTablesJS {
                 );
             }
         );
+
+        // Clickable rows
+        document.querySelectorAll('tr.row-select').forEach(row => {
+            row.addEventListener('click', (e) => {
+                const clickedTd = e.target.closest('td');
+                if (clickedTd && !clickedTd.classList.contains('row-check') && 
+                    !clickedTd.classList.contains('row-action') && 
+                    !clickedTd.classList.contains('cell-edit')) {
+                    
+                    const checkbox = row.querySelector('.row-checkbox');
+                    if (checkbox) {
+                        checkbox.checked = !checkbox.checked;
+                        this.toggleRowSelection(checkbox);
+                    }
+                }
+            });
+        });
+
     }   
 
     startInlineEdit(element)
@@ -1022,8 +1052,13 @@ class DataTablesJS {
         return count;
     }
 
-    changePageSize(newSize)
+    changePageSize(newSize, event)
     {
+
+        if (event) {
+            event.preventDefault();
+        }
+
         this.perPage = parseInt(newSize);
         this.currentPage = 1;
         

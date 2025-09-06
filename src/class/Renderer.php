@@ -109,7 +109,7 @@ class Renderer extends DataTablesBase
 
         // Add new record button - always available
         $html .= "      <div>\n";
-        $html .= "          <a href=\"#\" class=\"uk-icon-link\" uk-icon=\"plus\" onclick=\"DataTables.showAddModal()\" uk-tooltip=\"Add a New Record\"></a>\n";
+        $html .= "          <a href=\"#\" class=\"uk-icon-link\" uk-icon=\"plus\" onclick=\"DataTables.showAddModal(event)\" uk-tooltip=\"Add a New Record\"></a>\n";
         $html .= "      </div>\n";
 
         $actionCount = 0;
@@ -136,7 +136,7 @@ class Renderer extends DataTablesBase
             $html .= "<a class=\"uk-icon-link datatables-bulk-action-btn\" uk-icon=\"{$icon}\" ";
             $html .= "data-action=\"{$action}\" ";
             $html .= "data-confirm=\"{$confirm}\" ";
-            $html .= "onclick=\"DataTables.executeBulkActionDirect('{$action}')\" ";
+            $html .= "onclick=\"DataTables.executeBulkActionDirect('{$action}', event)\" ";
             $html .= "uk-tooltip=\"{$label}\" disabled></a>\n";
             $html .= "</div>\n";
 
@@ -206,14 +206,14 @@ class Renderer extends DataTablesBase
             foreach ($options as $option) {
                 $activeClass = $option === $current ? ' uk-button-primary' : ' uk-button-default';
                 $html .= "<a class=\"uk-button uk-button-small{$activeClass} datatables-page-size-btn\" ";
-                $html .= "href=\"#\" data-size=\"{$option}\" onclick=\"DataTables.changePageSize({$option})\">{$option}</a>\n";
+                $html .= "href=\"#\" data-size=\"{$option}\" onclick=\"DataTables.changePageSize({$option}, event)\">{$option}</a>\n";
             }
 
             // Add "All records" option if enabled
             if ($includeAll) {
                 $activeClass = $current === 0 ? ' uk-button-primary' : ' uk-button-default';
                 $html .= "<a class=\"uk-button uk-button-small{$activeClass} datatables-page-size-btn\" ";
-                $html .= "href=\"#\" data-size=\"0\" onclick=\"DataTables.changePageSize(0)\">All</a>\n";
+                $html .= "href=\"#\" data-size=\"0\" onclick=\"DataTables.changePageSize(0, event)\">All</a>\n";
             }
 
             $html .= "</div>\n";
