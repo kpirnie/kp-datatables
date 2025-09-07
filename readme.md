@@ -412,6 +412,136 @@ $dataTable
     ]);
 ```
 
+## WHERE Conditions
+
+### Filter Records with Custom Conditions
+```php
+->where([
+    'AND' => [
+        [
+            'field' => 'status',
+            'comparison' => '=',
+            'value' => 'active'
+        ],
+        [
+            'field' => 'created_at',
+            'comparison' => '>=',
+            'value' => '2024-01-01'
+        ]
+    ]
+])
+```
+
+### Multiple Condition Groups
+```php
+->where([
+    'AND' => [
+        [
+            'field' => 'department_id',
+            'comparison' => 'IN',
+            'value' => [1, 2, 3]
+        ]
+    ],
+    'OR' => [
+        [
+            'field' => 'priority',
+            'comparison' => '=',
+            'value' => 'high'
+        ],
+        [
+            'field' => 'urgent',
+            'comparison' => '=',
+            'value' => 1
+        ]
+    ]
+])
+```
+
+### Supported Comparison Operators
+- `=`, `!=`, `<>`, `>`, `<`, `>=`, `<=`
+- `LIKE`, `NOT LIKE`
+- `IN`, `NOT IN` (with array values)
+- `REGEXP`
+
+---
+
+## Action Groups with Callbacks
+
+Add this section within the existing "Action Button Groups" section, after the "Grouped Actions with Separators" example:
+
+### Actions with Callbacks
+```php
+->actionGroups([
+    [
+        'activate' => [
+            'icon' => 'check',
+            'title' => 'Activate User',
+            'class' => 'btn-activate',
+            'confirm' => 'Activate this user?',
+            'callback' => function($rowId, $rowData, $database, $tableName) {
+                // Custom logic with full row data access
+                $email = $rowData['email'] ?? '';
+                $name = $rowData['name'] ?? '';
+                
+                // Update database
+                $result = $database->query("UPDATE {$tableName} SET status = 'active', activated_at = NOW() WHERE id = ?")
+                                  ->bind([$rowId])
+                                  ->execute();
+                
+                // Send notification email (example)
+                if ($result) {
+                    mail($email, 'Account Activated', "Hello {$name}, your account has been activated.");
+                }
+                
+                return $result !== false;
+            },
+            'success_message' => 'User activated and notified',
+            'error_message' => 'Failed to activate user'
+        ],
+        'export' => [
+            'icon' => 'download',
+            'title' => 'Export Data',
+            'class' => 'btn-export',
+            'callback' => function($rowId, $rowData, $database, $tableName) {
+                // Generate export file
+                $filename = "user_{$rowId}_" . date('Y-m-d') . ".csv";
+                $filepath = "exports/{$filename}";
+                
+                // Create CSV content
+                $csv = fopen($filepath, 'w');
+                fputcsv($csv, array_keys($rowData));
+                fputcsv($csv, array_values($rowData));
+                fclose($csv);
+                
+                return file_exists($filepath);
+            },
+            'success_message' => 'Data exported successfully',
+            'error_message' => 'Export failed'
+        ]
+    ],
+    ['edit', 'delete'] // Built-in actions
+])
+```
+
+### Callback Function Parameters
+Action callbacks receive four parameters:
+- `$rowId` - The ID of the clicked row
+- `$rowData` - Complete row data as associative array
+- `$database` - Database instance for queries
+- `$tableName` - Base table name for operations
+
+The callback should return `true` for success or `false` for failure.
+
+---
+
+## API Methods Update
+
+In the existing "API Methods" section under "Core Configuration", add this line after the `join()` method:
+
+```markdown
+- `where(array $conditions)` - Add WHERE conditions to filter records
+```
+
 ## File Upload Configuration
 
 ```php
