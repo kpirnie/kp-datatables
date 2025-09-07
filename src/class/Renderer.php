@@ -110,51 +110,58 @@ class Renderer extends DataTablesBase
         $html .= "          <a href=\"#\" class=\"uk-icon-link\" uk-icon=\"plus\" onclick=\"DataTables.showAddModal(event)\" uk-tooltip=\"Add a New Record\"></a>\n";
         $html .= "      </div>\n";
 
-        // Check if we have action groups with bulk-capable actions
-        $actionConfig = $this->getActionConfig();
-        $hasGroupActions = false;
-        $groupActions = [];
+        // Collect all bulk actions - both from bulkActions() and actionGroups
+        $actionsToRender = [];
 
+        // First, add custom bulk actions if bulk actions are enabled
+        if ($bulkConfig['enabled'] && !empty($bulkConfig['actions'])) {
+            $actionsToRender = $bulkConfig['actions'];
+        }
+
+        // Check if delete is in action groups and add it if not already present
+        $actionConfig = $this->getActionConfig();
         if (isset($actionConfig['groups'])) {
             foreach ($actionConfig['groups'] as $group) {
                 if (is_array($group)) {
                     foreach ($group as $actionKey => $actionData) {
                         if ($actionKey === 'delete' || (is_string($actionData) && $actionData === 'delete')) {
-                            $hasGroupActions = true;
-                            $groupActions['delete'] = [
-                                'icon' => 'trash',
-                                'label' => 'Delete Selected',
-                                'confirm' => 'Are you sure you want to delete the selected records?'
-                            ];
+                            // Add delete if not already in actions
+                            if (!isset($actionsToRender['delete'])) {
+                                $actionsToRender['delete'] = [
+                                    'icon' => 'trash',
+                                    'label' => 'Delete Selected',
+                                    'confirm' => 'Are you sure you want to delete the selected records?'
+                                ];
+                            }
                         }
                     }
                 }
             }
         }
 
-        // Use group actions if available, otherwise fall back to bulk actions
-        $actionsToRender = $hasGroupActions ? $groupActions : $bulkConfig['actions'];
+        // Render all collected bulk actions
+        if (!empty($actionsToRender)) {
+            $actionCount = 0;
+            $totalActions = count($actionsToRender);
 
-        $actionCount = 0;
-        $totalActions = count($actionsToRender);
+            foreach ($actionsToRender as $action => $config) {
+                $actionCount++;
 
-        foreach ($actionsToRender as $action => $config) {
-            $actionCount++;
+                $icon = $config['icon'] ?? 'link';
+                $label = $config['label'] ?? ucfirst($action);
+                $confirm = $config['confirm'] ?? '';
 
-            $icon = $config['icon'] ?? 'link';
-            $label = $config['label'] ?? ucfirst($action);
-            $confirm = $config['confirm'] ?? '';
+                $html .= "<div>\n";
+                $html .= "<a class=\"uk-icon-link datatables-bulk-action-btn\" uk-icon=\"{$icon}\" ";
+                $html .= "data-action=\"{$action}\" ";
+                $html .= "data-confirm=\"{$confirm}\" ";
+                $html .= "onclick=\"DataTables.executeBulkActionDirect('{$action}', event)\" ";
+                $html .= "uk-tooltip=\"{$label}\" disabled></a>\n";
+                $html .= "</div>\n";
 
-            $html .= "<div>\n";
-            $html .= "<a class=\"uk-icon-link datatables-bulk-action-btn\" uk-icon=\"{$icon}\" ";
-            $html .= "data-action=\"{$action}\" ";
-            $html .= "data-confirm=\"{$confirm}\" ";
-            $html .= "onclick=\"DataTables.executeBulkActionDirect('{$action}', event)\" ";
-            $html .= "uk-tooltip=\"{$label}\" disabled></a>\n";
-            $html .= "</div>\n";
-
-            if ($actionCount < $totalActions) {
-                $html .= "<div class=\"uk-text-muted\">|</div>\n";
+                if ($actionCount < $totalActions) {
+                    $html .= "<div class=\"uk-text-muted\">|</div>\n";
+                }
             }
         }
 
