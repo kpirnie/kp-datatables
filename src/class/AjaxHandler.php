@@ -213,6 +213,704 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
         }
 
         /**
+         * Build SELECT query with filtering, sorting, and pagination
+         *
+         * Constructs a complete SELECT query based on the DataTables configuration
+         * and request parameters. Handles JOINs, WHERE conditions, ORDER BY, and LIMIT.
+         * All inputs are sanitized and validated.
+         *
+         * @param  string $search        Search term to filter results
+         * @param  string $searchColumn  Specific column to search (or 'all' for global search)
+         * @param  string $sortColumn    Column to sort by
+         * @param  string $sortDirection Sort direction (ASC or DESC)
+         * @param  int    $page          Page number for pagination
+         * @param  int    $perPage       Number of records per page (0 for all records)
+         * @return array Array with 'sql' query string and 'params' array
+         */
+        private function buildSelectQuery(string $search = '', string $searchColumn = '', string $sortColumn = '', string $sortDirection = 'ASC', int $page = 1, int $perPage = 25): array
+        {
+            // Build SELECT field list from column configuration
+            $selectFields = [];
+            $columns = $this->dataTable->getColumns();
+
+            // If no columns configured, get all columns from schema
+            if (empty($columns)) {
+                $schema = $this->dataTable->getTableSchema();
+                if (!empty($schema)) {
+                    foreach ($schema as $columnName => $info) {
+                        $selectFields[] = "`{$columnName}`";
+                    }
+                } else {
+                    // Last resort - select all
+                    $selectFields[] = "*";
+                }
+            } else {
+                foreach ($columns as $column => $label) {
+                    $selectFields[] = "`{$column}`";
+                }
+            }
+
+            // Start building the SQL query
+            $sql = "SELECT " . implode(', ', $selectFields) . " FROM `{$this->dataTable->getTableName()}`";
+            $params = [];
+
+            // Add JOIN clauses from configuration
+            foreach ($this->dataTable->getJoins() as $join) {
+                $sql .= " {$join['type']} JOIN {$join['table']} ON {$join['condition']}";
+            }
+
+            // Add WHERE clause for search functionality
+            $searchConditions = [];
+            foreach ($this->dataTable->getColumns() as $column => $label) {
+                $searchConditions[] = "`{$column}` LIKE ?";
+                $params[] = "%{$search}%";
+            }
+
+            // Only add WHERE clause if we have searchable columns
+            if (!empty($searchConditions)) {
+                $sql .= " WHERE " . implode(' OR ', $searchConditions);
+            }
+
+            // Add ORDER BY clause for sorting
+            if (!empty($sortColumn) && in_array($sortColumn, $this->dataTable->getSortableColumns())) {
+                // Validate and normalize sort direction
+                $direction = strtoupper($sortDirection) === 'DESC' ? 'DESC' : 'ASC';
+                $sql .= " ORDER BY `{$sortColumn}` {$direction}";
+            }
+
+            // Add LIMIT clause for pagination
+            if ($perPage > 0) {
+                // Calculate offset for pagination
+                $offset = ($page - 1) * $perPage;
+                $sql .= " LIMIT {$offset}, {$perPage}";
+            }
+
+            return ['sql' => $sql, 'params' => $params];
+        }
+
+        /**
+         * Build COUNT query for pagination metadata
+         *
+         * Constructs a COUNT query to determine total number of records that match
+         * the current search/filter criteria. Used for pagination calculations.
+         *
+         * @param  string $search       Search term to filter results
+         * @param  string $searchColumn Specific column to search (or 'all' for global search)
+         * @return array Array with 'sql' query string and 'params' array
+         */
+        private function buildCountQuery(string $search = '', string $searchColumn = ''): array
+        {
+            // Build basic COUNT query
+            $sql = "SELECT COUNT(*) as total FROM `{$this->dataTable->getTableName()}`";
+            $params = [];
+
+            // Add same JOIN clauses as the main query
+            foreach ($this->dataTable->getJoins() as $join) {
+                $sql .= " {$join['type']} JOIN {$join['table']} ON {$join['condition']}";
+            }
+
+            // Add same WHERE conditions as the main query
+            if (!empty($search)) {
+                $columns = $this->dataTable->getColumns();
+
+                // Use schema if no columns configured
+                if (empty($columns)) {
+                    $schema = $this->dataTable->getTableSchema();
+                    $columns = array_keys($schema);
+                } else {
+                    $columns = array_keys($columns);
+                }
+
+                // Global search across all columns
+                $searchConditions = [];
+                foreach ($columns as $column) {
+                    $searchConditions[] = "`{$column}` LIKE ?";
+                    $params[] = "%{$search}%";
+                }
+
+                // Only add WHERE clause if we have searchable columns
+                if (!empty($searchConditions)) {
+                    $sql .= " WHERE " . implode(' OR ', $searchConditions);
+                }
+            }
+
+            return ['sql' => $sql, 'params' => $params];
+        }
+
+        /**
+         * Handle data fetching for table display with enhanced input sanitization
+         *
+         * Processes requests for table data including pagination, sorting, and searching.
+         * Builds and executes SQL queries based on the request parameters and returns
+         * JSON response with data and metadata. All inputs are sanitized and validated.
+         *
+         * @return void (outputs JSON and exits)
+         */
+        private function handleFetchData(): void
+        {
+            // Extract and validate pagination parameters with bounds checking
+            $page = $this->validateInteger($_GET['page'] ?? 1, 1);
+            $perPage = $this->validateInteger($_GET['per_page'] ?? $this->dataTable->getRecordsPerPage(), 0, 1000);
+
+            // Sanitize search inputs with proper escaping
+            $search = $this->sanitizeSearchInput($_GET['search'] ?? '');
+            $searchColumn = $this->sanitizeColumnName($_GET['search_column'] ?? '');
+
+            // Sanitize and validate sort inputs
+            $sortColumn = $this->sanitizeColumnName($_GET['sort_column'] ?? '');
+            $sortDirection = $this->sanitizeSortDirection($_GET['sort_direction'] ?? 'ASC');
+
+            // Validate sort column exists in configuration
+            if (!empty($sortColumn)) {
+                $validColumns = array_keys($this->dataTable->getColumns());
+                if (!in_array($sortColumn, $validColumns)) {
+                    $sortColumn = ''; // Reset invalid column
+                }
+            }
+
+            // Execute data query using fluent interface
+            $data = $this->executeDataQuery($search, $searchColumn, $sortColumn, $sortDirection, $page, $perPage);
+
+            // Execute count query using fluent interface
+            $total = $this->executeCountQuery($search, $searchColumn);
+
+            // Extract total count from result
+            $totalRecords = $total ? $total->total : 0;
+
+            // Calculate total pages (handle division by zero for "all" records)
+            $totalPages = $perPage === 0 ? 1 : ceil($totalRecords / $perPage);
+
+            // Send JSON response with data and metadata
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'data' => $data ?: [], // Ensure array even if no data
+                'total' => $totalRecords,
+                'page' => $page,
+                'per_page' => $perPage,
+                'total_pages' => $totalPages
+            ]);
+
+            // Make sure we exit so nothing else gets outputted
+            exit;
+        }
+
+        /**
+         * Execute data query with filtering, sorting, and pagination using fluent interface
+         */
+        private function executeDataQuery(string $search = '', string $searchColumn = '', string $sortColumn = '', string $sortDirection = 'ASC', int $page = 1, int $perPage = 25): mixed
+        {
+            $selectFields = $this->getSelectFields();
+            $tableName = $this->dataTable->getTableName();
+
+            if (strpos($tableName, ' ') !== false) {
+                $sql = "SELECT " . implode(', ', $selectFields) . " FROM {$tableName}";
+            } else {
+                $sql = "SELECT " . implode(', ', $selectFields) . " FROM `{$tableName}`";
+            }
+
+            foreach ($this->dataTable->getJoins() as $join) {
+                $sql .= " {$join['type']} JOIN {$join['table']} ON {$join['condition']}";
+            }
+
+            $params = [];
+
+            // Add WHERE conditions first
+            $whereClause = $this->buildWhereClause($this->dataTable->getWhereConditions(), $params);
+            $hasWhere = !empty($whereClause);
+
+            if ($hasWhere) {
+                $sql .= $whereClause;
+            }
+
+            // Add search conditions
+            if (!empty($search)) {
+                $searchConditions = [];
+
+                if (!empty($searchColumn) && $searchColumn !== 'all') {
+                    if (strpos($searchColumn, '.') !== false) {
+                        $searchConditions[] = "{$searchColumn} LIKE ?";
+                    } else {
+                        $searchConditions[] = "`{$searchColumn}` LIKE ?";
+                    }
+                    $params[] = "%{$search}%";
+                } else {
+                    foreach ($this->dataTable->getColumns() as $column => $label) {
+                        if (strpos($column, '.') !== false) {
+                            $searchConditions[] = "{$column} LIKE ?";
+                        } else {
+                            $searchConditions[] = "`{$column}` LIKE ?";
+                        }
+                        $params[] = "%{$search}%";
+                    }
+                }
+
+                if (!empty($searchConditions)) {
+                    $sql .= ($hasWhere ? ' AND ' : ' WHERE ') . '(' . implode(' OR ', $searchConditions) . ')';
+                }
+            }
+
+            if (!empty($sortColumn) && in_array($sortColumn, $this->dataTable->getSortableColumns())) {
+                $direction = strtoupper($sortDirection) === 'DESC' ? 'DESC' : 'ASC';
+                if (strpos($sortColumn, '.') !== false) {
+                    $sql .= " ORDER BY {$sortColumn} {$direction}";
+                } else {
+                    $sql .= " ORDER BY `{$sortColumn}` {$direction}";
+                }
+            }
+
+            if ($perPage > 0) {
+                $offset = ($page - 1) * $perPage;
+                $sql .= " LIMIT {$offset}, {$perPage}";
+            }
+
+            $query = $this->dataTable->getDatabase()->query($sql);
+            if (!empty($params)) {
+                $query->bind($params);
+            }
+            return $query->fetch();
+        }
+
+        /**
+         * Execute count query for pagination metadata using fluent interface
+         */
+        private function executeCountQuery(string $search = '', string $searchColumn = ''): mixed
+        {
+            $tableName = $this->dataTable->getTableName();
+
+            if (strpos($tableName, ' ') !== false) {
+                $sql = "SELECT COUNT(*) as total FROM {$tableName}";
+            } else {
+                $sql = "SELECT COUNT(*) as total FROM `{$tableName}`";
+            }
+
+            foreach ($this->dataTable->getJoins() as $join) {
+                $sql .= " {$join['type']} JOIN {$join['table']} ON {$join['condition']}";
+            }
+
+            $params = [];
+
+            // Add WHERE conditions first
+            $whereClause = $this->buildWhereClause($this->dataTable->getWhereConditions(), $params);
+            $hasWhere = !empty($whereClause);
+
+            if ($hasWhere) {
+                $sql .= $whereClause;
+            }
+
+            // Add search conditions
+            if (!empty($search)) {
+                $columns = $this->dataTable->getColumns();
+                if (empty($columns)) {
+                    $schema = $this->dataTable->getTableSchema();
+                    $columns = array_keys($schema);
+                } else {
+                    $columns = array_keys($columns);
+                }
+
+                $searchConditions = [];
+                if (!empty($searchColumn) && $searchColumn !== 'all') {
+                    if (strpos($searchColumn, '.') !== false) {
+                        $searchConditions[] = "{$searchColumn} LIKE ?";
+                    } else {
+                        $searchConditions[] = "`{$searchColumn}` LIKE ?";
+                    }
+                    $params[] = "%{$search}%";
+                } else {
+                    foreach ($columns as $column) {
+                        if (strpos($column, '.') !== false) {
+                            $searchConditions[] = "{$column} LIKE ?";
+                        } else {
+                            $searchConditions[] = "`{$column}` LIKE ?";
+                        }
+                        $params[] = "%{$search}%";
+                    }
+                }
+
+                if (!empty($searchConditions)) {
+                    $sql .= ($hasWhere ? ' AND ' : ' WHERE ') . '(' . implode(' OR ', $searchConditions) . ')';
+                }
+            }
+
+            $query = $this->dataTable->getDatabase()->query($sql);
+            if (!empty($params)) {
+                $query->bind($params);
+            }
+            return $query->single()->fetch();
+        }
+
+        /**
+         * Generate SELECT field list from DataTables configuration
+         */
+        private function getSelectFields(): array
+        {
+            $selectFields = [];
+            $columns = $this->dataTable->getColumns();
+
+            if (empty($columns)) {
+                $selectFields[] = "*";
+            } else {
+                foreach ($columns as $column => $label) {
+                    // Use the qualified column name AS the same qualified name
+                    // This preserves the exact key structure
+                    $selectFields[] = "{$column} AS `{$column}`";
+                }
+            }
+
+            return $selectFields;
+        }
+
+        /**
+         * Handle new record creation with schema validation
+         */
+        private function handleAddRecord(): void
+        {
+            $data = $this->sanitizeFormData($_POST);
+            $schema = $this->dataTable->getTableSchema();
+
+            $validatedData = [];
+            foreach ($data as $field => $value) {
+                if (isset($schema[$field]) && $field !== $this->dataTable->getPrimaryKey()) {
+                    $validatedData[$field] = $this->validateFieldValue($field, $value, $schema[$field]);
+                }
+            }
+
+            $validatedData = $this->processFileUploads($validatedData);
+
+            if (empty($validatedData)) {
+                throw new InvalidArgumentException('No valid data to insert');
+            }
+
+            $fields = array_keys($validatedData);
+            $placeholders = array_fill(0, count($fields), '?');
+
+            // Use BASE table name for INSERT (no alias)
+            $query = "INSERT INTO `{$this->dataTable->getBaseTableName()}` (`" .
+                    implode('`, `', $fields) .
+                    "`) VALUES (" .
+                    implode(', ', $placeholders) .
+                    ")";
+
+            $result = $this->dataTable->getDatabase()
+                                ->query($query)
+                                ->bind(array_values($validatedData))
+                                ->execute();
+
+            $success = $result !== false;
+            $message = $success ? 'Record added successfully' : 'Failed to add record';
+            $insertId = $success ? $this->dataTable->getDatabase()->getLastId() : null;
+
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => $success,
+                'message' => $message,
+                'id' => $insertId
+            ]);
+            exit;
+        }
+
+        /**
+         * Handle existing record updates with enhanced validation
+         */
+        private function handleEditRecord(): void
+        {
+            $unqualifiedPK = $this->getUnqualifiedPrimaryKey();
+            $id = $this->validateInteger($_POST[$unqualifiedPK] ?? null);
+            if (!$id) {
+                throw new InvalidArgumentException('Valid record ID is required');
+            }
+
+            $data = $this->sanitizeFormData($_POST);
+            unset($data[$unqualifiedPK]);
+
+            $schema = $this->dataTable->getTableSchema();
+            $validatedData = [];
+
+            foreach ($data as $field => $value) {
+                if (isset($schema[$field]) && $field !== $unqualifiedPK) {
+                    $validatedData[$field] = $this->validateFieldValue($field, $value, $schema[$field]);
+                }
+            }
+
+            $validatedData = $this->processFileUploads($validatedData);
+
+            if (empty($validatedData)) {
+                throw new InvalidArgumentException('No valid data to update');
+            }
+
+            $fields = array_keys($validatedData);
+            $setClause = implode(' = ?, ', array_map(function ($f) {
+                return "`{$f}`";
+            }, $fields)) . ' = ?';
+
+            $sql = "UPDATE `{$this->dataTable->getBaseTableName()}` SET {$setClause}";
+            $params = array_values($validatedData);
+
+            // Add WHERE conditions
+            $whereConditions = $this->dataTable->getWhereConditions();
+            $additionalParams = [];
+            $whereClause = $this->buildWhereClause($whereConditions, $additionalParams);
+
+            if (!empty($whereClause)) {
+                $sql .= $whereClause . " AND `{$unqualifiedPK}` = ?";
+                $params = array_merge($params, $additionalParams, [$id]);
+            } else {
+                $sql .= " WHERE `{$unqualifiedPK}` = ?";
+                $params[] = $id;
+            }
+
+            $result = $this->dataTable->getDatabase()
+                                    ->query($sql)
+                                    ->bind($params)
+                                    ->execute();
+
+            $success = $result !== false;
+            $message = $success ? 'Record updated successfully' : 'Failed to update record';
+
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => $success,
+                'message' => $message
+            ]);
+            exit;
+        }
+
+        /**
+         * Handle single record deletion with ID validation
+         */
+        private function handleDeleteRecord(): void
+        {
+            $id = $this->validateInteger($_POST['id'] ?? null);
+            if (!$id) {
+                throw new InvalidArgumentException('Valid record ID is required');
+            }
+
+            $unqualifiedPK = $this->getUnqualifiedPrimaryKey();
+            $sql = "DELETE FROM `{$this->dataTable->getBaseTableName()}`";
+            $params = [$id];
+
+            // Add WHERE conditions
+            $whereConditions = $this->dataTable->getWhereConditions();
+            $additionalParams = [];
+            $whereClause = $this->buildWhereClause($whereConditions, $additionalParams);
+
+            if (!empty($whereClause)) {
+                $sql .= $whereClause . " AND `{$unqualifiedPK}` = ?";
+                $params = array_merge($additionalParams, $params);
+            } else {
+                $sql .= " WHERE `{$unqualifiedPK}` = ?";
+            }
+
+            $result = $this->dataTable->getDatabase()
+                                    ->query($sql)
+                                    ->bind($params)
+                                    ->execute();
+
+            $success = $result !== false && $result > 0;
+            $message = $success ? 'Record deleted successfully' : ($result === 0 ? 'Record not found' : 'Failed to delete record');
+
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => $success,
+                'message' => $message,
+                'affected_rows' => $result
+            ]);
+            exit;
+        }
+
+        /**
+         * Handle single record fetch for editing
+         */
+        private function handleFetchRecord(): void
+        {
+            $id = $this->validateInteger($_GET['id'] ?? $_POST['id'] ?? null);
+            if (!$id) {
+                throw new InvalidArgumentException('Valid record ID is required');
+            }
+
+            $unqualifiedPK = $this->getUnqualifiedPrimaryKey();
+            $sql = "SELECT * FROM `{$this->dataTable->getBaseTableName()}`";
+            $params = [$id];
+
+            // Add WHERE conditions
+            $whereConditions = $this->dataTable->getWhereConditions();
+            $additionalParams = [];
+            $whereClause = $this->buildWhereClause($whereConditions, $additionalParams);
+
+            if (!empty($whereClause)) {
+                $sql .= $whereClause . " AND `{$unqualifiedPK}` = ?";
+                $params = array_merge($additionalParams, $params);
+            } else {
+                $sql .= " WHERE `{$unqualifiedPK}` = ?";
+            }
+
+            $result = $this->dataTable->getDatabase()
+                                    ->query($sql)
+                                    ->bind($params)
+                                    ->single()
+                                    ->fetch();
+
+            $success = $result !== false;
+            $message = $success ? 'Record fetched successfully' : 'Record not found';
+
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => $success,
+                'message' => $message,
+                'data' => $result ?: null
+            ]);
+            exit;
+        }
+
+        /**
+         * Handle bulk actions on multiple records with enhanced security
+         */
+        private function handleBulkAction(): void
+        {
+            $bulkAction = $this->sanitizeInput($_POST['bulk_action'] ?? '');
+            $selectedIds = $this->validateIdArray($_POST['selected_ids'] ?? '[]');
+
+            if (empty($bulkAction) || empty($selectedIds)) {
+                throw new InvalidArgumentException('Valid bulk action and selected IDs are required');
+            }
+
+            $bulkActions = $this->dataTable->getBulkActions();
+            if (!$bulkActions['enabled']) {
+                throw new InvalidArgumentException('Bulk actions are not enabled');
+            }
+
+            if (!isset($bulkActions['actions'][$bulkAction])) {
+                throw new InvalidArgumentException("Unknown bulk action: {$bulkAction}");
+            }
+
+            $result = false;
+            $message = '';
+
+            switch ($bulkAction) {
+                case 'delete':
+                    $unqualifiedPK = $this->getUnqualifiedPrimaryKey();
+                    $placeholders = implode(',', array_fill(0, count($selectedIds), '?'));
+                    $sql = "DELETE FROM `{$this->dataTable->getBaseTableName()}`";
+                    $params = $selectedIds;
+
+                    // Add WHERE conditions
+                    $whereConditions = $this->dataTable->getWhereConditions();
+                    $additionalParams = [];
+                    $whereClause = $this->buildWhereClause($whereConditions, $additionalParams);
+
+                    if (!empty($whereClause)) {
+                        $sql .= $whereClause . " AND `{$unqualifiedPK}` IN ({$placeholders})";
+                        $params = array_merge($additionalParams, $selectedIds);
+                    } else {
+                        $sql .= " WHERE `{$unqualifiedPK}` IN ({$placeholders})";
+                    }
+
+                    $result = $this->dataTable->getDatabase()
+                                            ->query($sql)
+                                            ->bind($params)
+                                            ->execute();
+                    $message = $result !== false ? 'Selected records deleted successfully' : 'Failed to delete selected records';
+                    break;
+
+                default:
+                    $actionConfig = $bulkActions['actions'][$bulkAction];
+                    if (isset($actionConfig['callback']) && is_callable($actionConfig['callback'])) {
+                        $result = call_user_func(
+                            $actionConfig['callback'],
+                            $selectedIds,
+                            $this->dataTable->getDatabase(),
+                            $this->dataTable->getBaseTableName()  // Pass base table name
+                        );
+                        $message = $result ?
+                            ($actionConfig['success_message'] ?? 'Bulk action completed successfully') :
+                            ($actionConfig['error_message'] ?? 'Bulk action failed');
+                    }
+                    break;
+            }
+
+            $affectedCount = is_int($result) ? $result : count($selectedIds);
+
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => $result !== false,
+                'message' => $message,
+                'affected_count' => $affectedCount
+            ]);
+            exit;
+        }
+
+        /**
+         * Handle inline field editing with enhanced validation
+         */
+        private function handleInlineEdit(): void
+        {
+            $id = $this->validateInteger($_POST['id'] ?? null);
+            $field = trim($_POST['field'] ?? '');
+            $value = $_POST['value'] ?? null;
+
+            if (!$id || !$field) {
+                throw new InvalidArgumentException('Record ID and field are required');
+            }
+
+            $columnName = strpos($field, '.') !== false ? explode('.', $field)[1] : $field;
+            $inlineEditableColumns = $this->dataTable->getInlineEditableColumns();
+
+            if (!in_array($field, $inlineEditableColumns) && !in_array($columnName, $inlineEditableColumns)) {
+                throw new InvalidArgumentException("Field '{$field}' is not inline editable. Configured fields: " . implode(', ', $inlineEditableColumns));
+            }
+
+            $schema = $this->dataTable->getTableSchema();
+            if (isset($schema[$columnName])) {
+                $value = $this->validateFieldValue($columnName, $value, $schema[$columnName]);
+            }
+
+            $unqualifiedPK = $this->getUnqualifiedPrimaryKey();
+            $sql = "UPDATE `{$this->dataTable->getBaseTableName()}` SET `{$columnName}` = ?";
+            $params = [$value, $id];
+
+            // Add WHERE conditions
+            $whereConditions = $this->dataTable->getWhereConditions();
+            $additionalParams = [];
+            $whereClause = $this->buildWhereClause($whereConditions, $additionalParams);
+
+            if (!empty($whereClause)) {
+                $sql .= $whereClause . " AND `{$unqualifiedPK}` = ?";
+                $params = array_merge([$value], $additionalParams, [$id]);
+            } else {
+                $sql .= " WHERE `{$unqualifiedPK}` = ?";
+            }
+
+            $result = $this->dataTable->getDatabase()
+                                    ->query($sql)
+                                    ->bind($params)
+                                    ->execute();
+
+            $success = $result !== false;
+            $message = $success ? 'Field updated successfully' : 'Failed to update field';
+
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => $success,
+                'message' => $message
+            ]);
+            exit;
+        }
+
+        /**
+         * Get unqualified primary key column name for base table operations
+         */
+        private function getUnqualifiedPrimaryKey(): string
+        {
+            $primaryKey = $this->dataTable->getPrimaryKey();
+
+            // If qualified (s.id), extract just the column name (id)
+            if (strpos($primaryKey, '.') !== false) {
+                return explode('.', $primaryKey)[1];
+            }
+            return $primaryKey;
+        }
+
+                /**
          * Sanitize and validate form data array
          *
          * @param  array $data Raw form data
@@ -390,659 +1088,81 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
         }
 
         /**
-         * Build SELECT query with filtering, sorting, and pagination
+         * Build WHERE clause from conditions array
          *
-         * Constructs a complete SELECT query based on the DataTables configuration
-         * and request parameters. Handles JOINs, WHERE conditions, ORDER BY, and LIMIT.
-         * All inputs are sanitized and validated.
-         *
-         * @param  string $search        Search term to filter results
-         * @param  string $searchColumn  Specific column to search (or 'all' for global search)
-         * @param  string $sortColumn    Column to sort by
-         * @param  string $sortDirection Sort direction (ASC or DESC)
-         * @param  int    $page          Page number for pagination
-         * @param  int    $perPage       Number of records per page (0 for all records)
-         * @return array Array with 'sql' query string and 'params' array
+         * @param  array $conditions WHERE conditions array
+         * @param  array &$params    Parameters array to append to
+         * @return string WHERE clause SQL
          */
-        private function buildSelectQuery(string $search = '', string $searchColumn = '', string $sortColumn = '', string $sortDirection = 'ASC', int $page = 1, int $perPage = 25): array
+        private function buildWhereClause(array $conditions, array &$params): string
         {
-            // Build SELECT field list from column configuration
-            $selectFields = [];
-            $columns = $this->dataTable->getColumns();
-
-            // If no columns configured, get all columns from schema
-            if (empty($columns)) {
-                $schema = $this->dataTable->getTableSchema();
-                if (!empty($schema)) {
-                    foreach ($schema as $columnName => $info) {
-                        $selectFields[] = "`{$columnName}`";
-                    }
-                } else {
-                    // Last resort - select all
-                    $selectFields[] = "*";
-                }
-            } else {
-                foreach ($columns as $column => $label) {
-                    $selectFields[] = "`{$column}`";
-                }
+            if (empty($conditions)) {
+                return '';
             }
 
-            // Start building the SQL query
-            $sql = "SELECT " . implode(', ', $selectFields) . " FROM `{$this->dataTable->getTableName()}`";
-            $params = [];
+            $whereParts = [];
 
-            // Add JOIN clauses from configuration
-            foreach ($this->dataTable->getJoins() as $join) {
-                $sql .= " {$join['type']} JOIN {$join['table']} ON {$join['condition']}";
-            }
+            foreach ($conditions as $operator => $conditionGroup) {
+                if (!is_array($conditionGroup)) {
+                    continue;
+                }
 
-            // Add WHERE clause for search functionality
-            if (!empty($search)) {
-                if (!empty($searchColumn) && $searchColumn !== 'all') {
-                    // Search specific column
-                    $sql .= " WHERE `{$searchColumn}` LIKE ?";
-                    $params[] = "%{$search}%";
-                } else {
-                    // Global search across all columns
-                    $searchConditions = [];
-                    foreach ($this->dataTable->getColumns() as $column => $label) {
-                        $searchConditions[] = "`{$column}` LIKE ?";
-                        $params[] = "%{$search}%";
+                // Handle single condition or array of conditions
+                if (isset($conditionGroup['field'])) {
+                    // Single condition
+                    $conditionGroup = [$conditionGroup];
+                }
+
+                $groupParts = [];
+                foreach ($conditionGroup as $condition) {
+                    if (!isset($condition['field'], $condition['comparison'], $condition['value'])) {
+                        continue;
                     }
 
-                    // Only add WHERE clause if we have searchable columns
-                    if (!empty($searchConditions)) {
-                        $sql .= " WHERE " . implode(' OR ', $searchConditions);
-                    }
-                }
-            }
+                    $field = $condition['field'];
+                    $comparison = strtoupper(trim($condition['comparison']));
+                    $value = $condition['value'];
 
-            // Add ORDER BY clause for sorting
-            if (!empty($sortColumn) && in_array($sortColumn, $this->dataTable->getSortableColumns())) {
-                // Validate and normalize sort direction
-                $direction = strtoupper($sortDirection) === 'DESC' ? 'DESC' : 'ASC';
-                $sql .= " ORDER BY `{$sortColumn}` {$direction}";
-            }
-
-            // Add LIMIT clause for pagination
-            if ($perPage > 0) {
-                // Calculate offset for pagination
-                $offset = ($page - 1) * $perPage;
-                $sql .= " LIMIT {$offset}, {$perPage}";
-            }
-
-            return ['sql' => $sql, 'params' => $params];
-        }
-
-        /**
-         * Build COUNT query for pagination metadata
-         *
-         * Constructs a COUNT query to determine total number of records that match
-         * the current search/filter criteria. Used for pagination calculations.
-         *
-         * @param  string $search       Search term to filter results
-         * @param  string $searchColumn Specific column to search (or 'all' for global search)
-         * @return array Array with 'sql' query string and 'params' array
-         */
-        private function buildCountQuery(string $search = '', string $searchColumn = ''): array
-        {
-            // Build basic COUNT query
-            $sql = "SELECT COUNT(*) as total FROM `{$this->dataTable->getTableName()}`";
-            $params = [];
-
-            // Add same JOIN clauses as the main query
-            foreach ($this->dataTable->getJoins() as $join) {
-                $sql .= " {$join['type']} JOIN {$join['table']} ON {$join['condition']}";
-            }
-
-            // Add same WHERE conditions as the main query
-            if (!empty($search)) {
-                $columns = $this->dataTable->getColumns();
-
-                // Use schema if no columns configured
-                if (empty($columns)) {
-                    $schema = $this->dataTable->getTableSchema();
-                    $columns = array_keys($schema);
-                } else {
-                    $columns = array_keys($columns);
-                }
-
-                if (!empty($searchColumn) && $searchColumn !== 'all') {
-                    // Search specific column
-                    $sql .= " WHERE `{$searchColumn}` LIKE ?";
-                    $params[] = "%{$search}%";
-                } else {
-                    // Global search across all columns
-                    $searchConditions = [];
-                    foreach ($columns as $column) {
-                        $searchConditions[] = "`{$column}` LIKE ?";
-                        $params[] = "%{$search}%";
-                    }
-
-                    // Only add WHERE clause if we have searchable columns
-                    if (!empty($searchConditions)) {
-                        $sql .= " WHERE " . implode(' OR ', $searchConditions);
-                    }
-                }
-            }
-
-            return ['sql' => $sql, 'params' => $params];
-        }
-
-        /**
-         * Handle data fetching for table display with enhanced input sanitization
-         *
-         * Processes requests for table data including pagination, sorting, and searching.
-         * Builds and executes SQL queries based on the request parameters and returns
-         * JSON response with data and metadata. All inputs are sanitized and validated.
-         *
-         * @return void (outputs JSON and exits)
-         */
-        private function handleFetchData(): void
-        {
-            // Extract and validate pagination parameters with bounds checking
-            $page = $this->validateInteger($_GET['page'] ?? 1, 1);
-            $perPage = $this->validateInteger($_GET['per_page'] ?? $this->dataTable->getRecordsPerPage(), 0, 1000);
-
-            // Sanitize search inputs with proper escaping
-            $search = $this->sanitizeSearchInput($_GET['search'] ?? '');
-            $searchColumn = $this->sanitizeColumnName($_GET['search_column'] ?? '');
-
-            // Sanitize and validate sort inputs
-            $sortColumn = $this->sanitizeColumnName($_GET['sort_column'] ?? '');
-            $sortDirection = $this->sanitizeSortDirection($_GET['sort_direction'] ?? 'ASC');
-
-            // Validate sort column exists in configuration
-            if (!empty($sortColumn)) {
-                $validColumns = array_keys($this->dataTable->getColumns());
-                if (!in_array($sortColumn, $validColumns)) {
-                    $sortColumn = ''; // Reset invalid column
-                }
-            }
-
-            // Execute data query using fluent interface
-            $data = $this->executeDataQuery($search, $searchColumn, $sortColumn, $sortDirection, $page, $perPage);
-
-            // Execute count query using fluent interface
-            $total = $this->executeCountQuery($search, $searchColumn);
-
-            // Extract total count from result
-            $totalRecords = $total ? $total->total : 0;
-
-            // Calculate total pages (handle division by zero for "all" records)
-            $totalPages = $perPage === 0 ? 1 : ceil($totalRecords / $perPage);
-
-            // Send JSON response with data and metadata
-            header('Content-Type: application/json');
-            echo json_encode([
-                'success' => true,
-                'data' => $data ?: [], // Ensure array even if no data
-                'total' => $totalRecords,
-                'page' => $page,
-                'per_page' => $perPage,
-                'total_pages' => $totalPages
-            ]);
-
-            // Make sure we exit so nothing else gets outputted
-            exit;
-        }
-
-        /**
-         * Execute data query with filtering, sorting, and pagination using fluent interface
-         */
-        private function executeDataQuery(string $search = '', string $searchColumn = '', string $sortColumn = '', string $sortDirection = 'ASC', int $page = 1, int $perPage = 25): mixed
-        {
-            // Build SELECT fields list from configuration
-            $selectFields = $this->getSelectFields();
-
-            // Use full table name with alias for SELECT queries
-            $tableName = $this->dataTable->getTableName();
-            if (strpos($tableName, ' ') !== false) {
-                // Has alias, use as-is
-                $sql = "SELECT " . implode(', ', $selectFields) . " FROM {$tableName}";
-            } else {
-                // No alias, add backticks
-                $sql = "SELECT " . implode(', ', $selectFields) . " FROM `{$tableName}`";
-            }
-
-            // Add JOIN clauses from DataTables configuration - NO SANITIZATION
-            foreach ($this->dataTable->getJoins() as $join) {
-                $sql .= " {$join['type']} JOIN {$join['table']} ON {$join['condition']}";
-            }
-
-            // Initialize parameters array for prepared statement
-            $params = [];
-
-            // Add WHERE clause for search functionality
-            if (!empty($search)) {
-                if (!empty($searchColumn) && $searchColumn !== 'all') {
-                    // Search specific column only
-                    if (strpos($searchColumn, '.') !== false) {
-                        $sql .= " WHERE {$searchColumn} LIKE ?";
+                    // Add qualified field name or use as-is for aliases
+                    if (strpos($field, '.') !== false) {
+                        $fieldSql = $field;
                     } else {
-                        $sql .= " WHERE `{$searchColumn}` LIKE ?";
-                    }
-                    $params[] = "%{$search}%";
-                } else {
-                    // Global search across all configured columns
-                    $searchConditions = [];
-                    foreach ($this->dataTable->getColumns() as $column => $label) {
-                        if (strpos($column, '.') !== false) {
-                            // Already qualified
-                            $searchConditions[] = "{$column} LIKE ?";
-                        } else {
-                            // Unqualified, add backticks
-                            $searchConditions[] = "`{$column}` LIKE ?";
-                        }
-                        $params[] = "%{$search}%";
+                        $fieldSql = "`{$field}`";
                     }
 
-                    if (!empty($searchConditions)) {
-                        $sql .= " WHERE " . implode(' OR ', $searchConditions);
+                    // Handle different comparison operators
+                    switch ($comparison) {
+                        case 'IN':
+                        case 'NOT IN':
+                            if (is_array($value)) {
+                                $placeholders = implode(',', array_fill(0, count($value), '?'));
+                                $groupParts[] = "{$fieldSql} {$comparison} ({$placeholders})";
+                                $params = array_merge($params, $value);
+                            }
+                            break;
+                        case 'LIKE':
+                        case 'NOT LIKE':
+                            $groupParts[] = "{$fieldSql} {$comparison} ?";
+                            $params[] = $value;
+                            break;
+                        default:
+                            // =, !=, >, <, <>, <=, >=, REGEXP
+                            $groupParts[] = "{$fieldSql} {$comparison} ?";
+                            $params[] = $value;
+                            break;
                     }
                 }
-            }
 
-            // Add ORDER BY clause for sorting
-            if (!empty($sortColumn) && in_array($sortColumn, $this->dataTable->getSortableColumns())) {
-                $direction = strtoupper($sortDirection) === 'DESC' ? 'DESC' : 'ASC';
-
-                if (strpos($sortColumn, '.') !== false) {
-                    $sql .= " ORDER BY {$sortColumn} {$direction}";
-                } else {
-                    $sql .= " ORDER BY `{$sortColumn}` {$direction}";
-                }
-            }
-
-            // Add LIMIT clause for pagination
-            if ($perPage > 0) {
-                $offset = ($page - 1) * $perPage;
-                $sql .= " LIMIT {$offset}, {$perPage}";
-            }
-
-            // Execute query using Database fluent interface
-            $query = $this->dataTable->getDatabase()->query($sql);
-
-            if (!empty($params)) {
-                $query->bind($params);
-            }
-
-            return $query->fetch();
-        }
-
-        /**
-         * Execute count query for pagination metadata using fluent interface
-         */
-        private function executeCountQuery(string $search = '', string $searchColumn = ''): mixed
-        {
-            // Use full table name with alias for COUNT queries
-            $tableName = $this->dataTable->getTableName();
-            if (strpos($tableName, ' ') !== false) {
-                // Has alias, use as-is
-                $sql = "SELECT COUNT(*) as total FROM {$tableName}";
-            } else {
-                // No alias, add backticks
-                $sql = "SELECT COUNT(*) as total FROM `{$tableName}`";
-            }
-
-            // Add same JOIN clauses as the main data query
-            foreach ($this->dataTable->getJoins() as $join) {
-                $sql .= " {$join['type']} JOIN {$join['table']} ON {$join['condition']}";
-            }
-
-            $params = [];
-
-            // Add WHERE clause for search (same logic as data query)
-            if (!empty($search)) {
-                $columns = $this->dataTable->getColumns();
-                if (empty($columns)) {
-                    $schema = $this->dataTable->getTableSchema();
-                    $columns = array_keys($schema);
-                } else {
-                    $columns = array_keys($columns);
-                }
-
-                if (!empty($searchColumn) && $searchColumn !== 'all') {
-                    if (strpos($searchColumn, '.') !== false) {
-                        $sql .= " WHERE {$searchColumn} LIKE ?";
+                if (!empty($groupParts)) {
+                    if (strtoupper($operator) === 'OR') {
+                        $whereParts[] = '(' . implode(' OR ', $groupParts) . ')';
                     } else {
-                        $sql .= " WHERE `{$searchColumn}` LIKE ?";
-                    }
-                    $params[] = "%{$search}%";
-                } else {
-                    $searchConditions = [];
-                    foreach ($columns as $column) {
-                        if (strpos($column, '.') !== false) {
-                            $searchConditions[] = "{$column} LIKE ?";
-                        } else {
-                            $searchConditions[] = "`{$column}` LIKE ?";
-                        }
-                        $params[] = "%{$search}%";
-                    }
-
-                    if (!empty($searchConditions)) {
-                        $sql .= " WHERE " . implode(' OR ', $searchConditions);
+                        $whereParts[] = '(' . implode(' AND ', $groupParts) . ')';
                     }
                 }
             }
 
-            $query = $this->dataTable->getDatabase()->query($sql);
-
-            if (!empty($params)) {
-                $query->bind($params);
-            }
-
-            return $query->single()->fetch();
-        }
-
-        /**
-         * Generate SELECT field list from DataTables configuration
-         */
-        private function getSelectFields(): array
-        {
-            $selectFields = [];
-            $columns = $this->dataTable->getColumns();
-
-            if (empty($columns)) {
-                $selectFields[] = "*";
-            } else {
-                foreach ($columns as $column => $label) {
-                    // Use the qualified column name AS the same qualified name
-                    // This preserves the exact key structure
-                    $selectFields[] = "{$column} AS `{$column}`";
-                }
-            }
-
-            return $selectFields;
-        }
-
-        /**
-         * Handle new record creation with schema validation
-         */
-        private function handleAddRecord(): void
-        {
-            $data = $this->sanitizeFormData($_POST);
-            $schema = $this->dataTable->getTableSchema();
-
-            $validatedData = [];
-            foreach ($data as $field => $value) {
-                if (isset($schema[$field]) && $field !== $this->dataTable->getPrimaryKey()) {
-                    $validatedData[$field] = $this->validateFieldValue($field, $value, $schema[$field]);
-                }
-            }
-
-            $validatedData = $this->processFileUploads($validatedData);
-
-            if (empty($validatedData)) {
-                throw new InvalidArgumentException('No valid data to insert');
-            }
-
-            $fields = array_keys($validatedData);
-            $placeholders = array_fill(0, count($fields), '?');
-
-            // Use BASE table name for INSERT (no alias)
-            $query = "INSERT INTO `{$this->dataTable->getBaseTableName()}` (`" .
-                    implode('`, `', $fields) .
-                    "`) VALUES (" .
-                    implode(', ', $placeholders) .
-                    ")";
-
-            $result = $this->dataTable->getDatabase()
-                                ->query($query)
-                                ->bind(array_values($validatedData))
-                                ->execute();
-
-            $success = $result !== false;
-            $message = $success ? 'Record added successfully' : 'Failed to add record';
-            $insertId = $success ? $this->dataTable->getDatabase()->getLastId() : null;
-
-            header('Content-Type: application/json');
-            echo json_encode([
-                'success' => $success,
-                'message' => $message,
-                'id' => $insertId
-            ]);
-            exit;
-        }
-
-        /**
-         * Handle existing record updates with enhanced validation
-         */
-        private function handleEditRecord(): void
-        {
-            $unqualifiedPK = $this->getUnqualifiedPrimaryKey(); // Use unqualified PK
-            $id = $this->validateInteger($_POST[$unqualifiedPK] ?? null);
-            if (!$id) {
-                throw new InvalidArgumentException('Valid record ID is required');
-            }
-
-            $data = $this->sanitizeFormData($_POST);
-            unset($data[$unqualifiedPK]);
-
-            $schema = $this->dataTable->getTableSchema();
-            $validatedData = [];
-
-            foreach ($data as $field => $value) {
-                if (isset($schema[$field]) && $field !== $unqualifiedPK) {
-                    $validatedData[$field] = $this->validateFieldValue($field, $value, $schema[$field]);
-                }
-            }
-
-            $validatedData = $this->processFileUploads($validatedData);
-
-            if (empty($validatedData)) {
-                throw new InvalidArgumentException('No valid data to update');
-            }
-
-            $fields = array_keys($validatedData);
-            $setClause = implode(' = ?, ', array_map(function ($f) {
-                return "`{$f}`";
-            }, $fields)) . ' = ?';
-
-            // Use BASE table name for UPDATE (no alias)
-            $query = "UPDATE `{$this->dataTable->getBaseTableName()}` SET {$setClause} WHERE `{$unqualifiedPK}` = ?";
-
-            $params = array_merge(array_values($validatedData), [$id]);
-
-            $result = $this->dataTable->getDatabase()
-                                ->query($query)
-                                ->bind($params)
-                                ->execute();
-
-            $success = $result !== false;
-            $message = $success ? 'Record updated successfully' : 'Failed to update record';
-
-            header('Content-Type: application/json');
-            echo json_encode([
-                'success' => $success,
-                'message' => $message
-            ]);
-            exit;
-        }
-
-        /**
-         * Handle single record deletion with ID validation
-         */
-        private function handleDeleteRecord(): void
-        {
-            $id = $this->validateInteger($_POST['id'] ?? null);
-            if (!$id) {
-                throw new InvalidArgumentException('Valid record ID is required');
-            }
-
-            // Use BASE table name for DELETE
-            $unqualifiedPK = $this->getUnqualifiedPrimaryKey(); // Use unqualified PK
-            $query = "DELETE FROM `{$this->dataTable->getBaseTableName()}` WHERE `{$unqualifiedPK}` = ?";
-            $result = $this->dataTable->getDatabase()
-                                    ->query($query)
-                                    ->bind([$id])
-                                    ->execute();
-
-            $success = $result !== false && $result > 0;
-            $message = $success ? 'Record deleted successfully' : ($result === 0 ? 'Record not found' : 'Failed to delete record');
-
-            header('Content-Type: application/json');
-            echo json_encode([
-                'success' => $success,
-                'message' => $message,
-                'affected_rows' => $result
-            ]);
-            exit;
-        }
-
-        /**
-         * Handle single record fetch for editing
-         */
-        private function handleFetchRecord(): void
-        {
-            $id = $this->validateInteger($_GET['id'] ?? $_POST['id'] ?? null);
-            if (!$id) {
-                throw new InvalidArgumentException('Valid record ID is required');
-            }
-
-            // Use BASE table name for single record fetch (no alias needed)
-            $unqualifiedPK = $this->getUnqualifiedPrimaryKey(); // Use unqualified PK
-            $query = "SELECT * FROM `{$this->dataTable->getBaseTableName()}` WHERE `{$unqualifiedPK}` = ?";
-            $result = $this->dataTable->getDatabase()
-                                    ->query($query)
-                                    ->bind([$id])
-                                    ->single()
-                                    ->fetch();
-
-            $success = $result !== false;
-            $message = $success ? 'Record fetched successfully' : 'Record not found';
-
-            header('Content-Type: application/json');
-            echo json_encode([
-                'success' => $success,
-                'message' => $message,
-                'data' => $result ?: null
-            ]);
-            exit;
-        }
-
-        /**
-         * Handle bulk actions on multiple records with enhanced security
-         */
-        private function handleBulkAction(): void
-        {
-            $bulkAction = $this->sanitizeInput($_POST['bulk_action'] ?? '');
-            $selectedIds = $this->validateIdArray($_POST['selected_ids'] ?? '[]');
-
-            if (empty($bulkAction) || empty($selectedIds)) {
-                throw new InvalidArgumentException('Valid bulk action and selected IDs are required');
-            }
-
-            $bulkActions = $this->dataTable->getBulkActions();
-            if (!$bulkActions['enabled']) {
-                throw new InvalidArgumentException('Bulk actions are not enabled');
-            }
-
-            if (!isset($bulkActions['actions'][$bulkAction])) {
-                throw new InvalidArgumentException("Unknown bulk action: {$bulkAction}");
-            }
-
-            $result = false;
-            $message = '';
-
-            switch ($bulkAction) {
-                case 'delete':
-                    // Use BASE table name for bulk DELETE (no alias)
-                    $unqualifiedPK = $this->getUnqualifiedPrimaryKey(); // Use unqualified PK
-                    $placeholders = implode(',', array_fill(0, count($selectedIds), '?'));
-                    $query = "DELETE FROM `{$this->dataTable->getBaseTableName()}` WHERE `{$unqualifiedPK}` IN ({$placeholders})";
-                    $result = $this->dataTable->getDatabase()
-                                            ->query($query)
-                                            ->bind($selectedIds)
-                                            ->execute();
-                    $message = $result !== false ? 'Selected records deleted successfully' : 'Failed to delete selected records';
-                    break;
-
-                default:
-                    $actionConfig = $bulkActions['actions'][$bulkAction];
-                    if (isset($actionConfig['callback']) && is_callable($actionConfig['callback'])) {
-                        $result = call_user_func(
-                            $actionConfig['callback'],
-                            $selectedIds,
-                            $this->dataTable->getDatabase(),
-                            $this->dataTable->getBaseTableName()  // Pass base table name
-                        );
-                        $message = $result ?
-                            ($actionConfig['success_message'] ?? 'Bulk action completed successfully') :
-                            ($actionConfig['error_message'] ?? 'Bulk action failed');
-                    }
-                    break;
-            }
-
-            $affectedCount = is_int($result) ? $result : count($selectedIds);
-
-            header('Content-Type: application/json');
-            echo json_encode([
-                'success' => $result !== false,
-                'message' => $message,
-                'affected_count' => $affectedCount
-            ]);
-            exit;
-        }
-
-        /**
-         * Handle inline field editing with enhanced validation
-         */
-        private function handleInlineEdit(): void
-        {
-            $id = $this->validateInteger($_POST['id'] ?? null);
-            $field = trim($_POST['field'] ?? '');
-            $value = $_POST['value'] ?? null;
-
-            if (!$id || !$field) {
-                throw new InvalidArgumentException('Record ID and field are required');
-            }
-
-            // Extract just the column name for validation (remove table prefix if present)
-            $columnName = strpos($field, '.') !== false ? explode('.', $field)[1] : $field;
-
-            $inlineEditableColumns = $this->dataTable->getInlineEditableColumns();
-
-            if (!in_array($field, $inlineEditableColumns) && !in_array($columnName, $inlineEditableColumns)) {
-                throw new InvalidArgumentException("Field '{$field}' is not inline editable. Configured fields: " . implode(', ', $inlineEditableColumns));
-            }
-
-            $schema = $this->dataTable->getTableSchema();
-            if (isset($schema[$columnName])) {
-                $value = $this->validateFieldValue($columnName, $value, $schema[$columnName]);
-            }
-
-            // Use BASE table name for UPDATE (no alias)
-            $unqualifiedPK = $this->getUnqualifiedPrimaryKey(); // Use unqualified PK
-            $query = "UPDATE `{$this->dataTable->getBaseTableName()}` SET `{$columnName}` = ? WHERE `{$unqualifiedPK}` = ?";
-            $result = $this->dataTable->getDatabase()
-                                    ->query($query)
-                                    ->bind([$value, $id])
-                                    ->execute();
-
-            $success = $result !== false;
-            $message = $success ? 'Field updated successfully' : 'Failed to update field';
-
-            header('Content-Type: application/json');
-            echo json_encode([
-                'success' => $success,
-                'message' => $message
-            ]);
-            exit;
-        }
-
-        /**
-         * Get unqualified primary key column name for base table operations
-         */
-        private function getUnqualifiedPrimaryKey(): string
-        {
-            $primaryKey = $this->dataTable->getPrimaryKey();
-
-            // If qualified (s.id), extract just the column name (id)
-            if (strpos($primaryKey, '.') !== false) {
-                return explode('.', $primaryKey)[1];
-            }
-            return $primaryKey;
+            return !empty($whereParts) ? ' WHERE ' . implode(' AND ', $whereParts) : '';
         }
     }
 

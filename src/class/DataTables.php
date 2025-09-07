@@ -364,6 +364,19 @@ if (! class_exists('KPT\DataTables\DataTables', false)) {
         }
 
         /**
+         * Add WHERE conditions to filter records
+         *
+         * @param  array $conditions Array of WHERE conditions
+         * @return self Returns self for method chaining
+         */
+        public function where(array $conditions): self
+        {
+            $this->whereConditions = $conditions;
+            Logger::debug("DataTables WHERE conditions set", ['conditions' => $conditions]);
+            return $this;
+        }
+
+        /**
          * Define which columns can be sorted by users
          *
          * Only columns specified here will have clickable headers with sort indicators.

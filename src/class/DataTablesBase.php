@@ -203,6 +203,13 @@ if (! class_exists('KPT\DataTables\DataTablesBase', false)) {
          */
         protected string $primaryKey = 'id';
 
+        /**
+         * WHERE conditions for filtering records
+         *
+         * @var array
+         */
+        protected array $whereConditions = [];
+
         // === GETTER METHODS FOR CONFIGURATION ACCESS ===
         // These methods provide read-only access to configuration for other classes
 
@@ -394,6 +401,16 @@ if (! class_exists('KPT\DataTables\DataTablesBase', false)) {
         public function getBaseTableName(): string
         {
             return $this->baseTableName ?: $this->tableName;
+        }
+
+        /**
+         * Get the WHERE conditions
+         *
+         * @return array Array of WHERE conditions
+         */
+        public function getWhereConditions(): array
+        {
+            return $this->whereConditions;
         }
     }
 
