@@ -401,6 +401,20 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
 
         /**
          * Execute data query with filtering, sorting, and pagination using fluent interface
+         *
+         * Builds and executes a SELECT query based on the provided parameters. Handles
+         * table joins, WHERE conditions, search filtering, sorting, and pagination.
+         * Uses the DataTables configuration to determine which fields to select and
+         * how to construct the query.
+         *
+         * @param  string $search        Global search term to filter results across searchable columns
+         * @param  string $searchColumn  Specific column to search in (use 'all' for global search)
+         * @param  string $sortColumn    Column name to sort results by
+         * @param  string $sortDirection Sort direction - 'ASC' for ascending, 'DESC' for descending
+         * @param  int    $page          Page number for pagination (1-based)
+         * @param  int    $perPage       Number of records per page (0 for all records)
+         * @return mixed                 Query result object or false on failure
+         * @since  1.0.0
          */
         private function executeDataQuery(string $search = '', string $searchColumn = '', string $sortColumn = '', string $sortDirection = 'ASC', int $page = 1, int $perPage = 25): mixed
         {
@@ -477,6 +491,16 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
 
         /**
          * Execute count query for pagination metadata using fluent interface
+         *
+         * Builds and executes a COUNT query that matches the same filtering conditions
+         * as the main data query. Used to determine total number of records for
+         * pagination calculations. Includes the same JOINs and WHERE conditions
+         * as the data query but returns only the count.
+         *
+         * @param  string $search       Global search term to filter results
+         * @param  string $searchColumn Specific column to search in (use 'all' for global search)
+         * @return mixed                Query result object containing total count or false on failure
+         * @since  1.0.0
          */
         private function executeCountQuery(string $search = '', string $searchColumn = ''): mixed
         {
@@ -545,6 +569,14 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
 
         /**
          * Generate SELECT field list from DataTables configuration
+         *
+         * Creates an array of field names for the SELECT clause based on the
+         * configured columns in the DataTables instance. Handles qualified column
+         * names (table.column) and preserves the exact key structure. Falls back
+         * to selecting all columns (*) if no specific columns are configured.
+         *
+         * @return array Array of SELECT field expressions with proper aliasing
+         * @since  1.0.0
          */
         private function getSelectFields(): array
         {
@@ -566,6 +598,15 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
 
         /**
          * Handle new record creation with schema validation
+         *
+         * Processes POST data to create a new record in the database. Validates
+         * all input data against the table schema, handles file uploads, and
+         * inserts the record into the base table. Excludes the primary key field
+         * from insertion as it should be auto-generated.
+         *
+         * @return void                         Outputs JSON response and exits
+         * @throws InvalidArgumentException     If no valid data provided for insertion
+         * @since  1.0.0
          */
         private function handleAddRecord(): void
         {
@@ -615,6 +656,15 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
 
         /**
          * Handle existing record updates with enhanced validation
+         *
+         * Processes POST data to update an existing record in the database.
+         * Validates the record ID, sanitizes and validates all field data against
+         * the schema, handles file uploads, and updates the record. Respects
+         * any configured WHERE conditions for security.
+         *
+         * @return void                         Outputs JSON response and exits
+         * @throws InvalidArgumentException     If record ID is missing or invalid, or no valid data to update
+         * @since  1.0.0
          */
         private function handleEditRecord(): void
         {
@@ -681,6 +731,14 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
 
         /**
          * Handle single record deletion with ID validation
+         *
+         * Deletes a specific record from the database based on the provided ID.
+         * Validates the record ID and respects any configured WHERE conditions
+         * for security. Returns the number of affected rows to confirm deletion.
+         *
+         * @return void                         Outputs JSON response and exits
+         * @throws InvalidArgumentException     If record ID is missing or invalid
+         * @since  1.0.0
          */
         private function handleDeleteRecord(): void
         {
@@ -724,6 +782,14 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
 
         /**
          * Handle single record fetch for editing
+         *
+         * Retrieves a specific record from the database for editing purposes.
+         * Validates the record ID and respects any configured WHERE conditions.
+         * Returns all fields from the base table for the specified record.
+         *
+         * @return void                         Outputs JSON response and exits
+         * @throws InvalidArgumentException     If record ID is missing or invalid
+         * @since  1.0.0
          */
         private function handleFetchRecord(): void
         {
@@ -768,6 +834,15 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
 
         /**
          * Handle bulk actions on multiple records with enhanced security
+         *
+         * Processes bulk operations on multiple selected records. Validates that
+         * bulk actions are enabled, the action is allowed, and the selected IDs
+         * are valid. Supports built-in delete action and custom callback actions.
+         * Respects configured WHERE conditions for security.
+         *
+         * @return void                         Outputs JSON response and exits
+         * @throws InvalidArgumentException     If bulk action is invalid, not enabled, or no valid IDs provided
+         * @since  1.0.0
          */
         private function handleBulkAction(): void
         {
@@ -845,6 +920,15 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
 
         /**
          * Handle inline field editing with enhanced validation
+         *
+         * Updates a single field value for a specific record through inline editing.
+         * Validates that the field is configured as inline editable, the record ID
+         * is valid, and the new value meets schema requirements. Supports both
+         * qualified and unqualified field names.
+         *
+         * @return void                         Outputs JSON response and exits
+         * @throws InvalidArgumentException     If record ID, field name invalid, or field not inline editable
+         * @since  1.0.0
          */
         private function handleInlineEdit(): void
         {
@@ -900,6 +984,18 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
             exit;
         }
 
+        /**
+         * Handle action callbacks with full row data
+         *
+         * Executes custom callback functions for row-specific actions. Finds the
+         * appropriate callback based on the action name, validates the row ID,
+         * and executes the callback with the row ID, full row data, database
+         * connection, and base table name.
+         *
+         * @return void                         Outputs JSON response and exits
+         * @throws InvalidArgumentException     If action name invalid, row ID missing, or callback not found
+         * @since  1.0.0
+         */
         private function handleActionCallback(): void
         {
             $actionName = $this->sanitizeInput($_POST['action_name'] ?? '');
@@ -954,6 +1050,14 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
 
         /**
          * Get unqualified primary key column name for base table operations
+         *
+         * Extracts the column name from a potentially qualified primary key field.
+         * If the primary key is qualified (e.g., 'users.id'), returns just the
+         * column name (e.g., 'id'). Used for base table operations like INSERT,
+         * UPDATE, and DELETE where table aliases are not used.
+         *
+         * @return string Unqualified primary key column name
+         * @since  1.0.0
          */
         private function getUnqualifiedPrimaryKey(): string
         {
