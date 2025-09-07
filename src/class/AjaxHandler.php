@@ -259,7 +259,7 @@ class AjaxHandler
      */
     private function sanitizeColumnName(string $column): string
     {
-        return preg_replace('/[^a-zA-Z0-9_]/', '', $column);
+        return preg_replace('/[^a-zA-Z0-9_\.]/', '', $column);
     }
 
     /**
@@ -281,7 +281,7 @@ class AjaxHandler
      */
     private function sanitizeInput(string $input): string
     {
-        return preg_replace('/[^a-zA-Z0-9_\-]/', '', trim($input));
+        return preg_replace('/[^a-zA-Z0-9_\-\.]/', '', trim($input));
     }
 
     /**
