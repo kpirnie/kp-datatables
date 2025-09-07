@@ -58,7 +58,7 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
             // Whitelist of allowed actions for security
             $allowedActions = [
                 'fetch_data', 'add_record', 'edit_record', 'delete_record',
-                'bulk_action', 'inline_edit', 'upload_file', 'fetch_record'
+                'bulk_action', 'inline_edit', 'upload_file', 'fetch_record', 'action_callback'
             ];
 
             if (!in_array($action, $allowedActions)) {
@@ -98,6 +98,10 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
                 case 'upload_file':
                     // Handle standalone file uploads
                     $this->handleFileUpload();
+                    break;
+                case 'action_callback':
+                    // Handle action callbacks with full row data
+                    $this->handleActionCallback();
                     break;
             }
         }
@@ -896,6 +900,58 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
             exit;
         }
 
+        private function handleActionCallback(): void
+        {
+            $actionName = $this->sanitizeInput($_POST['action_name'] ?? '');
+            $rowId = $this->validateInteger($_POST['row_id'] ?? null);
+            $rowData = json_decode($_POST['row_data'] ?? '{}', true);
+
+            if (empty($actionName) || !$rowId) {
+                throw new InvalidArgumentException('Valid action and row ID are required');
+            }
+
+            // Find the action configuration
+            $actionConfig = $this->dataTable->getActionConfig();
+            $callback = null;
+
+            if (isset($actionConfig['groups'])) {
+                foreach ($actionConfig['groups'] as $group) {
+                    if (is_array($group) && !is_numeric(key($group))) {
+                        if (isset($group[$actionName]['callback']) && is_callable($group[$actionName]['callback'])) {
+                            $callback = $group[$actionName]['callback'];
+                            $callbackConfig = $group[$actionName];
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (!$callback) {
+                throw new InvalidArgumentException("No callback found for action: {$actionName}");
+            }
+
+            // Execute the callback with row ID and full row data
+            $result = call_user_func(
+                $callback,
+                $rowId,
+                $rowData,
+                $this->dataTable->getDatabase(),
+                $this->dataTable->getBaseTableName()
+            );
+
+            $success = $result !== false;
+            $message = $success ?
+                ($callbackConfig['success_message'] ?? 'Action completed successfully') :
+                ($callbackConfig['error_message'] ?? 'Action failed');
+
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => $success,
+                'message' => $message
+            ]);
+            exit;
+        }
+
         /**
          * Get unqualified primary key column name for base table operations
          */
@@ -910,7 +966,7 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
             return $primaryKey;
         }
 
-                /**
+        /**
          * Sanitize and validate form data array
          *
          * @param  array $data Raw form data

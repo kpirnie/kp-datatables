@@ -251,6 +251,12 @@ class DataTablesJS {
     {
         let html = '';
         
+        // Store row data for callback use
+        if (!window.DataTablesRowData) {
+            window.DataTablesRowData = {};
+        }
+        window.DataTablesRowData[rowId] = rowData;
+        
         // Helper function to replace all placeholders in a string
         const replacePlaceholders = (str) => {
             if (typeof str !== 'string') return str;
@@ -303,26 +309,41 @@ class DataTablesJS {
                         actionCount++;
                         const actionConfig = group[actionKey];
                         
-                        // Replace placeholders in all string properties
-                        const icon = replacePlaceholders(actionConfig.icon || 'link');
-                        const title = replacePlaceholders(actionConfig.title || '');
-                        const className = replacePlaceholders(actionConfig.class || 'btn-custom');
-                        const href = replacePlaceholders(actionConfig.href || '#');
-                        const onclick = replacePlaceholders(actionConfig.onclick || '');
-                        const attributes = actionConfig.attributes || {};
-                        
-                        html += '<a href="' + href + '" class="uk-icon-link ' + className + '" uk-icon="' + icon + '" title="' + title + '"';
-                        if (onclick) {
-                            html += ' onclick="' + onclick + '"';
+                        if (actionConfig.callback) {
+                            // Handle callback action
+                            const icon = actionConfig.icon || 'link';
+                            const title = actionConfig.title || '';
+                            const className = actionConfig.class || 'btn-custom';
+                            const confirm = actionConfig.confirm || '';
+                            
+                            html += '<a href="#" class="uk-icon-link ' + className + '" uk-icon="' + icon + '" title="' + title + '"';
+                            html += ' data-action="' + actionKey + '"';
+                            html += ' data-id="' + rowId + '"';
+                            html += ' data-confirm="' + confirm + '"';
+                            html += ' onclick="DataTables.executeActionCallback(\'' + actionKey + '\', ' + rowId + ', event)"';
+                            html += '></a>';
+                        } else {
+                            // Handle regular action
+                            const icon = replacePlaceholders(actionConfig.icon || 'link');
+                            const title = replacePlaceholders(actionConfig.title || '');
+                            const className = replacePlaceholders(actionConfig.class || 'btn-custom');
+                            const href = replacePlaceholders(actionConfig.href || '#');
+                            const onclick = replacePlaceholders(actionConfig.onclick || '');
+                            const attributes = actionConfig.attributes || {};
+                            
+                            html += '<a href="' + href + '" class="uk-icon-link ' + className + '" uk-icon="' + icon + '" title="' + title + '"';
+                            if (onclick) {
+                                html += ' onclick="' + onclick + '"';
+                            }
+                            
+                            // Add custom attributes (also replace placeholders)
+                            for (const [attrName, attrValue] of Object.entries(attributes)) {
+                                const processedValue = replacePlaceholders(String(attrValue));
+                                html += ' ' + attrName + '="' + processedValue + '"';
+                            }
+                            
+                            html += '></a>';
                         }
-                        
-                        // Add custom attributes (also replace placeholders)
-                        for (const [attrName, attrValue] of Object.entries(attributes)) {
-                            const processedValue = replacePlaceholders(String(attrValue));
-                            html += ' ' + attrName + '="' + processedValue + '"';
-                        }
-                        
-                        html += '></a>';
                         
                         // Add separator within group if not the last action
                         if (actionCount < totalActions) {
@@ -539,6 +560,79 @@ class DataTablesJS {
         } else {
             this.performBulkAction(action, selectedIds);
         }
+    }
+
+    executeActionCallback(action, rowId, event)
+    {
+        if (event) {
+            event.preventDefault();
+        }
+        
+        // Get row data
+        const rowData = window.DataTablesRowData ? window.DataTablesRowData[rowId] : {};
+        
+        // Find the action configuration
+        let actionConfig = null;
+        if (this.actionConfig.groups) {
+            for (const group of this.actionConfig.groups) {
+                if (typeof group === 'object' && !Array.isArray(group)) {
+                    if (group[action] && group[action].callback) {
+                        actionConfig = group[action];
+                        break;
+                    }
+                }
+            }
+        }
+        
+        if (!actionConfig) {
+            return;
+        }
+        
+        // Check if confirmation is required
+        if (actionConfig.confirm) {
+            UIkit.modal.confirm(actionConfig.confirm).then(
+                () => {
+                    this.performActionCallback(action, rowId, rowData, actionConfig);
+                }, () => {
+                    // User cancelled
+                }
+            );
+        } else {
+            this.performActionCallback(action, rowId, rowData, actionConfig);
+        }
+    }
+
+    performActionCallback(action, rowId, rowData, actionConfig)
+    {
+        const formData = new FormData();
+        formData.append('action', 'action_callback');
+        formData.append('action_name', action);
+        formData.append('row_id', rowId);
+        formData.append('row_data', JSON.stringify(rowData));
+
+        fetch(
+            window.location.href, {
+                method: 'POST',
+                body: formData
+            }
+        )
+        .then(response => response.json())
+        .then(
+            data => {
+            if (data.success) {
+                this.loadData();
+                UIkit.notification(data.message || actionConfig.success_message || 'Action completed', {status: 'success'});
+            } else {
+                    UIkit.notification(data.message || actionConfig.error_message || 'Action failed', {status: 'danger'});
+            }
+            }
+        )
+        .catch(
+            error => {
+            console.error('Error:', error);
+            UIkit.notification('An error occurred', {status: 'danger'});
+            }
+        );
     }
 
     /**
