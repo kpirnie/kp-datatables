@@ -592,7 +592,7 @@ class AjaxHandler
     {
         // Build SELECT fields list from configuration
         $selectFields = $this->getSelectFields();
-        
+
         // Use full table name with alias for SELECT queries
         $tableName = $this->dataTable->getTableName();
         if (strpos($tableName, ' ') !== false) {
@@ -644,7 +644,7 @@ class AjaxHandler
         // Add ORDER BY clause for sorting
         if (!empty($sortColumn) && in_array($sortColumn, $this->dataTable->getSortableColumns())) {
             $direction = strtoupper($sortDirection) === 'DESC' ? 'DESC' : 'ASC';
-            
+
             if (strpos($sortColumn, '.') !== false) {
                 $sql .= " ORDER BY {$sortColumn} {$direction}";
             } else {
@@ -1008,7 +1008,7 @@ class AjaxHandler
         $columnName = strpos($field, '.') !== false ? explode('.', $field)[1] : $field;
 
         $inlineEditableColumns = $this->dataTable->getInlineEditableColumns();
-        
+
         if (!in_array($field, $inlineEditableColumns) && !in_array($columnName, $inlineEditableColumns)) {
             throw new InvalidArgumentException("Field '{$field}' is not inline editable. Configured fields: " . implode(', ', $inlineEditableColumns));
         }
@@ -1049,5 +1049,4 @@ class AjaxHandler
         }
         return $primaryKey;
     }
-
 }

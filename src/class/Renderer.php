@@ -134,7 +134,7 @@ class Renderer extends DataTablesBase
 
         // Use group actions if available, otherwise fall back to bulk actions
         $actionsToRender = $hasGroupActions ? $groupActions : $bulkConfig['actions'];
-        
+
         $actionCount = 0;
         $totalActions = count($actionsToRender);
 
@@ -712,14 +712,14 @@ class Renderer extends DataTablesBase
         // Extract configuration for JavaScript
         $tableName = $this->getTableName();
         $primaryKey = $this->getPrimaryKey();
-        
+
         // If primary key is qualified, pass just the column name to JavaScript
         if (strpos($primaryKey, '.') !== false) {
             $jsPrimaryKey = explode('.', $primaryKey)[1];
         } else {
             $jsPrimaryKey = $primaryKey;
         }
-        
+
         $inlineEditableColumns = json_encode($this->getInlineEditableColumns());
         $bulkActions = $this->getBulkActions();
         $actionConfig = $this->getActionConfig();
@@ -744,5 +744,4 @@ class Renderer extends DataTablesBase
 
         return $html;
     }
-
 }

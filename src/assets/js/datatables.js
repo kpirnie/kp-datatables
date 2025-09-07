@@ -161,7 +161,6 @@ class DataTablesJS {
 
         let html = '';
         data.forEach(
-
             row => {
 
             // Find the ID value regardless of key format
@@ -179,7 +178,7 @@ class DataTablesJS {
             // Action column at start
             if (this.actionConfig.position === 'start') {
                 html += '<td class="uk-table-shrink row-action">';
-                html += this.renderActionButtons(rowId);
+                html += this.renderActionButtons(rowId, row);
                 html += '</td>';
             }
 
@@ -235,7 +234,7 @@ class DataTablesJS {
             // Action column at end
             if (this.actionConfig.position === 'end') {
                 html += '<td class="uk-table-shrink row-action">';
-                html += this.renderActionButtons(rowId);
+                html += this.renderActionButtons(rowId, row);
                 html += '</td>';
             }
 
@@ -247,10 +246,22 @@ class DataTablesJS {
         this.bindTableEvents();
         this.updateBulkActionButtons();
     }
-
-    renderActionButtons(rowId)
+    
+    renderActionButtons(rowId, rowData = {})
     {
         let html = '';
+        
+        // Helper function to replace all placeholders in a string
+        const replacePlaceholders = (str) => {
+            if (typeof str !== 'string') return str;
+            
+            let result = str.replace('{id}', rowId);
+            for (const [column, value] of Object.entries(rowData)) {
+                const placeholder = '{' + column + '}';
+                result = result.replace(new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), value || '');
+            }
+            return result;
+        };
         
         // Check if we have action groups configured
         if (this.actionConfig.groups && this.actionConfig.groups.length > 0) {
@@ -292,25 +303,22 @@ class DataTablesJS {
                         actionCount++;
                         const actionConfig = group[actionKey];
                         
-                        const icon = actionConfig.icon || 'link';
-                        const title = actionConfig.title || '';
-                        const className = actionConfig.class || 'btn-custom';
-                        let href = actionConfig.href || '#';
-                        let onclick = actionConfig.onclick || '';
+                        // Replace placeholders in all string properties
+                        const icon = replacePlaceholders(actionConfig.icon || 'link');
+                        const title = replacePlaceholders(actionConfig.title || '');
+                        const className = replacePlaceholders(actionConfig.class || 'btn-custom');
+                        const href = replacePlaceholders(actionConfig.href || '#');
+                        const onclick = replacePlaceholders(actionConfig.onclick || '');
                         const attributes = actionConfig.attributes || {};
-                        
-                        // Replace {id} placeholder with actual rowId in href and onclick
-                        href = href.replace('{id}', rowId);
-                        onclick = onclick.replace('{id}', rowId);
                         
                         html += '<a href="' + href + '" class="uk-icon-link ' + className + '" uk-icon="' + icon + '" title="' + title + '"';
                         if (onclick) {
                             html += ' onclick="' + onclick + '"';
                         }
                         
-                        // Add custom attributes (also replace {id} in attribute values)
+                        // Add custom attributes (also replace placeholders)
                         for (const [attrName, attrValue] of Object.entries(attributes)) {
-                            const processedValue = String(attrValue).replace('{id}', rowId);
+                            const processedValue = replacePlaceholders(String(attrValue));
                             html += ' ' + attrName + '="' + processedValue + '"';
                         }
                         
@@ -342,25 +350,22 @@ class DataTablesJS {
             if (this.actionConfig.custom_actions) {
                 this.actionConfig.custom_actions.forEach(
                     action => {
-                    const icon = action.icon || 'link';
-                    const title = action.title || '';
-                    const className = action.class || 'btn-custom';
-                    let href = action.href || '#';
-                    let onclick = action.onclick || '';
+                    // Replace placeholders in all string properties
+                    const icon = replacePlaceholders(action.icon || 'link');
+                    const title = replacePlaceholders(action.title || '');
+                    const className = replacePlaceholders(action.class || 'btn-custom');
+                    const href = replacePlaceholders(action.href || '#');
+                    const onclick = replacePlaceholders(action.onclick || '');
                     const attributes = action.attributes || {};
-                    
-                    // Replace {id} placeholder with actual rowId
-                    href = href.replace('{id}', rowId);
-                    onclick = onclick.replace('{id}', rowId);
                     
                     html += '<a href="' + href + '" class="uk-icon-link ' + className + ' uk-margin-small-right" uk-icon="' + icon + '" title="' + title + '"';
                     if (onclick) {
                         html += ' onclick="' + onclick + '"';
                     }
                     
-                    // Add custom attributes (also replace {id} in attribute values)
+                    // Add custom attributes (also replace placeholders)
                     for (const [attrName, attrValue] of Object.entries(attributes)) {
-                        const processedValue = String(attrValue).replace('{id}', rowId);
+                        const processedValue = replacePlaceholders(String(attrValue));
                         html += ' ' + attrName + '="' + processedValue + '"';
                     }
                     
