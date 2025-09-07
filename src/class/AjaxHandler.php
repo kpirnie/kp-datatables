@@ -819,13 +819,13 @@ class AjaxHandler
         }
 
         $data = $this->sanitizeFormData($_POST);
-        unset($data[$primaryKey]);
+        unset($data[$unqualifiedPK]);
 
         $schema = $this->dataTable->getTableSchema();
         $validatedData = [];
 
         foreach ($data as $field => $value) {
-            if (isset($schema[$field]) && $field !== $primaryKey) {
+            if (isset($schema[$field]) && $field !== $unqualifiedPK) {
                 $validatedData[$field] = $this->validateFieldValue($field, $value, $schema[$field]);
             }
         }
@@ -842,7 +842,7 @@ class AjaxHandler
         }, $fields)) . ' = ?';
 
         // Use BASE table name for UPDATE (no alias)
-        $query = "UPDATE `{$this->dataTable->getBaseTableName()}` SET {$setClause} WHERE `{$primaryKey}` = ?";
+        $query = "UPDATE `{$this->dataTable->getBaseTableName()}` SET {$setClause} WHERE `{$unqualifiedPK}` = ?";
 
         $params = array_merge(array_values($validatedData), [$id]);
 
