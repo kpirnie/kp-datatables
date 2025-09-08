@@ -725,20 +725,24 @@ if (! class_exists('KPT\DataTables\Renderer', false)) {
             $bulkActions = $this->getBulkActions();
             $actionConfig = $this->getActionConfig();
             $columns = $this->getColumns();
+            $defaultSortColumn = $this->getDefaultSortColumn();
+            $defaultSortDirection = $this->getDefaultSortDirection();
 
             // Generate initialization script
             $html = "<script>\n";
             $html .= "document.addEventListener('DOMContentLoaded', function() {\n";
             $html .= "    window.DataTables = new DataTablesJS({\n";
             $html .= "        tableName: '{$tableName}',\n";
-            $html .= "        primaryKey: '{$jsPrimaryKey}',\n";  // Use unqualified for JS
+            $html .= "        primaryKey: '{$jsPrimaryKey}',\n";
             $html .= "        inlineEditableColumns: {$inlineEditableColumns},\n";
             $html .= "        perPage: " . $this->getRecordsPerPage() . ",\n";
             $html .= "        bulkActionsEnabled: " . ($bulkActions['enabled'] ? 'true' : 'false') . ",\n";
             $html .= "        bulkActions: " . json_encode($bulkActions['actions']) . ",\n";
             $html .= "        actionConfig: " . json_encode($actionConfig) . ",\n";
             $html .= "        columns: " . json_encode($columns) . ",\n";
-            $html .= "        cssClasses: " . json_encode($this->getCssClasses()) . "\n";
+            $html .= "        cssClasses: " . json_encode($this->getCssClasses()) . ",\n";
+            $html .= "        defaultSortColumn: '{$defaultSortColumn}',\n";
+            $html .= "        defaultSortDirection: '{$defaultSortDirection}'\n";
             $html .= "    });\n";
             $html .= "});\n";
             $html .= "</script>\n";

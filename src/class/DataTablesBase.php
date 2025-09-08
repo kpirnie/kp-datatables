@@ -210,6 +210,20 @@ if (! class_exists('KPT\DataTables\DataTablesBase', false)) {
          */
         protected array $whereConditions = [];
 
+        /**
+         * Default sort column
+         *
+         * @var string
+         */
+        protected string $defaultSortColumn = '';
+
+        /**
+         * Default sort direction
+         *
+         * @var string
+         */
+        protected string $defaultSortDirection = 'ASC';
+
         // === GETTER METHODS FOR CONFIGURATION ACCESS ===
         // These methods provide read-only access to configuration for other classes
 
@@ -411,6 +425,26 @@ if (! class_exists('KPT\DataTables\DataTablesBase', false)) {
         public function getWhereConditions(): array
         {
             return $this->whereConditions;
+        }
+
+        /**
+         * Get the default sort column
+         *
+         * @return string Default sort column name
+         */
+        public function getDefaultSortColumn(): string
+        {
+            return $this->defaultSortColumn;
+        }
+
+        /**
+         * Get the default sort direction
+         *
+         * @return string Default sort direction (ASC or DESC)
+         */
+        public function getDefaultSortDirection(): string
+        {
+            return $this->defaultSortDirection;
         }
     }
 

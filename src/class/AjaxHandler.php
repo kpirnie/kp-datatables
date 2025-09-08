@@ -1262,14 +1262,55 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
 
             $whereParts = [];
 
+            // Check if this is a simple indexed array of conditions (default AND)
+            if (isset($conditions[0]) && is_array($conditions[0])) {
+                // Numeric indexed array - treat as AND conditions
+                foreach ($conditions as $condition) {
+                    if (!isset($condition['field'], $condition['comparison'], $condition['value'])) {
+                        continue;
+                    }
+
+                    $field = $condition['field'];
+                    $comparison = strtoupper(trim($condition['comparison']));
+                    $value = $condition['value'];
+
+                    if (strpos($field, '.') !== false) {
+                        $fieldSql = $field;
+                    } else {
+                        $fieldSql = "`{$field}`";
+                    }
+
+                    switch ($comparison) {
+                        case 'IN':
+                        case 'NOT IN':
+                            if (is_array($value)) {
+                                $placeholders = implode(',', array_fill(0, count($value), '?'));
+                                $whereParts[] = "{$fieldSql} {$comparison} ({$placeholders})";
+                                $params = array_merge($params, $value);
+                            }
+                            break;
+                        case 'LIKE':
+                        case 'NOT LIKE':
+                            $whereParts[] = "{$fieldSql} {$comparison} ?";
+                            $params[] = $value;
+                            break;
+                        default:
+                            $whereParts[] = "{$fieldSql} {$comparison} ?";
+                            $params[] = $value;
+                            break;
+                    }
+                }
+
+                return !empty($whereParts) ? ' WHERE ' . implode(' AND ', $whereParts) : '';
+            }
+
+            // Handle operator-based structure (AND/OR groups)
             foreach ($conditions as $operator => $conditionGroup) {
                 if (!is_array($conditionGroup)) {
                     continue;
                 }
 
-                // Handle single condition or array of conditions
                 if (isset($conditionGroup['field'])) {
-                    // Single condition
                     $conditionGroup = [$conditionGroup];
                 }
 
@@ -1283,14 +1324,12 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
                     $comparison = strtoupper(trim($condition['comparison']));
                     $value = $condition['value'];
 
-                    // Add qualified field name or use as-is for aliases
                     if (strpos($field, '.') !== false) {
                         $fieldSql = $field;
                     } else {
                         $fieldSql = "`{$field}`";
                     }
 
-                    // Handle different comparison operators
                     switch ($comparison) {
                         case 'IN':
                         case 'NOT IN':
@@ -1306,7 +1345,6 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
                             $params[] = $value;
                             break;
                         default:
-                            // =, !=, >, <, <>, <=, >=, REGEXP
                             $groupParts[] = "{$fieldSql} {$comparison} ?";
                             $params[] = $value;
                             break;

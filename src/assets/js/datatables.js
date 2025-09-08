@@ -26,8 +26,8 @@ class DataTablesJS {
         
         // State
         this.currentPage = 1;
-        this.sortColumn = '';
-        this.sortDirection = 'ASC';
+        this.sortColumn = config.defaultSortColumn || '';
+        this.sortDirection = config.defaultSortDirection || 'ASC';
         this.search = '';
         this.deleteId = null;
         this.selectedIds = new Set();
@@ -1117,6 +1117,10 @@ class DataTablesJS {
         .then(
             data => {
             if (data.success) {
+                
+                // reload the table data
+                this.loadData();
+
                 // Handle boolean fields differently
                 if (element.classList.contains('boolean-toggle')) {
                     const isActive = value == '1' || value === 'true' || value === true;

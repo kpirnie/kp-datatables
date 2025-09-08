@@ -731,6 +731,26 @@ if (! class_exists('KPT\DataTables\DataTables', false)) {
         }
 
         /**
+         * Set default sort column and direction
+         *
+         * @param  string $column    Column name to sort by default
+         * @param  string $direction Sort direction ('ASC' or 'DESC')
+         * @return self Returns self for method chaining
+         */
+        public function defaultSort(string $column, string $direction = 'ASC'): self
+        {
+            $this->defaultSortColumn = $this->sanitizeInput($column);
+            $this->defaultSortDirection = strtoupper($direction) === 'DESC' ? 'DESC' : 'ASC';
+
+            Logger::debug("DataTables default sort set", [
+                'column' => $column,
+                'direction' => $this->defaultSortDirection
+            ]);
+
+            return $this;
+        }
+
+        /**
          * Render JavaScript file includes
          *
          * Generates the necessary <script> tags for external files.
