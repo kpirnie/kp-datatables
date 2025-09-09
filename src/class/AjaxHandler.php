@@ -703,7 +703,7 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
             // Add WHERE conditions
             $whereConditions = $this->dataTable->getWhereConditions();
             $additionalParams = [];
-            $whereClause = $this->buildWhereClause($whereConditions, $additionalParams);
+            $whereClause = $this->buildWhereClause($whereConditions, $additionalParams, true);
 
             if (!empty($whereClause)) {
                 $sql .= $whereClause . " AND `{$unqualifiedPK}` = ?";
@@ -754,7 +754,7 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
             // Add WHERE conditions
             $whereConditions = $this->dataTable->getWhereConditions();
             $additionalParams = [];
-            $whereClause = $this->buildWhereClause($whereConditions, $additionalParams);
+            $whereClause = $this->buildWhereClause($whereConditions, $additionalParams, true);
 
             if (!empty($whereClause)) {
                 $sql .= $whereClause . " AND `{$unqualifiedPK}` = ?";
@@ -799,19 +799,24 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
             }
 
             $unqualifiedPK = $this->getUnqualifiedPrimaryKey();
+
+            // For qualified primary keys in WHERE, we need to check both
+            $primaryKey = $this->dataTable->getPrimaryKey();
+            $idColumn = strpos($primaryKey, '.') !== false ? $unqualifiedPK : $primaryKey;
+
             $sql = "SELECT * FROM `{$this->dataTable->getBaseTableName()}`";
             $params = [$id];
 
             // Add WHERE conditions
             $whereConditions = $this->dataTable->getWhereConditions();
             $additionalParams = [];
-            $whereClause = $this->buildWhereClause($whereConditions, $additionalParams);
+            $whereClause = $this->buildWhereClause($whereConditions, $additionalParams, true);
 
             if (!empty($whereClause)) {
-                $sql .= $whereClause . " AND `{$unqualifiedPK}` = ?";
+                $sql .= $whereClause . " AND `{$idColumn}` = ?";
                 $params = array_merge($additionalParams, $params);
             } else {
-                $sql .= " WHERE `{$unqualifiedPK}` = ?";
+                $sql .= " WHERE `{$idColumn}` = ?";
             }
 
             $result = $this->dataTable->getDatabase()
@@ -875,7 +880,7 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
                     // Add WHERE conditions
                     $whereConditions = $this->dataTable->getWhereConditions();
                     $additionalParams = [];
-                    $whereClause = $this->buildWhereClause($whereConditions, $additionalParams);
+                    $whereClause = $this->buildWhereClause($whereConditions, $additionalParams, true);
 
                     if (!empty($whereClause)) {
                         $sql .= $whereClause . " AND `{$unqualifiedPK}` IN ({$placeholders})";
@@ -959,7 +964,7 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
             // Add WHERE conditions
             $whereConditions = $this->dataTable->getWhereConditions();
             $additionalParams = [];
-            $whereClause = $this->buildWhereClause($whereConditions, $additionalParams);
+            $whereClause = $this->buildWhereClause($whereConditions, $additionalParams, true);
 
             if (!empty($whereClause)) {
                 $sql .= $whereClause . " AND `{$unqualifiedPK}` = ?";
@@ -1081,7 +1086,7 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
             $sanitized = [];
             foreach ($data as $key => $value) {
                 if ($key !== 'action') { // Skip action parameter
-                    $sanitized[$this->sanitizeInput($key)] = $this->sanitizeValue($value);
+                    $sanitized[$this->sanitizeInput($key)] = $value;
                 }
             }
             return $sanitized;
@@ -1096,7 +1101,7 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
         private function sanitizeValue($value)
         {
             if (is_string($value)) {
-                return trim(htmlspecialchars($value, ENT_QUOTES, 'UTF-8'));
+                return trim($value);
             }
             return $value;
         }
@@ -1227,10 +1232,12 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
                     return $value;
 
                 case 'checkbox':
+                case 'boolean':
                     return $value ? 1 : 0;
 
                 default:
-                    return $this->sanitizeValue($value);
+                    // Just return the trimmed value, no HTML encoding
+                    return is_string($value) ? trim($value) : $value;
             }
         }
 
@@ -1252,9 +1259,10 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
          *
          * @param  array $conditions WHERE conditions array
          * @param  array &$params    Parameters array to append to
+         * @param  bool  $useBaseTable Whether to use base table (for UPDATE/DELETE)
          * @return string WHERE clause SQL
          */
-        private function buildWhereClause(array $conditions, array &$params): string
+        private function buildWhereClause(array $conditions, array &$params, bool $useBaseTable = false): string
         {
             if (empty($conditions)) {
                 return '';
@@ -1273,6 +1281,11 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
                     $field = $condition['field'];
                     $comparison = strtoupper(trim($condition['comparison']));
                     $value = $condition['value'];
+
+                    // Strip table alias for UPDATE/DELETE operations
+                    if ($useBaseTable && strpos($field, '.') !== false) {
+                        $field = $this->getUnqualifiedFieldName($field);
+                    }
 
                     if (strpos($field, '.') !== false) {
                         $fieldSql = $field;
@@ -1304,7 +1317,7 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
                 return !empty($whereParts) ? ' WHERE ' . implode(' AND ', $whereParts) : '';
             }
 
-            // Handle operator-based structure (AND/OR groups)
+            // Handle operator-based structure (AND/OR groups) - same logic applies
             foreach ($conditions as $operator => $conditionGroup) {
                 if (!is_array($conditionGroup)) {
                     continue;
@@ -1323,6 +1336,11 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
                     $field = $condition['field'];
                     $comparison = strtoupper(trim($condition['comparison']));
                     $value = $condition['value'];
+
+                    // Strip table alias for UPDATE/DELETE operations
+                    if ($useBaseTable && strpos($field, '.') !== false) {
+                        $field = $this->getUnqualifiedFieldName($field);
+                    }
 
                     if (strpos($field, '.') !== false) {
                         $fieldSql = $field;
@@ -1361,6 +1379,20 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
             }
 
             return !empty($whereParts) ? ' WHERE ' . implode(' AND ', $whereParts) : '';
+        }
+
+        /**
+         * Get unqualified column name from potentially qualified field
+         *
+         * @param  string $field Field name that may be qualified (e.g., 's.u_id')
+         * @return string Unqualified column name (e.g., 'u_id')
+         */
+        private function getUnqualifiedFieldName(string $field): string
+        {
+            if (strpos($field, '.') !== false) {
+                return explode('.', $field)[1];
+            }
+            return $field;
         }
     }
 

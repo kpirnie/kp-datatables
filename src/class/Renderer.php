@@ -440,6 +440,11 @@ if (! class_exists('KPT\DataTables\Renderer', false)) {
             $primaryKey = $this->getPrimaryKey();
             $formClass = $formConfig['class'] ?? '';
 
+            // Get unqualified primary key for form field name
+            $unqualifiedPK = strpos($primaryKey, '.') !== false ?
+                            explode('.', $primaryKey)[1] :
+                            $primaryKey;
+
             // Modal container
             $html = "<div id=\"edit-modal\" uk-modal>\n";
             $html .= "<div class=\"uk-modal-dialog uk-modal-body\">\n";
@@ -448,8 +453,8 @@ if (! class_exists('KPT\DataTables\Renderer', false)) {
             // Form with AJAX submission
             $html .= "<form class=\"uk-form-stacked {$formClass}\" id=\"edit-form\" onsubmit=\"return DataTables.submitEditForm(event)\">\n";
 
-            // Hidden field for record ID (populated by JavaScript)
-            $html .= "<input type=\"hidden\" name=\"{$primaryKey}\" id=\"edit-{$primaryKey}\">\n";
+            // Hidden field for record ID - use unqualified name
+            $html .= "<input type=\"hidden\" name=\"{$unqualifiedPK}\" id=\"edit-{$unqualifiedPK}\">\n";
 
             // Generate form fields from configuration
             foreach ($formFields as $field => $config) {

@@ -773,10 +773,18 @@ class DataTablesJS {
 
     populateEditForm(recordData)
     {
-        // Set the primary key field
-        const pkField = document.getElementById(`edit-${this.primaryKey}`);
+        // Get unqualified primary key name
+        let unqualifiedPK = this.primaryKey;
+        if (this.primaryKey.includes('.')) {
+            unqualifiedPK = this.primaryKey.split('.')[1];
+        }
+
+        // Set the primary key field - try both qualified and unqualified
+        let pkValue = recordData[this.primaryKey] || recordData[unqualifiedPK] || recordData['s.id'] || recordData['id'] || '';
+        
+        const pkField = document.getElementById(`edit-${unqualifiedPK}`);
         if (pkField) {
-            pkField.value = recordData[this.primaryKey] || '';
+            pkField.value = pkValue;
         }
 
         // Get all form fields in the edit form
@@ -790,7 +798,7 @@ class DataTablesJS {
             const fieldName = element.name;
             
             // Skip if no field name or if it's the primary key (already handled)
-            if (!fieldName || fieldName === this.primaryKey) return;
+            if (!fieldName || fieldName === unqualifiedPK) return;
             
             // Get value from record data
             const value = recordData[fieldName];
