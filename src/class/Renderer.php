@@ -323,14 +323,22 @@ if (! class_exists('KPT\DataTables\Renderer', false)) {
 
             // Regular data columns - key is column name, value is display label
             foreach ($columns as $column => $label) {
-                // Determine if column is sortable
+                // Determine if column is sortable (handle both full expressions and aliases)
                 $sortable = in_array($column, $sortableColumns);
+                if (!$sortable && stripos($column, ' AS ') !== false) {
+                    // Check if the alias name is sortable
+                    $parts = explode(' AS ', $column);
+                    if (count($parts) === 2) {
+                        $aliasName = trim($parts[1], '`\'" ');
+                        $sortable = in_array($aliasName, $sortableColumns);
+                    }
+                }
                 $columnClass = $cssClasses['columns'][$column] ?? '';
                 $thClass = $columnClass . ($sortable ? ' sortable' : '');
 
                 // Build header cell
                 $html .= "<th" . (!empty($thClass) ? " class=\"{$thClass}\"" : "") .
-                        ($sortable ? " data-sort=\"{$column}\"" : "") . ">";
+                        ($sortable ? " data-sort=\"" . (stripos($column, ' AS ') !== false ? trim(explode(' AS ', $column)[1], '`\'" ') : $column) . "\"" : "") . ">";
 
                 if ($sortable) {
                     // Sortable header with click handler and sort indicator

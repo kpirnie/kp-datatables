@@ -185,9 +185,27 @@ class DataTablesJS {
             // Regular columns - simplified structure where key=column, value=label
             Object.keys(this.columns).forEach(
                 column => {
-                const columnClass = this.cssClasses?.columns?.[column] || '';
+                // Check for CSS classes using both full column key and alias name
+                let columnClass = this.cssClasses?.columns?.[column] || '';
+                if (!columnClass && column.toLowerCase().includes(' as ')) {
+                    const parts = column.split(/\s+as\s+/i);
+                    if (parts.length === 2) {
+                        const aliasName = parts[1].replace(/[`'"]/g, '');
+                        columnClass = this.cssClasses?.columns?.[aliasName] || '';
+                    }
+                }
                 const isEditable = this.inlineEditableColumns.includes(column);
-                let cellContent = row[column] || '';
+                
+                // Handle aliases - if column contains " AS ", use the alias name to access row data
+                let dataKey = column;
+                if (column.toLowerCase().includes(' as ')) {
+                    const parts = column.split(/\s+as\s+/i);
+                    if (parts.length === 2) {
+                        dataKey = parts[1].replace(/[`'"]/g, ''); // Remove any quotes/backticks
+                    }
+                }
+                
+                let cellContent = row[dataKey] || '';
                 const tdClass = isEditable ? ' cell-edit' : '';
                 
                 // Get field type from schema
@@ -213,7 +231,10 @@ class DataTablesJS {
                 // Handle select display with labels
                 } else if (fieldType === 'select') {
                     const selectOptions = tableSchema[column]?.form_options || {};
-                    const displayLabel = selectOptions[cellContent] || cellContent;
+                    // Convert cellContent to string to ensure proper key lookup
+                    const cellContentStr = String(cellContent);
+                    // Use nullish coalescing or check if key exists to handle '0' value correctly
+                    const displayLabel = cellContentStr in selectOptions ? selectOptions[cellContentStr] : cellContent;
                     
                     if (isEditable) {
                         cellContent = `<span class="inline-editable" data-field="${column}" data-id="${rowId}" data-type="${fieldType}" data-value="${cellContent}" style="cursor: pointer;">${displayLabel}</span>`;
@@ -246,6 +267,7 @@ class DataTablesJS {
         this.bindTableEvents();
         this.updateBulkActionButtons();
     }
+    
     
     renderActionButtons(rowId, rowData = {})
     {
@@ -1144,7 +1166,8 @@ class DataTablesJS {
                     const tableSchema = tableElement ? JSON.parse(tableElement.dataset.columns || '{}') : {};
                     const field = element.getAttribute('data-field');
                     const selectOptions = tableSchema[field]?.form_options || {};
-                    const displayLabel = selectOptions[value] || value;
+                    const valueStr = String(value);
+                    const displayLabel = valueStr in selectOptions ? selectOptions[valueStr] : value;
                     
                     element.setAttribute('data-value', value);
                     element.textContent = displayLabel;

@@ -367,7 +367,26 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
             // Validate sort column exists in configuration
             if (!empty($sortColumn)) {
                 $validColumns = array_keys($this->dataTable->getColumns());
-                if (!in_array($sortColumn, $validColumns)) {
+                $sortColumnValid = in_array($sortColumn, $validColumns);
+
+                // If not found, check if it matches an alias
+                if (!$sortColumnValid) {
+                    foreach ($validColumns as $column) {
+                        if (stripos($column, ' AS ') !== false) {
+                            $parts = explode(' AS ', $column);
+                            if (count($parts) === 2) {
+                                $aliasName = trim($parts[1], '`\'" ');
+                                if ($aliasName === $sortColumn) {
+                                    $sortColumn = $column; // Use full expression for SQL
+                                    $sortColumnValid = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (!$sortColumnValid) {
                     $sortColumn = ''; // Reset invalid column
                 }
             }
@@ -454,10 +473,17 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
                     $params[] = "%{$search}%";
                 } else {
                     foreach ($this->dataTable->getColumns() as $column => $label) {
-                        if (strpos($column, '.') !== false) {
-                            $searchConditions[] = "{$column} LIKE ?";
+                        // For aliased columns, use only the expression part (before AS) in WHERE clause
+                        $searchColumn = $column;
+                        if (stripos($column, ' AS ') !== false) {
+                            $parts = explode(' AS ', $column);
+                            $searchColumn = trim($parts[0]); // Use only the expression part
+                        }
+
+                        if (strpos($searchColumn, '.') !== false) {
+                            $searchConditions[] = "{$searchColumn} LIKE ?";
                         } else {
-                            $searchConditions[] = "`{$column}` LIKE ?";
+                            $searchConditions[] = "`{$searchColumn}` LIKE ?";
                         }
                         $params[] = "%{$search}%";
                     }
@@ -468,9 +494,36 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
                 }
             }
 
-            if (!empty($sortColumn) && in_array($sortColumn, $this->dataTable->getSortableColumns())) {
+            // Check if sortColumn is sortable (handle both full expressions and aliases)
+            $isSortable = false;
+            if (!empty($sortColumn)) {
+                $sortableColumns = $this->dataTable->getSortableColumns();
+
+                if (in_array($sortColumn, $sortableColumns)) {
+                    $isSortable = true;
+                } else {
+                    // Check if this is a full expression that matches a sortable alias
+                    if (stripos($sortColumn, ' AS ') !== false) {
+                        $parts = explode(' AS ', $sortColumn);
+                        if (count($parts) === 2) {
+                            $aliasName = trim($parts[1], '`\'" ');
+                            if (in_array($aliasName, $sortableColumns)) {
+                                $isSortable = true;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if ($isSortable) {
                 $direction = strtoupper($sortDirection) === 'DESC' ? 'DESC' : 'ASC';
-                if (strpos($sortColumn, '.') !== false) {
+
+                // Handle aliases - if sorting by an alias, use just the alias name in ORDER BY
+                if (stripos($sortColumn, ' AS ') !== false) {
+                    $parts = explode(' AS ', $sortColumn);
+                    $aliasName = trim($parts[1], '`\'" ');
+                    $sql .= " ORDER BY `{$aliasName}` {$direction}";
+                } else if (strpos($sortColumn, '.') !== false) {
                     $sql .= " ORDER BY {$sortColumn} {$direction}";
                 } else {
                     $sql .= " ORDER BY `{$sortColumn}` {$direction}";
@@ -488,6 +541,7 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
             }
             return $query->fetch();
         }
+
 
         /**
          * Execute count query for pagination metadata using fluent interface
@@ -546,10 +600,17 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
                     $params[] = "%{$search}%";
                 } else {
                     foreach ($columns as $column) {
-                        if (strpos($column, '.') !== false) {
-                            $searchConditions[] = "{$column} LIKE ?";
+                        // For aliased columns, use only the expression part (before AS) in WHERE clause
+                        $searchColumn = $column;
+                        if (stripos($column, ' AS ') !== false) {
+                            $parts = explode(' AS ', $column);
+                            $searchColumn = trim($parts[0]); // Use only the expression part
+                        }
+
+                        if (strpos($searchColumn, '.') !== false) {
+                            $searchConditions[] = "{$searchColumn} LIKE ?";
                         } else {
-                            $searchConditions[] = "`{$column}` LIKE ?";
+                            $searchConditions[] = "`{$searchColumn}` LIKE ?";
                         }
                         $params[] = "%{$search}%";
                     }
@@ -586,11 +647,70 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
             if (empty($columns)) {
                 $selectFields[] = "*";
             } else {
+                // Include configured display columns
                 foreach ($columns as $column => $label) {
-                    // Use the qualified column name AS the same qualified name
-                    // This preserves the exact key structure
-                    $selectFields[] = "{$column} AS `{$column}`";
+                    $selectFields[] = preg_match('/\s+AS\s+/i', $column) ? $column : "{$column} AS `{$column}`";
                 }
+
+                // Also include any fields referenced in action configurations
+                $actionConfig = $this->dataTable->getActionConfig();
+                if (isset($actionConfig['groups'])) {
+                    foreach ($actionConfig['groups'] as $group) {
+                        if (is_array($group) && !is_numeric(key($group))) {
+                            foreach ($group as $actionKey => $action) {
+                                if (isset($action['attributes'])) {
+                                    foreach ($action['attributes'] as $attrName => $attrValue) {
+                                        // Extract field names from placeholders like {s_stream_uri}
+                                        if (preg_match_all('/\{([^}]+)\}/', $attrValue, $matches)) {
+                                            foreach ($matches[1] as $field) {
+                                                if ($field !== 'id' && !isset($columns[$field])) {
+                                                    // Check if this field is already in selectFields as an alias
+                                                    $fieldAlreadyExists = false;
+                                                    foreach ($selectFields as $existingField) {
+                                                        if (strpos($existingField, "AS {$field}") !== false || strpos($existingField, "AS `{$field}`") !== false) {
+                                                            $fieldAlreadyExists = true;
+                                                            break;
+                                                        }
+                                                    }
+                                                    if (!$fieldAlreadyExists) {
+                                                        // Add this field to select if not already included
+                                                        $selectFields[] = "`{$field}`";
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                // Also check href, onclick, etc. for placeholders
+                                foreach (['href', 'onclick', 'title'] as $prop) {
+                                    if (isset($action[$prop]) && is_string($action[$prop])) {
+                                        if (preg_match_all('/\{([^}]+)\}/', $action[$prop], $matches)) {
+                                            foreach ($matches[1] as $field) {
+                                                if ($field !== 'id' && !isset($columns[$field])) {
+                                                    // Check if this field is already in selectFields as an alias
+                                                    $fieldAlreadyExists = false;
+                                                    foreach ($selectFields as $existingField) {
+                                                        if (strpos($existingField, "AS {$field}") !== false || strpos($existingField, "AS `{$field}`") !== false) {
+                                                            $fieldAlreadyExists = true;
+                                                            break;
+                                                        }
+                                                    }
+                                                    if (!$fieldAlreadyExists) {
+                                                        // Add this field to select if not already included
+                                                        $selectFields[] = "`{$field}`";
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Remove duplicates
+                $selectFields = array_unique($selectFields);
             }
 
             return $selectFields;

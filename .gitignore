@@ -19,3 +19,5 @@ Thumbs.db
 # Cache
 /cache/
 *.cache
+
+*Zone.Identifier*
