@@ -181,6 +181,18 @@ if (! class_exists('KPT\DataTables\DataTables', false)) {
                 return 'select';
             }
 
+            // Handle image fields (VARCHAR fields with 'image' in name or specific pattern)
+            if (
+                strpos($type, 'varchar') !== false && (
+                strpos(strtolower($field ?? ''), 'image') !== false ||
+                strpos(strtolower($field ?? ''), 'photo') !== false ||
+                strpos(strtolower($field ?? ''), 'avatar') !== false ||
+                strpos(strtolower($field ?? ''), 'picture') !== false
+                )
+            ) {
+                return 'image';
+            }
+
             // Handle varchar with common patterns
             if (strpos($type, 'varchar') !== false) {
                 // Check for email patterns in column names or types

@@ -241,6 +241,25 @@ class DataTablesJS {
                     } else {
                         cellContent = displayLabel;
                     }
+
+                // Handle image display with thumbnails
+                } else if (fieldType === 'image') {
+                    if (cellContent && cellContent.trim()) {
+                        const imageSrc = cellContent.startsWith('http') ? cellContent : `/uploads/${cellContent}`;
+                        
+                        if (isEditable) {
+                            cellContent = `<span class="inline-editable" data-field="${column}" data-id="${rowId}" data-type="${fieldType}" data-value="${cellContent}" style="cursor: pointer;">`;
+                            cellContent += `<img src="${imageSrc}" alt="Image" style="max-width: 50px; max-height: 50px; object-fit: cover;" class="uk-border-rounded">`;
+                            cellContent += '</span>';
+                        } else {
+                            cellContent = `<img src="${imageSrc}" alt="Image" style="max-width: 50px; max-height: 50px; object-fit: cover;" class="uk-border-rounded">`;
+                        }
+                    } else {
+                        cellContent = isEditable ? 
+                            `<span class="inline-editable" data-field="${column}" data-id="${rowId}" data-type="${fieldType}" data-value="" style="cursor: pointer;">No image</span>` :
+                            'No image';
+                    }
+                    
                 } else if (isEditable) {
 
                     // Add inline-editable class and attributes for non-boolean editable fields
@@ -970,7 +989,9 @@ class DataTablesJS {
                     'dblclick', (e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        this.startInlineEdit(e.target);
+                        // For image fields, the target might be the img element, so use closest span
+                        const editableElement = e.target.closest('.inline-editable');
+                        this.startInlineEdit(editableElement);
                     }
                 );
             }
@@ -1073,7 +1094,129 @@ class DataTablesJS {
                 inputElement.value = currentValue;
                 //inputElement.style.width = '200px';
                 break;
+
+            case 'image':
+                // Create container for image editing
+                const container = document.createElement('div');
+                container.className = 'uk-width-1-1';
+                container.style.minWidth = '200px';
                 
+                // Current image preview
+                if (currentValue && currentValue.trim()) {
+                    const imageSrc = currentValue.startsWith('http') ? currentValue : `/uploads/${currentValue}`;
+                    const preview = document.createElement('img');
+                    preview.src = imageSrc;
+                    preview.style.maxWidth = '100px';
+                    preview.style.maxHeight = '100px';
+                    preview.style.objectFit = 'cover';
+                    preview.className = 'uk-border-rounded uk-margin-small-bottom uk-display-block';
+                    container.appendChild(preview);
+                }
+                
+                // URL input
+                const urlInput = document.createElement('input');
+                urlInput.type = 'url';
+                urlInput.className = 'uk-input uk-width-1-1 uk-margin-small-bottom';
+                urlInput.placeholder = 'Enter image URL or upload file';
+                urlInput.value = currentValue.startsWith('http') ? currentValue : '';
+                
+                // File input container
+                const fileContainer = document.createElement('div');
+                fileContainer.className = 'uk-margin-small-bottom';
+                
+                const fileInput = document.createElement('input');
+                fileInput.type = 'file';
+                fileInput.className = 'uk-input uk-width-1-1';
+                fileInput.accept = 'image/*';
+                
+                // Action buttons
+                const buttonContainer = document.createElement('div');
+                buttonContainer.className = 'uk-flex uk-flex-right uk-margin-small-top';
+                
+                const saveBtn = document.createElement('button');
+                saveBtn.className = 'uk-button uk-button-primary uk-button-small uk-margin-small-right';
+                saveBtn.textContent = 'Save';
+                saveBtn.type = 'button';
+                
+                const cancelBtn = document.createElement('button');
+                cancelBtn.className = 'uk-button uk-button-default uk-button-small';
+                cancelBtn.textContent = 'Cancel';
+                cancelBtn.type = 'button';
+                
+                fileContainer.appendChild(fileInput);
+                buttonContainer.appendChild(saveBtn);
+                buttonContainer.appendChild(cancelBtn);
+                
+                container.appendChild(urlInput);
+                container.appendChild(fileContainer);
+                container.appendChild(buttonContainer);
+                
+                // Save function
+                const saveImageEdit = () => {
+                    const urlValue = urlInput.value.trim();
+                    const fileValue = fileInput.files[0];
+                    
+                    if (fileValue) {
+                        // Upload file
+                        const formData = new FormData();
+                        formData.append('action', 'upload_file');
+                        formData.append('file', fileValue);
+                        formData.append('prepend', element.getAttribute('data-prepend') || '');
+                        
+                        fetch(window.location.href, {
+                            method: 'POST',
+                            body: formData
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                this.saveInlineEdit(id, field, data.file_name, element);
+                            } else {
+                                cancelImageEdit();
+                                UIkit.notification(data.message || 'Upload failed', {status: 'danger'});
+                            }
+                        })
+                        .catch(error => {
+                            cancelImageEdit();
+                            UIkit.notification('Upload error', {status: 'danger'});
+                        });
+                    } else if (urlValue !== currentValue) {
+                        this.saveInlineEdit(id, field, urlValue, element);
+                    } else {
+                        cancelImageEdit();
+                    }
+                };
+                
+                const cancelImageEdit = () => {
+                    if (currentValue && currentValue.trim()) {
+                        const imageSrc = currentValue.startsWith('http') ? currentValue : `/uploads/${currentValue}`;
+                        element.innerHTML = `<img src="${imageSrc}" alt="Image" style="max-width: 50px; max-height: 50px; object-fit: cover;" class="uk-border-rounded">`;
+                    } else {
+                        element.innerHTML = 'No image';
+                    }
+                };
+                
+                // Event listeners
+                saveBtn.addEventListener('click', saveImageEdit);
+                cancelBtn.addEventListener('click', cancelImageEdit);
+                
+                urlInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        saveImageEdit();
+                    } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        cancelImageEdit();
+                    }
+                });
+                
+                // Replace content and focus
+                element.innerHTML = '';
+                element.appendChild(container);
+                urlInput.focus();
+                return; // Exit early since we handle everything custom
+                
+
             default: // text, email, etc.
                 inputElement = document.createElement('input');
                 inputElement.type = fieldType === 'email' ? 'email' : 'text';
@@ -1151,8 +1294,17 @@ class DataTablesJS {
                 // reload the table data
                 this.loadData();
 
-                // Handle boolean fields differently
-                if (element.classList.contains('boolean-toggle')) {
+                // Handle image fields differently
+                if (element.getAttribute('data-type') === 'image') {
+                    if (value && value.trim()) {
+                        const imageSrc = value.startsWith('http') ? value : `/uploads/${value}`;
+                        element.innerHTML = `<img src="${imageSrc}" alt="Image" style="max-width: 50px; max-height: 50px; object-fit: cover;" class="uk-border-rounded">`;
+                        element.setAttribute('data-value', value);
+                    } else {
+                        element.innerHTML = 'No image';
+                        element.setAttribute('data-value', '');
+                    }
+                } else if (element.classList.contains('boolean-toggle')) {
                     const isActive = value == '1' || value === 'true' || value === true;
                     const iconName = isActive ? 'check' : 'close';
                     const iconClass = isActive ? 'uk-text-success' : 'uk-text-danger';

@@ -145,13 +145,17 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
         {
             // Loop through all uploaded files
             foreach ($_FILES as $fieldName => $file) {
-                // Only process files that were uploaded successfully
+                // Handle image field uploads (remove -file suffix)
+                $actualFieldName = $fieldName;
+                if (strpos($fieldName, '-file') !== false) {
+                    $actualFieldName = str_replace('-file', '', $fieldName);
+                }
+
                 if ($file['error'] === UPLOAD_ERR_OK) {
                     $uploadResult = $this->uploadFile($file);
 
-                    // Add file path to form data if upload was successful
                     if ($uploadResult['success']) {
-                        $data[$fieldName] = $uploadResult['file_path'];
+                        $data[$actualFieldName] = $uploadResult['file_name']; // Just filename, not full path
                     }
                 }
             }
@@ -196,8 +200,9 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
                 mkdir($config['upload_path'], 0755, true);
             }
 
-            // Generate unique filename to prevent conflicts and directory traversal
-            $fileName = uniqid() . '_' . basename($file['name']);
+            // Generate unique filename with optional prepend
+            $prepend = $_POST['prepend'] ?? '';
+            $fileName = $prepend ? $prepend . '_' . uniqid() . '_' . basename($file['name']) : uniqid() . '_' . basename($file['name']);
             $filePath = $config['upload_path'] . $fileName;
 
             // Attempt to move uploaded file to final destination

@@ -136,8 +136,15 @@ if (! class_exists('KPT\DataTables\Renderer', false)) {
             // Render all collected bulk actions
             if (!empty($actionsToRender)) {
                 $actionCount = 0;
+                $replaceDelete = array_key_exists('replacedelete', $actionsToRender);
+                if ($replaceDelete) {
+                    $actionsToRender = array_filter(
+                        $actionsToRender,
+                        fn($key) => $key !== 'delete',
+                        ARRAY_FILTER_USE_KEY
+                    );
+                }
                 $totalActions = count($actionsToRender);
-
                 foreach ($actionsToRender as $action => $config) {
                     $actionCount++;
 
@@ -673,6 +680,37 @@ if (! class_exists('KPT\DataTables\Renderer', false)) {
                     $html .= "<input type=\"file\" class=\"uk-input\" id=\"{$fieldId}\" name=\"{$fieldName}\" " .
                             "{$attrString} " . ($required ? "required" : "") .
                             ($disabled ? " disabled" : "") . ">\n";
+                    $html .= "</div>\n";
+                    break;
+
+                case 'image':
+                    // Image field with URL input and file upload
+                    $html .= "<label class=\"uk-form-label\" for=\"{$fieldId}\">{$label}" .
+                            ($required ? " <span class=\"uk-text-danger\">*</span>" : "") . "</label>\n";
+                    $html .= "<div class=\"uk-form-controls\">\n";
+
+                    // Current image preview if value exists
+                    if (!empty($value)) {
+                        $imageSrc = (strpos($value, 'http') === 0) ? $value : "/uploads/{$value}";
+                        $html .= "<div class=\"uk-margin-small-bottom\">\n";
+                        $html .= "<img src=\"{$imageSrc}\" alt=\"Current image\" style=\"max-width: 150px; max-height: 150px; object-fit: cover;\" class=\"uk-border-rounded\">\n";
+                        $html .= "</div>\n";
+                    }
+
+                    // URL input
+                    $attrString = $this->buildAttributeString($attributes);
+                    $html .= "<input type=\"url\" class=\"uk-input uk-margin-small-bottom\" id=\"{$fieldId}\" name=\"{$fieldName}\" " .
+                            "placeholder=\"Enter image URL or upload file below\" value=\"{$value}\" {$attrString} " .
+                            ($disabled ? " disabled" : "") . ">\n";
+
+                    // File upload with UIKit styling
+                    $html .= "<div class=\"uk-margin-small-top\">\n";
+                    $html .= "<div uk-form-custom=\"target: true\">\n";
+                    $html .= "<input type=\"file\" id=\"{$fieldId}-file\" name=\"{$fieldName}-file\" accept=\"image/*\" {$attrString} " . ($disabled ? " disabled" : "") . ">\n";
+                    $html .= "<input class=\"uk-input\" type=\"text\" placeholder=\"Select image file\" disabled>\n";
+                    $html .= "</div>\n";
+                    $html .= "<small class=\"uk-text-muted\">Upload an image file or enter URL above</small>\n";
+                    $html .= "</div>\n";
                     $html .= "</div>\n";
                     break;
 
