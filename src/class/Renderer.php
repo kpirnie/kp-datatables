@@ -285,6 +285,71 @@ if (! class_exists('KPT\DataTables\Renderer', false)) {
         }
 
         /**
+         * Render table header or footer row
+         *
+         * @return string HTML for header/footer row
+         */
+        protected function renderTableHeaderRow(): string
+        {
+            // Extract configuration
+            $columns = $this->getColumns();
+            $sortableColumns = $this->getSortableColumns();
+            $actionConfig = $this->getActionConfig();
+            $bulkActions = $this->getBulkActions();
+            $cssClasses = $this->getCssClasses();
+
+            $html = "<tr>\n";
+
+            // Bulk selection master checkbox (if bulk actions enabled)
+            if ($bulkActions['enabled']) {
+                $html .= "<th class=\"uk-table-shrink\">\n";
+                $html .= "<label><input type=\"checkbox\" class=\"uk-checkbox datatables-select-all\" onchange=\"DataTables.toggleSelectAll(this)\"></label>\n";
+                $html .= "</th>\n";
+            }
+
+            // Action column at start of row (if configured)
+            if ($actionConfig['position'] === 'start') {
+                $html .= "<th class=\"uk-table-shrink\">Actions</th>\n";
+            }
+
+            // Regular data columns
+            foreach ($columns as $column => $label) {
+                $sortable = in_array($column, $sortableColumns);
+                if (!$sortable && stripos($column, ' AS ') !== false) {
+                    $parts = explode(' AS ', $column);
+                    if (count($parts) === 2) {
+                        $aliasName = trim($parts[1], '`\'" ');
+                        $sortable = in_array($aliasName, $sortableColumns);
+                    }
+                }
+                $columnClass = $cssClasses['columns'][$column] ?? '';
+                $thClass = $columnClass . ($sortable ? ' sortable' : '');
+
+                $html .= "<th" . (!empty($thClass) ? " class=\"{$thClass}\"" : "") .
+                        ($sortable ? " data-sort=\"" . (stripos($column, ' AS ') !== false ? trim(explode(' AS ', $column)[1], '`\'" ') : $column) . "\"" : "") . ">";
+
+                if ($sortable) {
+                    $displayLabel = is_array($label) ? ($label['label'] ?? $column) : $label;
+                    $html .= "<span class=\"sortable-header\">{$displayLabel} <span class=\"sort-icon\" uk-icon=\"triangle-up\"></span></span>";
+                } else {
+                    $displayLabel = is_array($label) ? ($label['label'] ?? $column) : $label;
+                    $html .= $displayLabel;
+                }
+
+                $html .= "</th>\n";
+            }
+
+            // Action column at end of row (if configured)
+            if ($actionConfig['position'] === 'end') {
+                $html .= "<th class=\"uk-table-shrink\">Actions</th>\n";
+            }
+
+            $html .= "</tr>\n";
+
+            return $html;
+        }
+
+        /**
          * Render the main data table structure
          *
          * Creates the complete HTML table including headers, body, and styling.
@@ -314,58 +379,7 @@ if (! class_exists('KPT\DataTables\Renderer', false)) {
 
             // === TABLE HEADER ===
             $html .= "<thead" . (!empty($theadClass) ? " class=\"{$theadClass}\"" : "") . ">\n";
-            $html .= "<tr>\n";
-
-            // Bulk selection master checkbox (if bulk actions enabled)
-            if ($bulkActions['enabled']) {
-                $html .= "<th class=\"uk-table-shrink\">\n";
-                $html .= "<label><input type=\"checkbox\" class=\"uk-checkbox datatables-select-all\" onchange=\"DataTables.toggleSelectAll(this)\"></label>\n";
-                $html .= "</th>\n";
-            }
-
-            // Action column at start of row (if configured)
-            if ($actionConfig['position'] === 'start') {
-                $html .= "<th class=\"uk-table-shrink\">Actions</th>\n";
-            }
-
-            // Regular data columns - key is column name, value is display label
-            foreach ($columns as $column => $label) {
-                // Determine if column is sortable (handle both full expressions and aliases)
-                $sortable = in_array($column, $sortableColumns);
-                if (!$sortable && stripos($column, ' AS ') !== false) {
-                    // Check if the alias name is sortable
-                    $parts = explode(' AS ', $column);
-                    if (count($parts) === 2) {
-                        $aliasName = trim($parts[1], '`\'" ');
-                        $sortable = in_array($aliasName, $sortableColumns);
-                    }
-                }
-                $columnClass = $cssClasses['columns'][$column] ?? '';
-                $thClass = $columnClass . ($sortable ? ' sortable' : '');
-
-                // Build header cell
-                $html .= "<th" . (!empty($thClass) ? " class=\"{$thClass}\"" : "") .
-                        ($sortable ? " data-sort=\"" . (stripos($column, ' AS ') !== false ? trim(explode(' AS ', $column)[1], '`\'" ') : $column) . "\"" : "") . ">";
-
-                if ($sortable) {
-                    // Sortable header with click handler and sort indicator
-                    $displayLabel = is_array($label) ? ($label['label'] ?? $column) : $label;
-                    $html .= "<span class=\"sortable-header\">{$displayLabel} <span class=\"sort-icon\" uk-icon=\"triangle-up\"></span></span>";
-                } else {
-                    // Non-sortable header
-                    $displayLabel = is_array($label) ? ($label['label'] ?? $column) : $label;
-                    $html .= $displayLabel;
-                }
-
-                $html .= "</th>\n";
-            }
-
-            // Action column at end of row (if configured)
-            if ($actionConfig['position'] === 'end') {
-                $html .= "<th class=\"uk-table-shrink\">Actions</th>\n";
-            }
-
-            $html .= "</tr>\n";
+            $html .= $this->renderTableHeaderRow();
             $html .= "</thead>\n";
 
             // === TABLE BODY ===
@@ -381,6 +395,12 @@ if (! class_exists('KPT\DataTables\Renderer', false)) {
             $html .= "<tr><td colspan=\"{$totalColumns}\" class=\"uk-text-center\">Loading...</td></tr>\n";
             $html .= "</tbody>\n";
 
+            // table footer
+            $html .= '<tfoot>\n';
+            $html .= $this->renderTableHeaderRow();
+            $html .= '</tfoot>\n';
+
+            // end the table
             $html .= "</table>\n";
             $html .= "</div>\n";
 
