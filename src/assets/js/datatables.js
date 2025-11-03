@@ -282,7 +282,6 @@ class DataTablesJS {
         this.updateBulkActionButtons();
     }
 
-
     renderActionButtons(rowId, rowData = {}) {
         let html = '';
 
@@ -341,8 +340,16 @@ class DataTablesJS {
                     const totalActions = actionKeys.length;
 
                     actionKeys.forEach(actionKey => {
-                        actionCount++;
                         const actionConfig = group[actionKey];
+
+                        // CHECK FOR HTML INJECTION IN ACTION
+                        if (actionConfig.html) {
+                            html += replacePlaceholders(actionConfig.html);
+                            // Don't increment actionCount here, handle separator separately
+                            return; // Skip normal action rendering
+                        }
+
+                        actionCount++;
 
                         if (actionConfig.callback) {
                             // Handle callback action
@@ -406,6 +413,12 @@ class DataTablesJS {
             if (this.actionConfig.custom_actions) {
                 this.actionConfig.custom_actions.forEach(
                     action => {
+                        // CHECK FOR HTML INJECTION
+                        if (action.html) {
+                            html += replacePlaceholders(action.html);
+                            return;
+                        }
+
                         // Replace placeholders in all string properties
                         const icon = replacePlaceholders(action.icon || 'link');
                         const title = replacePlaceholders(action.title || '');

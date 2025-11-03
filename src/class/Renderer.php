@@ -104,6 +104,13 @@ if (! class_exists('KPT\DataTables\Renderer', false)) {
             $html .= "          <a href=\"#\" class=\"uk-icon-link\" uk-icon=\"plus\" onclick=\"DataTables.showAddModal(event)\" uk-tooltip=\"Add a New Record\"></a>\n";
             $html .= "      </div>\n";
 
+            // CHECK FOR HTML INJECTION BEFORE BULK ACTIONS
+            if (isset($bulkConfig['html'])) {
+                $html .= "<div>\n";
+                $html .= $bulkConfig['html'];
+                $html .= "\n</div>\n";
+            }
+
             // Collect all bulk actions - both from bulkActions() and actionGroups
             $actionsToRender = [];
 
@@ -146,6 +153,14 @@ if (! class_exists('KPT\DataTables\Renderer', false)) {
                 }
                 $totalActions = count($actionsToRender);
                 foreach ($actionsToRender as $action => $config) {
+                    // CHECK FOR HTML INJECTION IN ACTION CONFIG
+                    if (isset($config['html'])) {
+                        $html .= "<div>\n";
+                        $html .= $config['html'];
+                        $html .= "\n</div>\n";
+                        continue; // Skip normal action rendering
+                    }
+
                     $actionCount++;
 
                     $icon = $config['icon'] ?? 'link';
@@ -169,6 +184,7 @@ if (! class_exists('KPT\DataTables\Renderer', false)) {
             $html .= "</div>\n";
             return $html;
         }
+
 
         /**
          * Render search form with input, column selector, and reset button
@@ -396,9 +412,9 @@ if (! class_exists('KPT\DataTables\Renderer', false)) {
             $html .= "</tbody>\n";
 
             // table footer
-            $html .= '<tfoot>\n';
+            $html .= "<tfoot" . (!empty($theadClass) ? " class=\"{$theadClass}\"" : "") . ">\n";
             $html .= $this->renderTableHeaderRow();
-            $html .= '</tfoot>\n';
+            $html .= "</tfoot>\n";
 
             // end the table
             $html .= "</table>\n";
