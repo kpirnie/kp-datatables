@@ -343,9 +343,11 @@ class DataTablesJS {
                         const actionConfig = group[actionKey];
 
                         // CHECK FOR HTML INJECTION IN ACTION
-                        if (actionConfig.html) {
-                            html += replacePlaceholders(actionConfig.html);
-                            // Don't increment actionCount here, handle separator separately
+                        if (actionKey === 'html' || (actionConfig && actionConfig.html)) {
+                            const htmlContent = actionKey === 'html' ? actionConfig : actionConfig.html;
+                            html += replacePlaceholders(htmlContent);
+                            // Add space separator after HTML injection
+                            html += ' ';
                             return; // Skip normal action rendering
                         }
 
@@ -446,6 +448,7 @@ class DataTablesJS {
 
         return html;
     }
+
 
     // === PAGINATION ===
     renderInfo(data) {

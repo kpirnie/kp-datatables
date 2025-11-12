@@ -186,6 +186,7 @@ if (! class_exists('KPT\DataTables\Renderer', false)) {
         }
 
 
+
         /**
          * Render search form with input, column selector, and reset button
          *
