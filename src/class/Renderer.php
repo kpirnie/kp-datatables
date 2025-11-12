@@ -819,7 +819,7 @@ if (! class_exists('KPT\DataTables\Renderer', false)) {
                     if (is_array($group) && !empty($group)) {
                         // Remove 'html' key from each group
                         unset($actionConfig['groups'][$groupIndex]['html']);
-                        
+
                         // Also check nested actions for html keys
                         foreach ($group as $actionKey => $actionData) {
                             if ($actionKey === 'html') {
