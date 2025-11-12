@@ -661,7 +661,8 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
                 $actionConfig = $this->dataTable->getActionConfig();
                 if (isset($actionConfig['groups'])) {
                     foreach ($actionConfig['groups'] as $group) {
-                        if (is_array($group) && !is_numeric(key($group))) {
+                        //if (is_array($group) && !is_numeric(key($group))) {
+                        if (is_array($group)) {
                             foreach ($group as $actionKey => $action) {
                                 if (isset($action['attributes'])) {
                                     foreach ($action['attributes'] as $attrName => $attrValue) {
@@ -1142,7 +1143,12 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
 
             if (isset($actionConfig['groups'])) {
                 foreach ($actionConfig['groups'] as $group) {
-                    if (is_array($group) && !is_numeric(key($group))) {
+                    // Skip 'html' entries
+                    if ($actionKey === 'html' || (is_array($actionData) && isset($actionData['html']))) {
+                        continue;
+                    }
+                    //if (is_array($group) && !is_numeric(key($group))) {
+                    if (is_array($group)) {
                         if (isset($group[$actionName]['callback']) && is_callable($group[$actionName]['callback'])) {
                             $callback = $group[$actionName]['callback'];
                             $callbackConfig = $group[$actionName];

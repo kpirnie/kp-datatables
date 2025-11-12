@@ -334,19 +334,23 @@ class DataTablesJS {
                         }
                     });
                 } else if (typeof group === 'object') {
-                    // Object of custom actions
-                    let actionCount = 0;
-                    const actionKeys = Object.keys(group);
+                    // Object of custom actions - FILTER OUT 'html' keys first
+                    const actionKeys = Object.keys(group).filter(key => key !== 'html');
                     const totalActions = actionKeys.length;
+                    let actionCount = 0;
+
+                    // Render HTML injection FIRST if it exists
+                    if (group.html) {
+                        html += typeof group.html === 'string' ? group.html : '';
+                        html += ' ';
+                    }
 
                     actionKeys.forEach(actionKey => {
                         const actionConfig = group[actionKey];
 
-                        // CHECK FOR HTML INJECTION IN ACTION
-                        if (actionKey === 'html' || (actionConfig && actionConfig.html)) {
-                            const htmlContent = actionKey === 'html' ? actionConfig : actionConfig.html;
-                            html += replacePlaceholders(htmlContent);
-                            // Add space separator after HTML injection
+                        // Check if actionConfig has html property
+                        if (actionConfig && typeof actionConfig === 'object' && actionConfig.html) {
+                            html += replacePlaceholders(actionConfig.html);
                             html += ' ';
                             return; // Skip normal action rendering
                         }
