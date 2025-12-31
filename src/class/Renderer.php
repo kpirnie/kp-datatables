@@ -186,6 +186,7 @@ if (! class_exists('KPT\DataTables\Renderer', false)) {
         }
 
 
+
         /**
          * Render search form with input, column selector, and reset button
          *
@@ -811,6 +812,24 @@ if (! class_exists('KPT\DataTables\Renderer', false)) {
             $inlineEditableColumns = json_encode($this->getInlineEditableColumns());
             $bulkActions = $this->getBulkActions();
             $actionConfig = $this->getActionConfig();
+
+            // FILTER OUT 'html' KEYS FROM ACTION GROUPS BEFORE PASSING TO JAVASCRIPT
+            if (isset($actionConfig['groups'])) {
+                foreach ($actionConfig['groups'] as $groupIndex => $group) {
+                    if (is_array($group) && !empty($group)) {
+                        // Remove 'html' key from each group
+                        unset($actionConfig['groups'][$groupIndex]['html']);
+
+                        // Also check nested actions for html keys
+                        foreach ($group as $actionKey => $actionData) {
+                            if ($actionKey === 'html') {
+                                unset($actionConfig['groups'][$groupIndex][$actionKey]);
+                            }
+                        }
+                    }
+                }
+            }
+
             $columns = $this->getColumns();
             $defaultSortColumn = $this->getDefaultSortColumn();
             $defaultSortDirection = $this->getDefaultSortDirection();

@@ -321,10 +321,10 @@ class DataTablesJS {
 
                         switch (actionItem) {
                             case 'edit':
-                                html += '<a href="#" class="uk-icon-link btn-edit" uk-icon="pencil" title="Edit"></a>';
+                                html += '<a href="#" class="uk-icon-link btn-edit" uk-icon="pencil" title="Edit Record" uk-tooltip="Edit Record"></a>';
                                 break;
                             case 'delete':
-                                html += '<a href="#" class="uk-icon-link btn-delete" uk-icon="trash" title="Delete"></a>';
+                                html += '<a href="#" class="uk-icon-link btn-delete" uk-icon="trash" title="Delete Record" uk-tooltip="Delete Record"></a>';
                                 break;
                         }
 
@@ -334,18 +334,24 @@ class DataTablesJS {
                         }
                     });
                 } else if (typeof group === 'object') {
-                    // Object of custom actions
-                    let actionCount = 0;
-                    const actionKeys = Object.keys(group);
+                    // Object of custom actions - FILTER OUT 'html' keys first
+                    const actionKeys = Object.keys(group).filter(key => key !== 'html');
                     const totalActions = actionKeys.length;
+                    let actionCount = 0;
+
+                    // Render HTML injection FIRST if it exists
+                    if (group.html) {
+                        html += typeof group.html === 'string' ? group.html : '';
+                        html += ' ';
+                    }
 
                     actionKeys.forEach(actionKey => {
                         const actionConfig = group[actionKey];
 
-                        // CHECK FOR HTML INJECTION IN ACTION
-                        if (actionConfig.html) {
+                        // Check if actionConfig has html property
+                        if (actionConfig && typeof actionConfig === 'object' && actionConfig.html) {
                             html += replacePlaceholders(actionConfig.html);
-                            // Don't increment actionCount here, handle separator separately
+                            html += ' ';
                             return; // Skip normal action rendering
                         }
 
@@ -358,7 +364,7 @@ class DataTablesJS {
                             const className = actionConfig.class || 'btn-custom';
                             const confirm = actionConfig.confirm || '';
 
-                            html += '<a href="#" class="uk-icon-link ' + className + '" uk-icon="' + icon + '" title="' + title + '"';
+                            html += '<a href="#" class="uk-icon-link ' + className + '" uk-icon="' + icon + '" title="' + title + '" uk-tooltip="' + title + '"';
                             html += ' data-action="' + actionKey + '"';
                             html += ' data-id="' + rowId + '"';
                             html += ' data-confirm="' + confirm + '"';
@@ -373,7 +379,7 @@ class DataTablesJS {
                             const onclick = replacePlaceholders(actionConfig.onclick || '');
                             const attributes = actionConfig.attributes || {};
 
-                            html += '<a href="' + href + '" class="uk-icon-link ' + className + '" uk-icon="' + icon + '" title="' + title + '"';
+                            html += '<a href="' + href + '" class="uk-icon-link ' + className + '" uk-icon="' + icon + '" title="' + title + '" uk-tooltip="' + title + '"';
                             if (onclick) {
                                 html += ' onclick="' + onclick + '"';
                             }
@@ -396,17 +402,17 @@ class DataTablesJS {
 
                 // Add group separator if not the last group
                 if (groupCount < totalGroups) {
-                    html += ' <span class="uk-text-muted">|</span> ';
+                    html += ' <span class="uk-text-muted action-separator">|</span> ';
                 }
             });
         } else {
             // Fallback to original behavior
             if (this.actionConfig.show_edit) {
-                html += '<a href="#" class="uk-icon-link btn-edit uk-margin-small-right" uk-icon="pencil" title="Edit"></a>';
+                html += '<a href="#" class="uk-icon-link btn-edit uk-margin-small-right" uk-icon="pencil" title="Edit Record" uk-tooltip="Edit Record"></a>';
             }
 
             if (this.actionConfig.show_delete) {
-                html += '<a href="#" class="uk-icon-link btn-delete uk-margin-small-right" uk-icon="trash" title="Delete"></a>';
+                html += '<a href="#" class="uk-icon-link btn-delete uk-margin-small-right" uk-icon="trash" title="Delete Record" uk-tooltip="Delete Record"></a>';
             }
 
             // Custom actions
@@ -427,7 +433,7 @@ class DataTablesJS {
                         const onclick = replacePlaceholders(action.onclick || '');
                         const attributes = action.attributes || {};
 
-                        html += '<a href="' + href + '" class="uk-icon-link ' + className + ' uk-margin-small-right" uk-icon="' + icon + '" title="' + title + '"';
+                        html += '<a href="' + href + '" class="uk-icon-link ' + className + ' uk-margin-small-right" uk-icon="' + icon + '" title="' + title + '" uk-tooltip="' + title + '"';
                         if (onclick) {
                             html += ' onclick="' + onclick + '"';
                         }
@@ -446,6 +452,7 @@ class DataTablesJS {
 
         return html;
     }
+
 
     // === PAGINATION ===
     renderInfo(data) {
