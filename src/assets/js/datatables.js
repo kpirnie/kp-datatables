@@ -494,14 +494,14 @@ class DataTablesJS {
                         switch (actionItem) {
                             case 'edit':
                                 if (this.theme === 'uikit') {
-                                    html += '<a href="#" class="uk-icon-link btn-edit" uk-icon="pencil" title="Edit Record" uk-tooltip="Edit Record"></a>';
+                                    html += '<a href="#" class="uk-icon-link btn-edit uk-margin-tiny-full" uk-icon="pencil" title="Edit Record" uk-tooltip="Edit Record"></a>';
                                 } else {
                                     html += `<a href="#" class="${iconLinkClass} btn-edit" title="Edit Record">${this.renderIcon('pencil')}</a>`;
                                 }
                                 break;
                             case 'delete':
                                 if (this.theme === 'uikit') {
-                                    html += '<a href="#" class="uk-icon-link btn-delete" uk-icon="trash" title="Delete Record" uk-tooltip="Delete Record"></a>';
+                                    html += '<a href="#" class="uk-icon-link btn-delete uk-margin-tiny-full" uk-icon="trash" title="Delete Record" uk-tooltip="Delete Record"></a>';
                                 } else {
                                     html += `<a href="#" class="${iconLinkClass} btn-delete" title="Delete Record">${this.renderIcon('trash')}</a>`;
                                 }
@@ -528,14 +528,15 @@ class DataTablesJS {
                     actionKeys.forEach(actionKey => {
                         const actionConfig = group[actionKey];
 
-                        // Check if actionConfig has html property
-                        if (actionConfig && typeof actionConfig === 'object' && actionConfig.html) {
+                        actionCount++;
+
+                        // Check if actionConfig has html property and if it's positioned either before or both
+                        //if ((actionConfig && typeof actionConfig === 'object' && actionConfig.html) && (actionConfig.html.position == 'before' || actionConfig.html.position == 'both')) {
+                        if ((actionConfig && typeof actionConfig === 'object' && actionConfig.html)) {
+                            //html += replacePlaceholders(actionConfig.html.content);
                             html += replacePlaceholders(actionConfig.html);
-                            html += ' ';
                             return; // Skip normal action rendering
                         }
-
-                        actionCount++;
 
                         if (actionConfig.callback) {
                             // Handle callback action
@@ -559,6 +560,7 @@ class DataTablesJS {
                             }
                             html += '</a>';
                         } else {
+
                             // Handle link-based action
                             const icon = replacePlaceholders(actionConfig.icon || 'link');
                             const title = replacePlaceholders(actionConfig.title || '');
@@ -568,9 +570,9 @@ class DataTablesJS {
                             const attributes = actionConfig.attributes || {};
 
                             if (this.theme === 'uikit') {
-                                html += '<a href="' + href + '" class="uk-icon-link ' + className + ' ' + marginSmallRightClass + '" uk-icon="' + icon + '" title="' + title + '" uk-tooltip="' + title + '"';
+                                html += '<a href="' + href + '" class="uk-icon-link ' + className + '" uk-icon="' + icon + '" title="' + title + '" uk-tooltip="' + title + '"';
                             } else {
-                                html += '<a href="' + href + '" class="' + iconLinkClass + ' ' + className + ' ' + marginSmallRightClass + '" title="' + title + '"';
+                                html += '<a href="' + href + '" class="' + iconLinkClass + ' ' + className + '" title="' + title + '"';
                             }
                             if (onclick) {
                                 html += ' onclick="' + onclick + '"';
@@ -587,32 +589,25 @@ class DataTablesJS {
                                 html += this.renderIcon(icon);
                             }
                             html += '</a>';
+
                         }
 
-                        // Add separator within group if not the last action
-                        if (actionCount < totalActions) {
-                            html += ' ';
-                        }
                     });
                 }
 
-                // Add separator between groups if not the last group
-                if (groupCount < totalGroups) {
-                    html += ' | ';
-                }
             });
         } else {
             // Fallback to default buttons if no groups configured
             if (this.actionConfig.show_edit !== false) {
                 if (this.theme === 'uikit') {
-                    html += '<a href="#" class="uk-icon-link btn-edit" uk-icon="pencil" title="Edit Record" uk-tooltip="Edit Record"></a>';
+                    html += '<a href="#" class="uk-icon-link btn-edit uk-margin-tiny-full" uk-icon="pencil" title="Edit Record" uk-tooltip="Edit Record"></a>';
                 } else {
                     html += `<a href="#" class="${iconLinkClass} btn-edit" title="Edit Record">${this.renderIcon('pencil')}</a>`;
                 }
             }
             if (this.actionConfig.show_delete !== false) {
                 if (this.theme === 'uikit') {
-                    html += '<a href="#" class="uk-icon-link btn-delete" uk-icon="trash" title="Delete Record" uk-tooltip="Delete Record"></a>';
+                    html += '<a href="#" class="uk-icon-link btn-delete uk-margin-tiny-full" uk-icon="trash" title="Delete Record" uk-tooltip="Delete Record"></a>';
                 } else {
                     html += `<a href="#" class="${iconLinkClass} btn-delete" title="Delete Record">${this.renderIcon('trash')}</a>`;
                 }

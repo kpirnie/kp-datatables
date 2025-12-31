@@ -51,7 +51,7 @@ if (! class_exists('KPT\DataTables\Renderer', false)) {
             $html .= "      <div>\n";
             $html .= "          <a href=\"#\" class=\"" . $tm->getClasses('icon.link') . "\" ";
             $html .= "onclick=\"DataTables.showAddModal(event)\" ";
-            $html .= ($this->theme === 'uikit' ? 'uk-icon=\"plus\" uk-tooltip=\"Add a New Record\"' : 'title=\"Add a New Record\"') . ">";
+            $html .= ($this->theme === 'uikit' ? 'uk-icon="plus" uk-tooltip="Add a New Record"' : 'title="Add a New Record"') . ">";
             if ($this->theme !== 'uikit') {
                 $html .= $tm->getIcon('plus');
             }
@@ -95,10 +95,19 @@ if (! class_exists('KPT\DataTables\Renderer', false)) {
                 }
                 $totalActions = count($actionsToRender);
                 foreach ($actionsToRender as $action => $config) {
+
+                    /*// before/both positioned html
+                    if (isset($config['html']) && ( $config['html']['position'] == 'before' || $config['html']['position'] == 'both' )) {
+                        $content = $config['html']['content'];
+                        $html .= "<div>\n{$content}\n</div>\n";
+                        continue;
+                    }*/
                     if (isset($config['html'])) {
-                        $html .= "<div>\n{$config['html']}\n</div>\n";
+                        $content = $config['html'];
+                        $html .= "<div>\n{$content}\n</div>\n";
                         continue;
                     }
+                    
                     $actionCount++;
                     $icon = $config['icon'] ?? 'link';
                     $label = $config['label'] ?? ucfirst($action);
@@ -117,9 +126,13 @@ if (! class_exists('KPT\DataTables\Renderer', false)) {
                     }
                     $html .= "</a>\n</div>\n";
 
-                    if ($actionCount < $totalActions) {
-                        $html .= "<div class=\"" . $tm->getClass('text.muted') . "\">|</div>\n";
-                    }
+                    /*// after/both positioned html
+                    if (isset($config['html']) && ( $config['html']['position'] == 'after' || $config['html']['position'] == 'both' )) {
+                        $content = $config['html']['content'];
+                        $html .= "<div>\n{$content}\n</div>\n";
+                        continue;
+                    }*/
+
                 }
             }
 
@@ -504,7 +517,7 @@ if (! class_exists('KPT\DataTables\Renderer', false)) {
             $tm = $this->getThemeManager();
 
             $type = $config['type'];
-            $label = $config['label'];
+            $label = ( $config['label'] ) ?? '';
             $required = $config['required'] ?? false;
             $placeholder = $config['placeholder'] ?? '';
             $options = $config['options'] ?? [];

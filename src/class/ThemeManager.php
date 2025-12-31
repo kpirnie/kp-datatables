@@ -325,7 +325,7 @@ if (! class_exists('KPT\DataTables\ThemeManager', false)) {
 
             // UIKit theme
             $this->classMappings[self::THEME_UIKIT] = [
-                'container' => 'uk-container',
+                'container' => '',
                 'table' => 'uk-table',
                 'table.striped' => 'uk-table uk-table-striped',
                 'table.hover' => 'uk-table uk-table-hover',
