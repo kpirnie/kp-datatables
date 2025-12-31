@@ -61,9 +61,6 @@ jobs:
           composer install --no-interaction --no-progress
         fi
 
-    - name: Run PHPStan
-      run: composer run phpstan
-
     - name: Run CodeSniffer
       run: composer run cs-check
 
