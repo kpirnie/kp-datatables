@@ -22,6 +22,7 @@ class DataTablesJS {
         this.actionConfig = config.actionConfig || {};
         this.columns = config.columns || {};
         this.cssClasses = config.cssClasses || {};
+        this.theme = config.theme || 'uikit';
 
         // State
         this.currentPage = 1;
@@ -38,6 +39,171 @@ class DataTablesJS {
     init() {
         this.bindEvents();
         this.loadData();
+    }
+
+    // === THEME HELPERS ===
+    getThemeClass(type) {
+        const classes = {
+            uikit: {
+                table: { shrink: 'uk-table-shrink', center: 'uk-text-center', muted: 'uk-text-muted' },
+                checkbox: 'uk-checkbox',
+                input: 'uk-input uk-width-1-1',
+                select: 'uk-select uk-width-1-1',
+                textarea: 'uk-textarea uk-width-1-1',
+                button: { default: 'uk-button uk-button-default', primary: 'uk-button uk-button-primary', small: 'uk-button-small' },
+                icon: { link: 'uk-icon-link', success: 'uk-text-success', danger: 'uk-text-danger' },
+                pagination: { disabled: 'uk-disabled', active: 'uk-active' },
+                flex: { right: 'uk-flex uk-flex-right', between: 'uk-flex-between' },
+                margin: { smallRight: 'uk-margin-small-right', smallBottom: 'uk-margin-small-bottom', smallTop: 'uk-margin-small-top' },
+                border: { rounded: 'uk-border-rounded' },
+                display: { block: 'uk-display-block' }
+            },
+            bootstrap: {
+                table: { shrink: '', center: 'text-center', muted: 'text-muted' },
+                checkbox: 'form-check-input',
+                input: 'form-control',
+                select: 'form-select',
+                textarea: 'form-control',
+                button: { default: 'btn btn-secondary', primary: 'btn btn-primary', small: 'btn-sm' },
+                icon: { link: '', success: 'text-success', danger: 'text-danger' },
+                pagination: { disabled: 'disabled', active: 'active' },
+                flex: { right: 'd-flex justify-content-end', between: 'justify-content-between' },
+                margin: { smallRight: 'me-2', smallBottom: 'mb-2', smallTop: 'mt-2' },
+                border: { rounded: 'rounded' },
+                display: { block: 'd-block' }
+            },
+            plain: {
+                table: { shrink: 'kp-dt-table-shrink', center: 'kp-dt-text-center', muted: 'kp-dt-text-muted' },
+                checkbox: 'kp-dt-checkbox',
+                input: 'kp-dt-input kp-dt-width-1-1',
+                select: 'kp-dt-select kp-dt-width-1-1',
+                textarea: 'kp-dt-textarea kp-dt-width-1-1',
+                button: { default: 'kp-dt-button', primary: 'kp-dt-button kp-dt-button-primary', small: 'kp-dt-button-small' },
+                icon: { link: 'kp-dt-icon-link', success: 'kp-dt-text-success', danger: 'kp-dt-text-danger' },
+                pagination: { disabled: 'kp-dt-disabled', active: 'kp-dt-active' },
+                flex: { right: 'kp-dt-flex kp-dt-flex-right', between: 'kp-dt-flex-between' },
+                margin: { smallRight: 'kp-dt-margin-small-right', smallBottom: 'kp-dt-margin-small-bottom', smallTop: 'kp-dt-margin-small-top' },
+                border: { rounded: 'kp-dt-border-rounded' },
+                display: { block: 'kp-dt-display-block' }
+            },
+            tailwind: {
+                table: { shrink: 'w-px whitespace-nowrap', center: 'text-center', muted: 'text-gray-500' },
+                checkbox: 'h-4 w-4 rounded border-gray-300',
+                input: 'block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500',
+                select: 'block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500',
+                textarea: 'block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500',
+                button: { default: 'inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50', primary: 'inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700', small: 'px-2 py-1 text-xs' },
+                icon: { link: 'text-gray-400 hover:text-gray-600', success: 'text-green-500', danger: 'text-red-500' },
+                pagination: { disabled: 'opacity-50 cursor-not-allowed', active: 'font-bold text-blue-600' },
+                flex: { right: 'flex justify-end', between: 'justify-between' },
+                margin: { smallRight: 'mr-2', smallBottom: 'mb-2', smallTop: 'mt-2' },
+                border: { rounded: 'rounded' },
+                display: { block: 'block' }
+            }
+        };
+
+        const themeClasses = classes[this.theme] || classes.uikit;
+        const parts = type.split('.');
+        let result = themeClasses;
+        for (const part of parts) {
+            result = result?.[part];
+        }
+        return result || '';
+    }
+
+    // Theme-aware notification
+    showNotification(message, status = 'success') {
+        if (this.theme === 'uikit' && typeof UIkit !== 'undefined') {
+            UIkit.notification(message, { status: status });
+        } else if (this.theme === 'bootstrap' && typeof KPDataTablesBootstrap !== 'undefined') {
+            KPDataTablesBootstrap.notification(message, status);
+        } else if (typeof KPDataTablesPlain !== 'undefined') {
+            KPDataTablesPlain.notification(message, status);
+        } else {
+            alert(message);
+        }
+    }
+
+    // Theme-aware modal show
+    showModal(modalId) {
+        if (this.theme === 'uikit' && typeof UIkit !== 'undefined') {
+            UIkit.modal(`#${modalId}`).show();
+        } else if (this.theme === 'bootstrap' && typeof bootstrap !== 'undefined') {
+            const modal = new bootstrap.Modal(document.getElementById(modalId));
+            modal.show();
+        } else if (typeof KPDataTablesPlain !== 'undefined') {
+            KPDataTablesPlain.showModal(modalId);
+        }
+    }
+
+    // Theme-aware modal hide
+    hideModal(modalId) {
+        if (this.theme === 'uikit' && typeof UIkit !== 'undefined') {
+            UIkit.modal(`#${modalId}`).hide();
+        } else if (this.theme === 'bootstrap' && typeof bootstrap !== 'undefined') {
+            const modalEl = document.getElementById(modalId);
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) modal.hide();
+        } else if (typeof KPDataTablesPlain !== 'undefined') {
+            KPDataTablesPlain.hideModal(modalId);
+        }
+    }
+
+    // Theme-aware confirm dialog
+    showConfirm(message) {
+        return new Promise((resolve, reject) => {
+            if (this.theme === 'uikit' && typeof UIkit !== 'undefined') {
+                UIkit.modal.confirm(message).then(resolve, reject);
+            } else if (this.theme === 'bootstrap' && typeof KPDataTablesBootstrap !== 'undefined') {
+                KPDataTablesBootstrap.confirm(message).then(resolve, reject);
+            } else if (typeof KPDataTablesPlain !== 'undefined') {
+                KPDataTablesPlain.confirm(message).then(resolve, reject);
+            } else {
+                if (confirm(message)) {
+                    resolve();
+                } else {
+                    reject();
+                }
+            }
+        });
+    }
+
+    // Theme-aware icon rendering
+    renderIcon(iconName, extraClass = '') {
+        if (this.theme === 'uikit') {
+            return `<span uk-icon="${iconName}" class="${extraClass}"></span>`;
+        } else if (this.theme === 'bootstrap') {
+            const iconMap = {
+                'check': 'bi-check-lg',
+                'close': 'bi-x-lg',
+                'pencil': 'bi-pencil',
+                'trash': 'bi-trash',
+                'plus': 'bi-plus',
+                'search': 'bi-search',
+                'refresh': 'bi-arrow-clockwise',
+                'triangle-up': 'bi-caret-up-fill',
+                'triangle-down': 'bi-caret-down-fill',
+                'chevron-double-left': 'bi-chevron-double-left',
+                'chevron-double-right': 'bi-chevron-double-right'
+            };
+            return `<i class="bi ${iconMap[iconName] || 'bi-link'} ${extraClass}"></i>`;
+        } else {
+            // Plain/Tailwind - use SVG icons
+            const icons = {
+                'check': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><polyline fill="none" stroke="currentColor" stroke-width="1.1" points="4,10 8,15 17,4"></polyline></svg>',
+                'close': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><line fill="none" stroke="currentColor" stroke-width="1.4" x1="1" y1="1" x2="19" y2="19"></line><line fill="none" stroke="currentColor" stroke-width="1.4" x1="19" y1="1" x2="1" y2="19"></line></svg>',
+                'pencil': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path fill="none" stroke="currentColor" d="M17.25,6.01 L7.12,16.1 L3.82,17.2 L5.02,13.9 L15.12,3.88 C15.71,3.29 16.66,3.29 17.25,3.88 C17.84,4.47 17.84,5.42 17.25,6.01"></path></svg>',
+                'trash': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><polyline fill="none" stroke="currentColor" points="6.5 3 6.5 1.5 13.5 1.5 13.5 3"></polyline><polyline fill="none" stroke="currentColor" points="3.5 4 16.5 4 15.5 18.5 4.5 18.5 3.5 4"></polyline></svg>',
+                'plus': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><line fill="none" stroke="currentColor" x1="10" y1="1" x2="10" y2="19"></line><line fill="none" stroke="currentColor" x1="1" y1="10" x2="19" y2="10"></line></svg>',
+                'search': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><circle fill="none" stroke="currentColor" stroke-width="1.1" cx="9" cy="9" r="7"></circle><path fill="none" stroke="currentColor" stroke-width="1.1" d="M14,14 L18,18 L14,14 Z"></path></svg>',
+                'refresh': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path fill="none" stroke="currentColor" stroke-width="1.1" d="M17.08,11.15 C17.09,11.31 17.1,11.47 17.1,11.64 C17.1,15.53 13.94,18.69 10.05,18.69 C6.16,18.68 3,15.53 3,11.63 C3,7.74 6.16,4.58 10.05,4.58 C10.9,4.58 11.71,4.73 12.46,5"></path><polyline fill="none" stroke="currentColor" points="9.9 2 12.79 4.89 9.79 7.9"></polyline></svg>',
+                'triangle-up': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><polygon points="10,5 15,14 5,14"></polygon></svg>',
+                'triangle-down': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><polygon points="10,15 15,6 5,6"></polygon></svg>',
+                'chevron-double-left': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><polyline fill="none" stroke="currentColor" stroke-width="1.2" points="10,14 6,10 10,6"></polyline><polyline fill="none" stroke="currentColor" stroke-width="1.2" points="14,14 10,10 14,6"></polyline></svg>',
+                'chevron-double-right': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><polyline fill="none" stroke="currentColor" stroke-width="1.2" points="10,14 14,10 10,6"></polyline><polyline fill="none" stroke="currentColor" stroke-width="1.2" points="6,14 10,10 6,6"></polyline></svg>'
+            };
+            return `<span class="${extraClass}">${icons[iconName] || ''}</span>`;
+        }
     }
 
     // === EVENT BINDING ===
@@ -84,7 +250,6 @@ class DataTablesJS {
         // Sortable headers
         document.addEventListener('click', (e) => {
             if (e.target.closest('.sortable-header')) {
-                console.log('sort clicked');
                 const header = e.target.closest('th[data-sort]');
                 if (header) {
                     const column = header.getAttribute('data-sort');
@@ -126,14 +291,14 @@ class DataTablesJS {
                         this.renderInfo(data);
                     } else {
                         console.error('Failed to load data:', data.message);
-                        UIkit.notification(data.message || 'Failed to load data', { status: 'danger' });
+                        this.showNotification(data.message || 'Failed to load data', 'danger');
                     }
                 }
             )
             .catch(
                 error => {
                     console.error('Error loading data:', error);
-                    UIkit.notification('Error loading data', { status: 'danger' });
+                    this.showNotification('Error loading data', 'danger');
                 }
             );
     }
@@ -144,9 +309,13 @@ class DataTablesJS {
         if (!tbody) { return; }
 
         const columnCount = this.getColumnCount();
+        const shrinkClass = this.getThemeClass('table.shrink');
+        const centerClass = this.getThemeClass('table.center');
+        const mutedClass = this.getThemeClass('table.muted');
+        const checkboxClass = this.getThemeClass('checkbox');
 
         if (!data || data.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="${columnCount}" class="uk-text-center uk-text-muted">No records found</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="${columnCount}" class="${centerClass} ${mutedClass}">No records found</td></tr>`;
             return;
         }
 
@@ -165,14 +334,14 @@ class DataTablesJS {
 
                 // Bulk selection checkbox
                 if (this.bulkActionsEnabled) {
-                    html += '<td class="uk-table-shrink row-check">';
-                    html += `<label><input type="checkbox" class="uk-checkbox row-checkbox" value="${rowId}" onchange="DataTables.toggleRowSelection(this)"></label>`;
+                    html += `<td class="${shrinkClass} row-check">`;
+                    html += `<label><input type="checkbox" class="${checkboxClass} row-checkbox" value="${rowId}" onchange="DataTables.toggleRowSelection(this)"></label>`;
                     html += '</td>';
                 }
 
                 // Action column at start
                 if (this.actionConfig.position === 'start') {
-                    html += '<td class="uk-table-shrink row-action">';
+                    html += `<td class="${shrinkClass} row-action">`;
                     html += this.renderActionButtons(rowId, row);
                     html += '</td>';
                 }
@@ -210,17 +379,17 @@ class DataTablesJS {
                         if (fieldType === 'boolean') {
                             const isActive = cellContent == '1' || cellContent === 'true' || cellContent === true;
                             const iconName = isActive ? 'check' : 'close';
-                            const iconClass = isActive ? 'uk-text-success' : 'uk-text-danger';
+                            const iconClass = isActive ? this.getThemeClass('icon.success') : this.getThemeClass('icon.danger');
 
                             // Store the raw value for form population
                             const rawValue = cellContent; // Keep original value
 
                             if (isEditable) {
                                 cellContent = `<span class="inline-editable boolean-toggle" data-field="${column}" data-id="${rowId}" data-type="boolean" data-value="${rawValue}" style="cursor: pointer;">`;
-                                cellContent += `<span uk-icon="${iconName}" class="${iconClass}"></span>`;
+                                cellContent += this.renderIcon(iconName, iconClass);
                                 cellContent += '</span>';
                             } else {
-                                cellContent = `<span data-value="${rawValue}"><span uk-icon="${iconName}" class="${iconClass}"></span></span>`;
+                                cellContent = `<span data-value="${rawValue}">${this.renderIcon(iconName, iconClass)}</span>`;
                             }
 
                             // Handle select display with labels
@@ -239,15 +408,16 @@ class DataTablesJS {
 
                             // Handle image display with thumbnails
                         } else if (fieldType === 'image') {
+                            const roundedClass = this.getThemeClass('border.rounded');
                             if (cellContent && cellContent.trim()) {
                                 const imageSrc = cellContent.startsWith('http') ? cellContent : `/uploads/${cellContent}`;
 
                                 if (isEditable) {
                                     cellContent = `<span class="inline-editable" data-field="${column}" data-id="${rowId}" data-type="${fieldType}" data-value="${cellContent}" style="cursor: pointer;">`;
-                                    cellContent += `<img src="${imageSrc}" alt="Image" style="max-width: 50px; max-height: 50px; object-fit: cover;" class="uk-border-rounded">`;
+                                    cellContent += `<img src="${imageSrc}" alt="Image" style="max-width: 50px; max-height: 50px; object-fit: cover;" class="${roundedClass}">`;
                                     cellContent += '</span>';
                                 } else {
-                                    cellContent = `<img src="${imageSrc}" alt="Image" style="max-width: 50px; max-height: 50px; object-fit: cover;" class="uk-border-rounded">`;
+                                    cellContent = `<img src="${imageSrc}" alt="Image" style="max-width: 50px; max-height: 50px; object-fit: cover;" class="${roundedClass}">`;
                                 }
                             } else {
                                 cellContent = isEditable ?
@@ -268,7 +438,7 @@ class DataTablesJS {
 
                 // Action column at end
                 if (this.actionConfig.position === 'end') {
-                    html += '<td class="uk-table-shrink row-action">';
+                    html += `<td class="${shrinkClass} row-action">`;
                     html += this.renderActionButtons(rowId, row);
                     html += '</td>';
                 }
@@ -284,6 +454,8 @@ class DataTablesJS {
 
     renderActionButtons(rowId, rowData = {}) {
         let html = '';
+        const iconLinkClass = this.getThemeClass('icon.link');
+        const marginSmallRightClass = this.getThemeClass('margin.smallRight');
 
         // Store row data for callback use
         if (!window.DataTablesRowData) {
@@ -321,10 +493,18 @@ class DataTablesJS {
 
                         switch (actionItem) {
                             case 'edit':
-                                html += '<a href="#" class="uk-icon-link btn-edit" uk-icon="pencil" title="Edit Record" uk-tooltip="Edit Record"></a>';
+                                if (this.theme === 'uikit') {
+                                    html += '<a href="#" class="uk-icon-link btn-edit" uk-icon="pencil" title="Edit Record" uk-tooltip="Edit Record"></a>';
+                                } else {
+                                    html += `<a href="#" class="${iconLinkClass} btn-edit" title="Edit Record">${this.renderIcon('pencil')}</a>`;
+                                }
                                 break;
                             case 'delete':
-                                html += '<a href="#" class="uk-icon-link btn-delete" uk-icon="trash" title="Delete Record" uk-tooltip="Delete Record"></a>';
+                                if (this.theme === 'uikit') {
+                                    html += '<a href="#" class="uk-icon-link btn-delete" uk-icon="trash" title="Delete Record" uk-tooltip="Delete Record"></a>';
+                                } else {
+                                    html += `<a href="#" class="${iconLinkClass} btn-delete" title="Delete Record">${this.renderIcon('trash')}</a>`;
+                                }
                                 break;
                         }
 
@@ -364,14 +544,22 @@ class DataTablesJS {
                             const className = actionConfig.class || 'btn-custom';
                             const confirm = actionConfig.confirm || '';
 
-                            html += '<a href="#" class="uk-icon-link ' + className + '" uk-icon="' + icon + '" title="' + title + '" uk-tooltip="' + title + '"';
+                            if (this.theme === 'uikit') {
+                                html += '<a href="#" class="uk-icon-link ' + className + '" uk-icon="' + icon + '" title="' + title + '" uk-tooltip="' + title + '"';
+                            } else {
+                                html += '<a href="#" class="' + iconLinkClass + ' ' + className + '" title="' + title + '"';
+                            }
                             html += ' data-action="' + actionKey + '"';
                             html += ' data-id="' + rowId + '"';
                             html += ' data-confirm="' + confirm + '"';
                             html += ' onclick="DataTables.executeActionCallback(\'' + actionKey + '\', ' + rowId + ', event)"';
-                            html += '></a>';
+                            html += '>';
+                            if (this.theme !== 'uikit') {
+                                html += this.renderIcon(icon);
+                            }
+                            html += '</a>';
                         } else {
-                            // Handle regular action
+                            // Handle link-based action
                             const icon = replacePlaceholders(actionConfig.icon || 'link');
                             const title = replacePlaceholders(actionConfig.title || '');
                             const className = replacePlaceholders(actionConfig.class || 'btn-custom');
@@ -379,7 +567,11 @@ class DataTablesJS {
                             const onclick = replacePlaceholders(actionConfig.onclick || '');
                             const attributes = actionConfig.attributes || {};
 
-                            html += '<a href="' + href + '" class="uk-icon-link ' + className + '" uk-icon="' + icon + '" title="' + title + '" uk-tooltip="' + title + '"';
+                            if (this.theme === 'uikit') {
+                                html += '<a href="' + href + '" class="uk-icon-link ' + className + ' ' + marginSmallRightClass + '" uk-icon="' + icon + '" title="' + title + '" uk-tooltip="' + title + '"';
+                            } else {
+                                html += '<a href="' + href + '" class="' + iconLinkClass + ' ' + className + ' ' + marginSmallRightClass + '" title="' + title + '"';
+                            }
                             if (onclick) {
                                 html += ' onclick="' + onclick + '"';
                             }
@@ -390,7 +582,11 @@ class DataTablesJS {
                                 html += ' ' + attrName + '="' + processedValue + '"';
                             }
 
-                            html += '></a>';
+                            html += '>';
+                            if (this.theme !== 'uikit') {
+                                html += this.renderIcon(icon);
+                            }
+                            html += '</a>';
                         }
 
                         // Add separator within group if not the last action
@@ -400,32 +596,32 @@ class DataTablesJS {
                     });
                 }
 
-                // Add group separator if not the last group
+                // Add separator between groups if not the last group
                 if (groupCount < totalGroups) {
-                    html += ' <span class="uk-text-muted action-separator">|</span> ';
+                    html += ' | ';
                 }
             });
         } else {
-            // Fallback to original behavior
-            if (this.actionConfig.show_edit) {
-                html += '<a href="#" class="uk-icon-link btn-edit uk-margin-small-right" uk-icon="pencil" title="Edit Record" uk-tooltip="Edit Record"></a>';
+            // Fallback to default buttons if no groups configured
+            if (this.actionConfig.show_edit !== false) {
+                if (this.theme === 'uikit') {
+                    html += '<a href="#" class="uk-icon-link btn-edit" uk-icon="pencil" title="Edit Record" uk-tooltip="Edit Record"></a>';
+                } else {
+                    html += `<a href="#" class="${iconLinkClass} btn-edit" title="Edit Record">${this.renderIcon('pencil')}</a>`;
+                }
             }
-
-            if (this.actionConfig.show_delete) {
-                html += '<a href="#" class="uk-icon-link btn-delete uk-margin-small-right" uk-icon="trash" title="Delete Record" uk-tooltip="Delete Record"></a>';
+            if (this.actionConfig.show_delete !== false) {
+                if (this.theme === 'uikit') {
+                    html += '<a href="#" class="uk-icon-link btn-delete" uk-icon="trash" title="Delete Record" uk-tooltip="Delete Record"></a>';
+                } else {
+                    html += `<a href="#" class="${iconLinkClass} btn-delete" title="Delete Record">${this.renderIcon('trash')}</a>`;
+                }
             }
 
             // Custom actions
             if (this.actionConfig.custom_actions) {
-                this.actionConfig.custom_actions.forEach(
-                    action => {
-                        // CHECK FOR HTML INJECTION
-                        if (action.html) {
-                            html += replacePlaceholders(action.html);
-                            return;
-                        }
-
-                        // Replace placeholders in all string properties
+                Object.entries(this.actionConfig.custom_actions).forEach(
+                    ([actionKey, action]) => {
                         const icon = replacePlaceholders(action.icon || 'link');
                         const title = replacePlaceholders(action.title || '');
                         const className = replacePlaceholders(action.class || 'btn-custom');
@@ -433,7 +629,11 @@ class DataTablesJS {
                         const onclick = replacePlaceholders(action.onclick || '');
                         const attributes = action.attributes || {};
 
-                        html += '<a href="' + href + '" class="uk-icon-link ' + className + ' uk-margin-small-right" uk-icon="' + icon + '" title="' + title + '" uk-tooltip="' + title + '"';
+                        if (this.theme === 'uikit') {
+                            html += '<a href="' + href + '" class="uk-icon-link ' + className + ' ' + marginSmallRightClass + '" uk-icon="' + icon + '" title="' + title + '" uk-tooltip="' + title + '"';
+                        } else {
+                            html += '<a href="' + href + '" class="' + iconLinkClass + ' ' + className + ' ' + marginSmallRightClass + '" title="' + title + '"';
+                        }
                         if (onclick) {
                             html += ' onclick="' + onclick + '"';
                         }
@@ -444,7 +644,11 @@ class DataTablesJS {
                             html += ' ' + attrName + '="' + processedValue + '"';
                         }
 
-                        html += '></a>';
+                        html += '>';
+                        if (this.theme !== 'uikit') {
+                            html += this.renderIcon(icon);
+                        }
+                        html += '</a>';
                     }
                 );
             }
@@ -476,50 +680,118 @@ class DataTablesJS {
         let html = '';
         const currentPage = parseInt(data.page);
         const totalPages = parseInt(data.total_pages);
+        const disabledClass = this.getThemeClass('pagination.disabled');
+        const activeClass = this.getThemeClass('pagination.active');
 
-        // First page button (<<)
-        html += `<li${currentPage === 1 ? ' class="uk-disabled"' : ''}>`;
-        html += `<a ${currentPage === 1 ? '' : ` onclick="DataTables.goToPage(1)"`} title="First Page">`;
-        html += '<span uk-icon="chevron-double-left"></span></a></li>';
+        if (this.theme === 'bootstrap') {
+            // Bootstrap pagination structure
+            html += `<li class="page-item${currentPage === 1 ? ' disabled' : ''}">`;
+            html += `<a class="page-link" ${currentPage === 1 ? '' : `onclick="DataTables.goToPage(1)"`} title="First Page">&laquo;&laquo;</a></li>`;
 
-        // Previous button (<)
-        html += `<li${currentPage === 1 ? ' class="uk-disabled"' : ''}>`;
-        html += `<a ${currentPage === 1 ? '' : ` onclick="DataTables.goToPage(${currentPage - 1})"`} title="Previous Page">`;
-        html += '<span uk-pagination-previous></span></a></li>';
+            html += `<li class="page-item${currentPage === 1 ? ' disabled' : ''}">`;
+            html += `<a class="page-link" ${currentPage === 1 ? '' : `onclick="DataTables.goToPage(${currentPage - 1})"`} title="Previous Page">&laquo;</a></li>`;
 
-        // First page number
-        if (currentPage > 2) {
-            html += '<li><a onclick="DataTables.goToPage(1)">1</a></li>';
-            if (currentPage > 3) {
-                html += '<li class="uk-disabled"><span>...</span></li>';
+            if (currentPage > 2) {
+                html += '<li class="page-item"><a class="page-link" onclick="DataTables.goToPage(1)">1</a></li>';
+                if (currentPage > 3) {
+                    html += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+                }
             }
-        }
 
-        // Page numbers - show only 3 pages around current page
-        const start = Math.max(1, currentPage - 1);
-        const end = Math.min(totalPages, currentPage + 1);
-        for (let i = start; i <= end; i++) {
-            html += `<li${i === currentPage ? ' class="uk-active"' : ''}>`;
-            html += `<a ${i === currentPage ? '' : ` onclick="DataTables.goToPage(${i})"`}>${i}</a></li>`;
-        }
-
-        // Last page number
-        if (currentPage < totalPages - 1) {
-            if (currentPage < totalPages - 2) {
-                html += '<li class="uk-disabled"><span>...</span></li>';
+            const start = Math.max(1, currentPage - 1);
+            const end = Math.min(totalPages, currentPage + 1);
+            for (let i = start; i <= end; i++) {
+                html += `<li class="page-item${i === currentPage ? ' active' : ''}">`;
+                html += `<a class="page-link" ${i === currentPage ? '' : `onclick="DataTables.goToPage(${i})"`}>${i}</a></li>`;
             }
-            html += `<li><a onclick="DataTables.goToPage(${totalPages})">${totalPages}</a></li>`;
+
+            if (currentPage < totalPages - 1) {
+                if (currentPage < totalPages - 2) {
+                    html += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+                }
+                html += `<li class="page-item"><a class="page-link" onclick="DataTables.goToPage(${totalPages})">${totalPages}</a></li>`;
+            }
+
+            html += `<li class="page-item${currentPage === totalPages ? ' disabled' : ''}">`;
+            html += `<a class="page-link" ${currentPage === totalPages ? '' : `onclick="DataTables.goToPage(${currentPage + 1})"`} title="Next Page">&raquo;</a></li>`;
+
+            html += `<li class="page-item${currentPage === totalPages ? ' disabled' : ''}">`;
+            html += `<a class="page-link" ${currentPage === totalPages ? '' : `onclick="DataTables.goToPage(${totalPages})"`} title="Last Page">&raquo;&raquo;</a></li>`;
+
+        } else if (this.theme === 'uikit') {
+            // UIKit pagination structure
+            html += `<li${currentPage === 1 ? ' class="uk-disabled"' : ''}>`;
+            html += `<a ${currentPage === 1 ? '' : ` onclick="DataTables.goToPage(1)"`} title="First Page">`;
+            html += '<span uk-icon="chevron-double-left"></span></a></li>';
+
+            html += `<li${currentPage === 1 ? ' class="uk-disabled"' : ''}>`;
+            html += `<a ${currentPage === 1 ? '' : ` onclick="DataTables.goToPage(${currentPage - 1})"`} title="Previous Page">`;
+            html += '<span uk-pagination-previous></span></a></li>';
+
+            if (currentPage > 2) {
+                html += '<li><a onclick="DataTables.goToPage(1)">1</a></li>';
+                if (currentPage > 3) {
+                    html += '<li class="uk-disabled"><span>...</span></li>';
+                }
+            }
+
+            const start = Math.max(1, currentPage - 1);
+            const end = Math.min(totalPages, currentPage + 1);
+            for (let i = start; i <= end; i++) {
+                html += `<li${i === currentPage ? ' class="uk-active"' : ''}>`;
+                html += `<a ${i === currentPage ? '' : ` onclick="DataTables.goToPage(${i})"`}>${i}</a></li>`;
+            }
+
+            if (currentPage < totalPages - 1) {
+                if (currentPage < totalPages - 2) {
+                    html += '<li class="uk-disabled"><span>...</span></li>';
+                }
+                html += `<li><a onclick="DataTables.goToPage(${totalPages})">${totalPages}</a></li>`;
+            }
+
+            html += `<li${currentPage === totalPages ? ' class="uk-disabled"' : ''}>`;
+            html += `<a ${currentPage === totalPages ? '' : ` onclick="DataTables.goToPage(${currentPage + 1})"`} title="Next Page">`;
+            html += '<span uk-pagination-next></span></a></li>';
+
+            html += `<li${currentPage === totalPages ? ' class="uk-disabled"' : ''}>`;
+            html += `<a ${currentPage === totalPages ? '' : ` onclick="DataTables.goToPage(${totalPages})"`} title="Last Page">`;
+            html += '<span uk-icon="chevron-double-right"></span></a></li>';
+
+        } else {
+            // Plain/Tailwind pagination structure
+            html += `<li${currentPage === 1 ? ` class="${disabledClass}"` : ''}>`;
+            html += `<a ${currentPage === 1 ? '' : `onclick="DataTables.goToPage(1)"`} title="First Page">${this.renderIcon('chevron-double-left')}</a></li>`;
+
+            html += `<li${currentPage === 1 ? ` class="${disabledClass}"` : ''}>`;
+            html += `<a ${currentPage === 1 ? '' : `onclick="DataTables.goToPage(${currentPage - 1})"`} title="Previous Page">&laquo;</a></li>`;
+
+            if (currentPage > 2) {
+                html += '<li><a onclick="DataTables.goToPage(1)">1</a></li>';
+                if (currentPage > 3) {
+                    html += `<li class="${disabledClass}"><span>...</span></li>`;
+                }
+            }
+
+            const start = Math.max(1, currentPage - 1);
+            const end = Math.min(totalPages, currentPage + 1);
+            for (let i = start; i <= end; i++) {
+                html += `<li${i === currentPage ? ` class="${activeClass}"` : ''}>`;
+                html += `<a ${i === currentPage ? '' : `onclick="DataTables.goToPage(${i})"`}>${i}</a></li>`;
+            }
+
+            if (currentPage < totalPages - 1) {
+                if (currentPage < totalPages - 2) {
+                    html += `<li class="${disabledClass}"><span>...</span></li>`;
+                }
+                html += `<li><a onclick="DataTables.goToPage(${totalPages})">${totalPages}</a></li>`;
+            }
+
+            html += `<li${currentPage === totalPages ? ` class="${disabledClass}"` : ''}>`;
+            html += `<a ${currentPage === totalPages ? '' : `onclick="DataTables.goToPage(${currentPage + 1})"`} title="Next Page">&raquo;</a></li>`;
+
+            html += `<li${currentPage === totalPages ? ` class="${disabledClass}"` : ''}>`;
+            html += `<a ${currentPage === totalPages ? '' : `onclick="DataTables.goToPage(${totalPages})"`} title="Last Page">${this.renderIcon('chevron-double-right')}</a></li>`;
         }
-
-        // Next button (>)
-        html += `<li${currentPage === totalPages ? ' class="uk-disabled"' : ''}>`;
-        html += `<a ${currentPage === totalPages ? '' : ` onclick="DataTables.goToPage(${currentPage + 1})"`} title="Next Page">`;
-        html += '<span uk-pagination-next></span></a></li>';
-
-        // Last page button (>>)
-        html += `<li${currentPage === totalPages ? ' class="uk-disabled"' : ''}>`;
-        html += `<a ${currentPage === totalPages ? '' : ` onclick="DataTables.goToPage(${totalPages})"`} title="Last Page">`;
-        html += '<span uk-icon="chevron-double-right"></span></a></li>';
 
         document.querySelectorAll('.datatables-pagination').forEach(pagination => {
             pagination.innerHTML = html;
@@ -534,7 +806,11 @@ class DataTablesJS {
     updateSortIcons() {
         document.querySelectorAll('.sort-icon').forEach(
             icon => {
-                icon.setAttribute('uk-icon', 'triangle-up');
+                if (this.theme === 'uikit') {
+                    icon.setAttribute('uk-icon', 'triangle-up');
+                } else {
+                    icon.innerHTML = this.renderIcon('triangle-up');
+                }
             }
         );
 
@@ -542,7 +818,11 @@ class DataTablesJS {
         currentSortHeaders.forEach(sortIcon => {
             if (sortIcon) {
                 const iconName = this.sortDirection === 'ASC' ? 'triangle-up' : 'triangle-down';
-                sortIcon.setAttribute('uk-icon', iconName);
+                if (this.theme === 'uikit') {
+                    sortIcon.setAttribute('uk-icon', iconName);
+                } else {
+                    sortIcon.innerHTML = this.renderIcon(iconName);
+                }
             }
         });
     }
@@ -590,7 +870,7 @@ class DataTablesJS {
         const selectedIds = Array.from(this.selectedIds);
 
         if (selectedIds.length === 0) {
-            UIkit.notification('No records selected', { status: 'warning' });
+            this.showNotification('No records selected', 'warning');
             return;
         }
 
@@ -599,10 +879,11 @@ class DataTablesJS {
         const confirmMessage = actionButton ? actionButton.getAttribute('data-confirm') : '';
 
         if (confirmMessage) {
-            UIkit.modal.confirm(confirmMessage).then(
+            this.showConfirm(confirmMessage).then(
                 () => {
                     this.performBulkAction(action, selectedIds);
-                }, () => {
+                },
+                () => {
                     // User cancelled
                 }
             );
@@ -638,10 +919,11 @@ class DataTablesJS {
 
         // Check if confirmation is required
         if (actionConfig.confirm) {
-            UIkit.modal.confirm(actionConfig.confirm).then(
+            this.showConfirm(actionConfig.confirm).then(
                 () => {
                     this.performActionCallback(action, rowId, rowData, actionConfig);
-                }, () => {
+                },
+                () => {
                     // User cancelled
                 }
             );
@@ -668,16 +950,16 @@ class DataTablesJS {
                 data => {
                     if (data.success) {
                         this.loadData();
-                        UIkit.notification(data.message || actionConfig.success_message || 'Action completed', { status: 'success' });
+                        this.showNotification(data.message || actionConfig.success_message || 'Action completed', 'success');
                     } else {
-                        UIkit.notification(data.message || actionConfig.error_message || 'Action failed', { status: 'danger' });
+                        this.showNotification(data.message || actionConfig.error_message || 'Action failed', 'danger');
                     }
                 }
             )
             .catch(
                 error => {
                     console.error('Error:', error);
-                    UIkit.notification('An error occurred', { status: 'danger' });
+                    this.showNotification('An error occurred', 'danger');
                 }
             );
     }
@@ -707,17 +989,18 @@ class DataTablesJS {
         const selectedIds = Array.from(this.selectedIds);
 
         if (selectedIds.length === 0) {
-            UIkit.notification('No records selected', { status: 'warning' });
+            this.showNotification('No records selected', 'warning');
             return;
         }
 
         // Check if action requires confirmation
         const actionConfig = this.bulkActions[action];
         if (actionConfig && actionConfig.confirm) {
-            UIkit.modal.confirm(actionConfig.confirm).then(
+            this.showConfirm(actionConfig.confirm).then(
                 () => {
                     this.performBulkAction(action, selectedIds);
-                }, () => {
+                },
+                () => {
                     // User cancelled
                 }
             );
@@ -744,7 +1027,7 @@ class DataTablesJS {
                     if (data.success) {
                         this.selectedIds.clear();
                         this.loadData();
-                        UIkit.notification(data.message || 'Bulk action completed', { status: 'success' });
+                        this.showNotification(data.message || 'Bulk action completed', 'success');
 
                         // Reset bulk action controls
                         const bulkSelect = document.querySelector('.datatables-bulk-action');
@@ -759,14 +1042,14 @@ class DataTablesJS {
 
                         this.updateBulkActionButtons();
                     } else {
-                        UIkit.notification(data.message || 'Bulk action failed', { status: 'danger' });
+                        this.showNotification(data.message || 'Bulk action failed', 'danger');
                     }
                 }
             )
             .catch(
                 error => {
                     console.error('Error:', error);
-                    UIkit.notification('An error occurred', { status: 'danger' });
+                    this.showNotification('An error occurred', 'danger');
                 }
             );
     }
@@ -776,17 +1059,17 @@ class DataTablesJS {
         if (event) {
             event.preventDefault();
         }
-        UIkit.modal('#add-modal').show();
+        this.showModal('add-modal');
     }
 
     showEditModal(id) {
         this.loadRecordForEdit(id);
-        UIkit.modal('#edit-modal').show();
+        this.showModal('edit-modal');
     }
 
     showDeleteModal(id) {
         this.deleteId = id;
-        UIkit.modal('#delete-modal').show();
+        this.showModal('delete-modal');
     }
 
     loadRecordForEdit(id) {
@@ -804,12 +1087,12 @@ class DataTablesJS {
                     this.populateEditForm(data.data);
                 } else {
                     console.error('Failed to fetch record:', data.message);
-                    UIkit.notification(data.message || 'Failed to fetch record data', { status: 'danger' });
+                    this.showNotification(data.message || 'Failed to fetch record data', 'danger');
                 }
             })
             .catch(error => {
                 console.error('Error fetching record:', error);
-                UIkit.notification('Error fetching record data', { status: 'danger' });
+                this.showNotification('Error fetching record data', 'danger');
             });
     }
 
@@ -897,21 +1180,21 @@ class DataTablesJS {
             .then(
                 data => {
                     if (data.success) {
-                        UIkit.modal(`#${modalId}`).hide();
+                        this.hideModal(modalId);
                         if (form) {
                             form.reset();
                         }
                         this.loadData();
-                        UIkit.notification(successMessage, { status: 'success' });
+                        this.showNotification(successMessage, 'success');
                     } else {
-                        UIkit.notification(data.message || 'Operation failed', { status: 'danger' });
+                        this.showNotification(data.message || 'Operation failed', 'danger');
                     }
                 }
             )
             .catch(
                 error => {
                     console.error('Error:', error);
-                    UIkit.notification('An error occurred', { status: 'danger' });
+                    this.showNotification('An error occurred', 'danger');
                 }
             );
     }
@@ -935,18 +1218,18 @@ class DataTablesJS {
             .then(
                 data => {
                     if (data.success) {
-                        UIkit.modal('#delete-modal').hide();
+                        this.hideModal('delete-modal');
                         this.loadData();
-                        UIkit.notification('Record deleted successfully', { status: 'success' });
+                        this.showNotification('Record deleted successfully', 'success');
                     } else {
-                        UIkit.notification(data.message || 'Failed to delete record', { status: 'danger' });
+                        this.showNotification(data.message || 'Failed to delete record', 'danger');
                     }
                 }
             )
             .catch(
                 error => {
                     console.error('Error:', error);
-                    UIkit.notification('An error occurred', { status: 'danger' });
+                    this.showNotification('An error occurred', 'danger');
                 }
             );
 
@@ -1036,6 +1319,19 @@ class DataTablesJS {
 
         if (!this.inlineEditableColumns.includes(field)) { return; }
 
+        const inputClass = this.getThemeClass('input');
+        const selectClass = this.getThemeClass('select');
+        const textareaClass = this.getThemeClass('textarea');
+        const buttonPrimaryClass = this.getThemeClass('button.primary');
+        const buttonDefaultClass = this.getThemeClass('button.default');
+        const buttonSmallClass = this.getThemeClass('button.small');
+        const flexRightClass = this.getThemeClass('flex.right');
+        const marginSmallTopClass = this.getThemeClass('margin.smallTop');
+        const marginSmallRightClass = this.getThemeClass('margin.smallRight');
+        const marginSmallBottomClass = this.getThemeClass('margin.smallBottom');
+        const roundedClass = this.getThemeClass('border.rounded');
+        const displayBlockClass = this.getThemeClass('display.block');
+
         let inputElement;
 
         // Create appropriate input based on field type
@@ -1047,7 +1343,7 @@ class DataTablesJS {
                 const options = tableSchema[field]?.form_options || {};
 
                 inputElement = document.createElement('select');
-                inputElement.className = 'uk-select uk-width-1-1';
+                inputElement.className = selectClass;
 
                 // Add options
                 for (const [value, label] of Object.entries(options)) {
@@ -1063,39 +1359,34 @@ class DataTablesJS {
 
             case 'textarea':
                 inputElement = document.createElement('textarea');
-                inputElement.className = 'uk-textarea uk-width-1-1';
+                inputElement.className = textareaClass;
                 inputElement.value = currentValue;
-                //inputElement.style.minHeight = '60px';
                 break;
 
             case 'number':
                 inputElement = document.createElement('input');
                 inputElement.type = 'number';
-                inputElement.className = 'uk-input uk-width-1-1';
+                inputElement.className = inputClass;
                 inputElement.value = currentValue;
-                //inputElement.style.width = '100px';
                 break;
 
             case 'date':
                 inputElement = document.createElement('input');
                 inputElement.type = 'date';
-                inputElement.className = 'uk-input uk-width-1-1';
+                inputElement.className = inputClass;
                 inputElement.value = currentValue;
-                //inputElement.style.width = '150px';
                 break;
 
             case 'datetime-local':
                 inputElement = document.createElement('input');
                 inputElement.type = 'datetime-local';
-                inputElement.className = 'uk-input uk-width-1-1';
+                inputElement.className = inputClass;
                 inputElement.value = currentValue;
-                //inputElement.style.width = '200px';
                 break;
 
             case 'image':
                 // Create container for image editing
                 const container = document.createElement('div');
-                container.className = 'uk-width-1-1';
                 container.style.minWidth = '200px';
 
                 // Current image preview
@@ -1106,37 +1397,37 @@ class DataTablesJS {
                     preview.style.maxWidth = '100px';
                     preview.style.maxHeight = '100px';
                     preview.style.objectFit = 'cover';
-                    preview.className = 'uk-border-rounded uk-margin-small-bottom uk-display-block';
+                    preview.className = `${roundedClass} ${marginSmallBottomClass} ${displayBlockClass}`;
                     container.appendChild(preview);
                 }
 
                 // URL input
                 const urlInput = document.createElement('input');
                 urlInput.type = 'url';
-                urlInput.className = 'uk-input uk-width-1-1 uk-margin-small-bottom';
+                urlInput.className = `${inputClass} ${marginSmallBottomClass}`;
                 urlInput.placeholder = 'Enter image URL or upload file';
                 urlInput.value = currentValue.startsWith('http') ? currentValue : '';
 
                 // File input container
                 const fileContainer = document.createElement('div');
-                fileContainer.className = 'uk-margin-small-bottom';
+                fileContainer.className = marginSmallBottomClass;
 
                 const fileInput = document.createElement('input');
                 fileInput.type = 'file';
-                fileInput.className = 'uk-input uk-width-1-1';
+                fileInput.className = inputClass;
                 fileInput.accept = 'image/*';
 
                 // Action buttons
                 const buttonContainer = document.createElement('div');
-                buttonContainer.className = 'uk-flex uk-flex-right uk-margin-small-top';
+                buttonContainer.className = `${flexRightClass} ${marginSmallTopClass}`;
 
                 const saveBtn = document.createElement('button');
-                saveBtn.className = 'uk-button uk-button-primary uk-button-small uk-margin-small-right';
+                saveBtn.className = `${buttonPrimaryClass} ${buttonSmallClass} ${marginSmallRightClass}`;
                 saveBtn.textContent = 'Save';
                 saveBtn.type = 'button';
 
                 const cancelBtn = document.createElement('button');
-                cancelBtn.className = 'uk-button uk-button-default uk-button-small';
+                cancelBtn.className = `${buttonDefaultClass} ${buttonSmallClass}`;
                 cancelBtn.textContent = 'Cancel';
                 cancelBtn.type = 'button';
 
@@ -1170,12 +1461,12 @@ class DataTablesJS {
                                     this.saveInlineEdit(id, field, data.file_name, element);
                                 } else {
                                     cancelImageEdit();
-                                    UIkit.notification(data.message || 'Upload failed', { status: 'danger' });
+                                    this.showNotification(data.message || 'Upload failed', 'danger');
                                 }
                             })
                             .catch(error => {
                                 cancelImageEdit();
-                                UIkit.notification('Upload error', { status: 'danger' });
+                                this.showNotification('Upload error', 'danger');
                             });
                     } else if (urlValue !== currentValue) {
                         this.saveInlineEdit(id, field, urlValue, element);
@@ -1187,7 +1478,7 @@ class DataTablesJS {
                 const cancelImageEdit = () => {
                     if (currentValue && currentValue.trim()) {
                         const imageSrc = currentValue.startsWith('http') ? currentValue : `/uploads/${currentValue}`;
-                        element.innerHTML = `<img src="${imageSrc}" alt="Image" style="max-width: 50px; max-height: 50px; object-fit: cover;" class="uk-border-rounded">`;
+                        element.innerHTML = `<img src="${imageSrc}" alt="Image" style="max-width: 50px; max-height: 50px; object-fit: cover;" class="${roundedClass}">`;
                     } else {
                         element.innerHTML = 'No image';
                     }
@@ -1217,9 +1508,8 @@ class DataTablesJS {
             default: // text, email, etc.
                 inputElement = document.createElement('input');
                 inputElement.type = fieldType === 'email' ? 'email' : 'text';
-                inputElement.className = 'uk-input uk-width-1-1';
+                inputElement.className = inputClass;
                 inputElement.value = currentValue;
-            //inputElement.style.width = '150px';
         }
 
         const saveEdit = () => {
@@ -1260,9 +1550,9 @@ class DataTablesJS {
         const field = element.getAttribute('data-field');
         const id = element.getAttribute('data-id');
 
-        // Get current value from the icon
-        const currentIcon = element.querySelector('[uk-icon]');
-        const isCurrentlyActive = currentIcon.getAttribute('uk-icon') === 'check';
+        // Get current value from the data attribute
+        const currentValue = element.getAttribute('data-value');
+        const isCurrentlyActive = currentValue == '1' || currentValue === 'true' || currentValue === true;
         const newValue = isCurrentlyActive ? '0' : '1';
 
         this.saveInlineEdit(id, field, newValue, element);
@@ -1274,6 +1564,10 @@ class DataTablesJS {
         formData.append('id', id);
         formData.append('field', field);
         formData.append('value', value);
+
+        const roundedClass = this.getThemeClass('border.rounded');
+        const successClass = this.getThemeClass('icon.success');
+        const dangerClass = this.getThemeClass('icon.danger');
 
         fetch(
             window.location.href, {
@@ -1293,7 +1587,7 @@ class DataTablesJS {
                         if (element.getAttribute('data-type') === 'image') {
                             if (value && value.trim()) {
                                 const imageSrc = value.startsWith('http') ? value : `/uploads/${value}`;
-                                element.innerHTML = `<img src="${imageSrc}" alt="Image" style="max-width: 50px; max-height: 50px; object-fit: cover;" class="uk-border-rounded">`;
+                                element.innerHTML = `<img src="${imageSrc}" alt="Image" style="max-width: 50px; max-height: 50px; object-fit: cover;" class="${roundedClass}">`;
                                 element.setAttribute('data-value', value);
                             } else {
                                 element.innerHTML = 'No image';
@@ -1301,10 +1595,9 @@ class DataTablesJS {
                             }
                         } else if (element.classList.contains('boolean-toggle')) {
                             const isActive = value == '1' || value === 'true' || value === true;
-                            const iconName = isActive ? 'check' : 'close';
-                            const iconClass = isActive ? 'uk-text-success' : 'uk-text-danger';
+                            const iconClass = isActive ? successClass : dangerClass;
 
-                            element.innerHTML = `<span uk-icon="${iconName}" class="${iconClass}"></span>`;
+                            element.innerHTML = this.renderIcon(isActive ? 'check' : 'close', iconClass);
                             element.setAttribute('data-value', value);
                         } else if (element.getAttribute('data-type') === 'select') {
 
@@ -1332,10 +1625,10 @@ class DataTablesJS {
                             }
                         }
 
-                        UIkit.notification('Field updated successfully', { status: 'success' });
+                        this.showNotification('Field updated successfully', 'success');
                     } else {
                         element.textContent = element.getAttribute('data-original') || '';
-                        UIkit.notification(data.message || 'Failed to update field', { status: 'danger' });
+                        this.showNotification(data.message || 'Failed to update field', 'danger');
                     }
                 }
             )
@@ -1343,7 +1636,7 @@ class DataTablesJS {
                 error => {
                     console.error('Error:', error);
                     element.textContent = element.getAttribute('data-original') || '';
-                    UIkit.notification('An error occurred', { status: 'danger' });
+                    this.showNotification('An error occurred', 'danger');
                 }
             );
     }
@@ -1368,15 +1661,16 @@ class DataTablesJS {
         this.perPage = parseInt(newSize);
         this.currentPage = 1;
 
+        const primaryClass = this.getThemeClass('button.primary');
+        const defaultClass = this.getThemeClass('button.default');
+
         // Update button group active states
         document.querySelectorAll('.datatables-page-size-btn').forEach(btn => {
             const btnSize = parseInt(btn.getAttribute('data-size'));
             if (btnSize === this.perPage) {
-                btn.classList.remove('uk-button-default');
-                btn.classList.add('uk-button-primary');
+                btn.className = btn.className.replace(defaultClass, primaryClass);
             } else {
-                btn.classList.remove('uk-button-primary');
-                btn.classList.add('uk-button-default');
+                btn.className = btn.className.replace(primaryClass, defaultClass);
             }
         });
 

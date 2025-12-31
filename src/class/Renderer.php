@@ -4,25 +4,10 @@ declare(strict_types=1);
 
 namespace KPT\DataTables;
 
-// Check if class already exists before declaring it
 if (! class_exists('KPT\DataTables\Renderer', false)) {
 
     /**
      * Renderer - HTML Rendering Engine for DataTables
-     *
-     * This class is responsible for generating all HTML output for DataTables including
-     * the main table structure, form modals, pagination controls, and JavaScript initialization.
-     * It transforms the DataTables configuration into a complete, interactive user interface
-     * using UIKit3 components and custom styling.
-     *
-     * The renderer handles:
-     * - CSS and JavaScript file inclusion with theme support
-     * - Main table HTML with headers, body, and pagination
-     * - Modal forms for add/edit operations (auto-generated from schema)
-     * - Control panels with search, bulk actions, and settings
-     * - JavaScript initialization and configuration
-     * - Responsive design elements
-     * - Accessibility features
      *
      * @since   1.0.0
      * @author  Kevin Pirnie <me@kpirnie.com>
@@ -30,103 +15,65 @@ if (! class_exists('KPT\DataTables\Renderer', false)) {
      */
     class Renderer extends DataTablesBase
     {
-        /**
-         * Constructor - Initialize renderer with DataTables configuration
-         *
-         * @param DataTables $dataTable The configured DataTables instance
-         */
         public function __construct(?DataTables $dataTable = null)
         {
-            // nothing needed here
         }
 
-        /**
-         * Generate complete HTML output for the DataTable
-         *
-         * This is the main entry point that orchestrates the rendering of all components.
-         * It combines CSS/JS includes, the main container, modals, and initialization scripts
-         * into a complete, functional DataTable interface.
-         *
-         * @return string Complete HTML output ready for display
-         */
         protected function render(): string
         {
-            // Build complete HTML structure
-            $html = $this->renderContainer();      // Main table container
-            $html .= $this->renderModals();         // Add/Edit/Delete modals (auto-generated)
-            $html .= $this->renderInitScript();     // JavaScript initialization
-
+            $html = $this->renderContainer();
+            $html .= $this->renderModals();
+            $html .= $this->renderInitScript();
             return $html;
         }
 
-        /**
-         * Render the main DataTables container
-         *
-         * Creates the primary container div that holds all DataTables components.
-         * The container includes a unique class based on the table name for styling
-         * and JavaScript targeting.
-         *
-         * @return string HTML container with all table components
-         */
         protected function renderContainer(): string
         {
             $tableName = $this->getTableName();
+            $tm = $this->getThemeManager();
             $containerClass = "datatables-container-{$tableName}";
+            $themeContainerClass = $tm->getClasses('container');
 
-            // Create main container with table-specific class
-            $html = "<div class=\"{$containerClass} datatables-container\" data-table=\"{$tableName}\">\n";
-
-            // Build Main data table
+            $html = "<div class=\"{$containerClass} datatables-container {$themeContainerClass}\" data-table=\"{$tableName}\">\n";
             $html .= $this->renderTable();
-
             $html .= "</div>\n";
 
-            // return the rendered htm
             return $html;
         }
 
-        /**
-         * Render bulk actions dropdown and execute button
-         *
-         * Creates the bulk actions interface including a dropdown selector
-         * for available actions and an execute button. Both elements start
-         * disabled and are enabled when records are selected.
-         *
-         * @param  array $bulkConfig Bulk actions configuration from DataTables
-         * @return string HTML bulk actions controls
-         */
         protected function renderBulkActions(array $bulkConfig): string
         {
-            $html = "<div class=\"uk-grid-small uk-child-width-auto\" uk-grid>\n";
+            $tm = $this->getThemeManager();
+            $gridClass = $tm->getClass('grid.small');
 
-            // Add new record button - always available
+            $html = "<div class=\"{$gridClass}\"" . ($this->theme === 'uikit' ? ' uk-grid' : '') . ">\n";
+
             $html .= "      <div>\n";
-            $html .= "          <a href=\"#\" class=\"uk-icon-link\" uk-icon=\"plus\" onclick=\"DataTables.showAddModal(event)\" uk-tooltip=\"Add a New Record\"></a>\n";
+            $html .= "          <a href=\"#\" class=\"" . $tm->getClasses('icon.link') . "\" ";
+            $html .= "onclick=\"DataTables.showAddModal(event)\" ";
+            $html .= ($this->theme === 'uikit' ? 'uk-icon=\"plus\" uk-tooltip=\"Add a New Record\"' : 'title=\"Add a New Record\"') . ">";
+            if ($this->theme !== 'uikit') {
+                $html .= $tm->getIcon('plus');
+            }
+            $html .= "</a>\n";
             $html .= "      </div>\n";
 
-            // CHECK FOR HTML INJECTION BEFORE BULK ACTIONS
             if (isset($bulkConfig['html'])) {
-                $html .= "<div>\n";
-                $html .= $bulkConfig['html'];
-                $html .= "\n</div>\n";
+                $html .= "<div>\n{$bulkConfig['html']}\n</div>\n";
             }
 
-            // Collect all bulk actions - both from bulkActions() and actionGroups
             $actionsToRender = [];
 
-            // First, add custom bulk actions if bulk actions are enabled
             if ($bulkConfig['enabled'] && !empty($bulkConfig['actions'])) {
                 $actionsToRender = $bulkConfig['actions'];
             }
 
-            // Check if delete is in action groups and add it if not already present
             $actionConfig = $this->getActionConfig();
             if (isset($actionConfig['groups'])) {
                 foreach ($actionConfig['groups'] as $group) {
                     if (is_array($group)) {
                         foreach ($group as $actionKey => $actionData) {
                             if ($actionKey === 'delete' || (is_string($actionData) && $actionData === 'delete')) {
-                                // Add delete if not already in actions
                                 if (!isset($actionsToRender['delete'])) {
                                     $actionsToRender['delete'] = [
                                         'icon' => 'trash',
@@ -140,43 +87,38 @@ if (! class_exists('KPT\DataTables\Renderer', false)) {
                 }
             }
 
-            // Render all collected bulk actions
             if (!empty($actionsToRender)) {
                 $actionCount = 0;
                 $replaceDelete = array_key_exists('replacedelete', $actionsToRender);
                 if ($replaceDelete) {
-                    $actionsToRender = array_filter(
-                        $actionsToRender,
-                        fn($key) => $key !== 'delete',
-                        ARRAY_FILTER_USE_KEY
-                    );
+                    $actionsToRender = array_filter($actionsToRender, fn($key) => $key !== 'delete', ARRAY_FILTER_USE_KEY);
                 }
                 $totalActions = count($actionsToRender);
                 foreach ($actionsToRender as $action => $config) {
-                    // CHECK FOR HTML INJECTION IN ACTION CONFIG
                     if (isset($config['html'])) {
-                        $html .= "<div>\n";
-                        $html .= $config['html'];
-                        $html .= "\n</div>\n";
-                        continue; // Skip normal action rendering
+                        $html .= "<div>\n{$config['html']}\n</div>\n";
+                        continue;
                     }
-
                     $actionCount++;
-
                     $icon = $config['icon'] ?? 'link';
                     $label = $config['label'] ?? ucfirst($action);
                     $confirm = $config['confirm'] ?? '';
 
                     $html .= "<div>\n";
-                    $html .= "<a class=\"uk-icon-link datatables-bulk-action-btn\" uk-icon=\"{$icon}\" ";
-                    $html .= "data-action=\"{$action}\" ";
-                    $html .= "data-confirm=\"{$confirm}\" ";
+                    $html .= "<a class=\"" . $tm->getClasses('icon.link') . " datatables-bulk-action-btn\" ";
+                    if ($this->theme === 'uikit') {
+                        $html .= "uk-icon=\"{$icon}\" ";
+                    }
+                    $html .= "data-action=\"{$action}\" data-confirm=\"{$confirm}\" ";
                     $html .= "onclick=\"DataTables.executeBulkActionDirect('{$action}', event)\" ";
-                    $html .= "uk-tooltip=\"{$label}\" disabled></a>\n";
-                    $html .= "</div>\n";
+                    $html .= ($this->theme === 'uikit' ? "uk-tooltip=\"{$label}\"" : "title=\"{$label}\"") . " disabled>";
+                    if ($this->theme !== 'uikit') {
+                        $html .= $tm->getIcon($icon);
+                    }
+                    $html .= "</a>\n</div>\n";
 
                     if ($actionCount < $totalActions) {
-                        $html .= "<div class=\"uk-text-muted\">|</div>\n";
+                        $html .= "<div class=\"" . $tm->getClass('text.muted') . "\">|</div>\n";
                     }
                 }
             }
@@ -185,130 +127,105 @@ if (! class_exists('KPT\DataTables\Renderer', false)) {
             return $html;
         }
 
-
-
-        /**
-         * Render search form with input, column selector, and reset button
-         *
-         * Creates the search interface including a text input with search icon,
-         * a dropdown to select which column to search, and a reset button to clear search.
-         *
-         * @return string HTML search form elements
-         */
         protected function renderSearchForm(): string
         {
-            $columns = $this->getColumns();
+            $tm = $this->getThemeManager();
 
-            // Search input with icon
             $html = "<div>\n";
-            $html .= "<div class=\"uk-inline uk-width-medium\">\n";
-            $html .= "<span class=\"uk-form-icon\" uk-icon=\"search\"></span>\n";
-            $html .= "<input class=\"uk-input datatables-search\" type=\"text\" placeholder=\"Search...\">\n";
-            $html .= "</div>\n";
-            $html .= "</div>\n";
+            $html .= "<div class=\"" . $tm->getClasses('inline') . " " . $tm->getClass('width.medium') . "\">\n";
 
-            // Reset search button
+            if ($this->theme === 'uikit') {
+                $html .= "<span class=\"uk-form-icon\" uk-icon=\"search\"></span>\n";
+            } elseif ($this->theme === 'bootstrap') {
+                $html .= "<span class=\"position-absolute\" style=\"left:12px;top:50%;transform:translateY(-50%);pointer-events:none;\"><i class=\"bi bi-search\"></i></span>\n";
+            } else {
+                $html .= "<span class=\"" . $tm->getClass('form.icon') . "\">" . $tm->getIcon('search') . "</span>\n";
+            }
+
+            $inputClass = $tm->getClasses('input');
+            $paddingStyle = ($this->theme === 'bootstrap') ? ' style="padding-left:38px;"' : '';
+            $html .= "<input class=\"{$inputClass} datatables-search\" type=\"text\" placeholder=\"Search...\"{$paddingStyle}>\n";
+            $html .= "</div>\n</div>\n";
+
             $html .= "<div>\n";
-            $html .= "<button class=\"uk-button uk-button-default refreshbutton\" type=\"button\" ";
-            $html .= "onclick=\"DataTables.resetSearch()\" uk-tooltip=\"Reset Search\">\n";
-            $html .= "<span uk-icon=\"refresh\"></span>\n";
-            $html .= "</button>\n";
-            $html .= "</div>\n";
+            $buttonClass = $tm->getClass('button.default');
+            $html .= "<button class=\"{$buttonClass} refreshbutton\" type=\"button\" onclick=\"DataTables.resetSearch()\" ";
+            $html .= ($this->theme === 'uikit' ? 'uk-tooltip=\"Reset Search\"' : 'title=\"Reset Search\"') . ">\n";
+
+            if ($this->theme === 'uikit') {
+                $html .= "<span uk-icon=\"refresh\"></span>\n";
+            } elseif ($this->theme === 'bootstrap') {
+                $html .= "<i class=\"bi bi-arrow-clockwise\"></i>\n";
+            } else {
+                $html .= $tm->getIcon('refresh');
+            }
+
+            $html .= "</button>\n</div>\n";
 
             return $html;
         }
 
-        /**
-         * Render page size selector dropdown or button group
-         *
-         * Creates a dropdown or button group allowing users to change how many records are displayed
-         * per page. Includes all configured options and optionally an "All records" choice.
-         *
-         * @param bool $asButtonGroup Whether to render as button group instead of select
-         * @return string HTML page size selector
-         */
         protected function renderPageSizeSelector(bool $asButtonGroup = false): string
         {
+            $tm = $this->getThemeManager();
             $options = $this->getPageSizeOptions();
             $includeAll = $this->getIncludeAllOption();
             $current = $this->getRecordsPerPage();
 
             if ($asButtonGroup) {
-                $html = "<div>\n";
-                $html .= "Per Page: <div class=\"uk-button-group\">\n";
-
-                // Add each configured page size option as button
+                $html = "<div>\nPer Page: <div class=\"" . $tm->getKpDtClass('button-group') . "\">\n";
                 foreach ($options as $option) {
-                    $activeClass = $option === $current ? ' uk-button-primary' : ' uk-button-default';
-                    $html .= "<a class=\"uk-button uk-button-small{$activeClass} datatables-page-size-btn\" ";
-                    $html .= "href=\"#\" data-size=\"{$option}\" onclick=\"DataTables.changePageSize({$option}, event)\">{$option}</a>\n";
+                    $activeClass = $option === $current ? $tm->getClass('button.primary') : $tm->getClass('button.default');
+                    $activeClass .= ' ' . $tm->getClass('button.small');
+                    $html .= "<a class=\"{$activeClass} datatables-page-size-btn\" href=\"#\" data-size=\"{$option}\" onclick=\"DataTables.changePageSize({$option}, event)\">{$option}</a>\n";
                 }
-
-                // Add "All records" option if enabled
                 if ($includeAll) {
-                    $activeClass = $current === 0 ? ' uk-button-primary' : ' uk-button-default';
-                    $html .= "<a class=\"uk-button uk-button-small{$activeClass} datatables-page-size-btn\" ";
-                    $html .= "href=\"#\" data-size=\"0\" onclick=\"DataTables.changePageSize(0, event)\">All</a>\n";
+                    $activeClass = $current === 0 ? $tm->getClass('button.primary') : $tm->getClass('button.default');
+                    $activeClass .= ' ' . $tm->getClass('button.small');
+                    $html .= "<a class=\"{$activeClass} datatables-page-size-btn\" href=\"#\" data-size=\"0\" onclick=\"DataTables.changePageSize(0, event)\">All</a>\n";
                 }
-
-                $html .= "</div>\n";
-                $html .= "</div>\n";
+                $html .= "</div>\n</div>\n";
             } else {
-                $html = "<div>\n";
-                $html .= "Per Page: <select class=\"uk-select uk-width-auto datatables-page-size\">\n";
-
-                // Add each configured page size option
+                $selectClass = $tm->getClasses('select') . ' ' . $tm->getClass('width.auto');
+                $html = "<div>\nPer Page: <select class=\"{$selectClass} datatables-page-size\">\n";
                 foreach ($options as $option) {
                     $selected = $option === $current ? ' selected' : '';
                     $html .= "<option value=\"{$option}\"{$selected}>{$option} records</option>\n";
                 }
-
-                // Add "All records" option if enabled (value of 0 means no limit)
                 if ($includeAll) {
                     $html .= "<option value=\"0\">All records</option>\n";
                 }
-
-                $html .= "</select>\n";
-                $html .= "</div>\n";
+                $html .= "</select>\n</div>\n";
             }
 
             return $html;
         }
 
-        /**
-         * Render pagination controls and record information with footer styling
-         *
-         * Creates the bottom section with record count information and pagination
-         * controls. The pagination will be populated by JavaScript after data loads.
-         * Includes footer class for proper positioning at bottom of screen.
-         *
-         * @return string HTML pagination section
-         */
         protected function renderPagination(): string
         {
+            $tm = $this->getThemeManager();
+            $paginationClass = $tm->getClasses('pagination');
 
-            // Pagination controls container (populated by JavaScript)
             $html = "<div>\n";
-            $html .= "<div class=\"datatables-info\" id=\"datatables-info\">\n";
-            $html .= "Showing 0 to 0 of 0 records\n";
-            $html .= "</div>\n";
-            $html .= "<ul class=\"uk-pagination datatables-pagination\" id=\"datatables-pagination\">\n";
-            $html .= "<li class=\"uk-disabled\"><span uk-pagination-previous></span></li>\n";
-            $html .= "<li class=\"uk-disabled\"><span uk-pagination-next></span></li>\n";
-            $html .= "</ul>\n";
-            $html .= "</div>\n";
+            $html .= "<div class=\"datatables-info\" id=\"datatables-info\">Showing 0 to 0 of 0 records</div>\n";
+            $html .= "<ul class=\"{$paginationClass} datatables-pagination\" id=\"datatables-pagination\">\n";
 
+            if ($this->theme === 'bootstrap') {
+                $html .= "<li class=\"page-item disabled\"><span class=\"page-link\">&laquo;</span></li>\n";
+                $html .= "<li class=\"page-item disabled\"><span class=\"page-link\">&raquo;</span></li>\n";
+            } else {
+                $disabledClass = $tm->getClass('pagination.disabled');
+                $html .= "<li class=\"{$disabledClass}\"><span>" . ($this->theme === 'uikit' ? '<span uk-pagination-previous></span>' : '&laquo;') . "</span></li>\n";
+                $html .= "<li class=\"{$disabledClass}\"><span>" . ($this->theme === 'uikit' ? '<span uk-pagination-next></span>' : '&raquo;') . "</span></li>\n";
+            }
+
+            $html .= "</ul>\n</div>\n";
             return $html;
         }
 
-        /**
-         * Render table header or footer row
-         *
-         * @return string HTML for header/footer row
-         */
         protected function renderTableHeaderRow(): string
         {
-            // Extract configuration
+            $tm = $this->getThemeManager();
             $columns = $this->getColumns();
             $sortableColumns = $this->getSortableColumns();
             $actionConfig = $this->getActionConfig();
@@ -317,19 +234,19 @@ if (! class_exists('KPT\DataTables\Renderer', false)) {
 
             $html = "<tr>\n";
 
-            // Bulk selection master checkbox (if bulk actions enabled)
             if ($bulkActions['enabled']) {
-                $html .= "<th class=\"uk-table-shrink\">\n";
-                $html .= "<label><input type=\"checkbox\" class=\"uk-checkbox datatables-select-all\" onchange=\"DataTables.toggleSelectAll(this)\"></label>\n";
+                $shrinkClass = $tm->getClass('th.shrink');
+                $checkboxClass = $tm->getClasses('checkbox');
+                $html .= "<th" . ($shrinkClass ? " class=\"{$shrinkClass}\"" : "") . ">\n";
+                $html .= "<label><input type=\"checkbox\" class=\"{$checkboxClass} datatables-select-all\" onchange=\"DataTables.toggleSelectAll(this)\"></label>\n";
                 $html .= "</th>\n";
             }
 
-            // Action column at start of row (if configured)
             if ($actionConfig['position'] === 'start') {
-                $html .= "<th class=\"uk-table-shrink\">Actions</th>\n";
+                $shrinkClass = $tm->getClass('th.shrink');
+                $html .= "<th" . ($shrinkClass ? " class=\"{$shrinkClass}\"" : "") . ">Actions</th>\n";
             }
 
-            // Regular data columns
             foreach ($columns as $column => $label) {
                 $sortable = in_array($column, $sortableColumns);
                 if (!$sortable && stripos($column, ' AS ') !== false) {
@@ -347,7 +264,14 @@ if (! class_exists('KPT\DataTables\Renderer', false)) {
 
                 if ($sortable) {
                     $displayLabel = is_array($label) ? ($label['label'] ?? $column) : $label;
-                    $html .= "<span class=\"sortable-header\">{$displayLabel} <span class=\"sort-icon\" uk-icon=\"triangle-up\"></span></span>";
+                    $sortableHeaderClass = $tm->getKpDtClass('sortable-header');
+                    $html .= "<span class=\"sortable-header {$sortableHeaderClass}\">{$displayLabel} ";
+                    if ($this->theme === 'uikit') {
+                        $html .= "<span class=\"sort-icon\" uk-icon=\"triangle-up\"></span>";
+                    } else {
+                        $html .= "<span class=\"sort-icon\">" . $tm->getIcon('triangle-up') . "</span>";
+                    }
+                    $html .= "</span>";
                 } else {
                     $displayLabel = is_array($label) ? ($label['label'] ?? $column) : $label;
                     $html .= $displayLabel;
@@ -356,220 +280,229 @@ if (! class_exists('KPT\DataTables\Renderer', false)) {
                 $html .= "</th>\n";
             }
 
-            // Action column at end of row (if configured)
             if ($actionConfig['position'] === 'end') {
-                $html .= "<th class=\"uk-table-shrink\">Actions</th>\n";
+                $shrinkClass = $tm->getClass('th.shrink');
+                $html .= "<th" . ($shrinkClass ? " class=\"{$shrinkClass}\"" : "") . ">Actions</th>\n";
             }
 
             $html .= "</tr>\n";
-
             return $html;
         }
 
-        /**
-         * Render the main data table structure
-         *
-         * Creates the complete HTML table including headers, body, and styling.
-         * Handles bulk selection checkboxes, sortable headers, action columns,
-         * and applies all configured CSS classes.
-         *
-         * @return string HTML table structure
-         */
         protected function renderTable(): string
         {
-            // Extract configuration for table rendering
+            $tm = $this->getThemeManager();
             $columns = $this->getColumns();
-            $sortableColumns = $this->getSortableColumns();
-            $actionConfig = $this->getActionConfig();
             $bulkActions = $this->getBulkActions();
             $cssClasses = $this->getCssClasses();
             $tableSchema = $this->getTableSchema();
 
-            // Get CSS classes with defaults
-            $tableClass = $cssClasses['table'] ?? 'uk-table';
+            $tableClass = $cssClasses['table'] ?? $tm->getClass('table.full');
             $theadClass = $cssClasses['thead'] ?? '';
             $tbodyClass = $cssClasses['tbody'] ?? '';
+            $themeTableClass = $tm->getKpDtClass('table');
+            $overflowClass = $tm->getClasses('overflow.auto');
 
-            // Start table with scrollable container
-            $html = "<div class=\"uk-overflow-auto\">\n";
-            $html .= "<table class=\"{$tableClass} datatables-table\" data-columns='" . json_encode($tableSchema) . "'>\n";
+            $html = "<div class=\"{$overflowClass}\">\n";
+            $html .= "<table class=\"{$tableClass} {$themeTableClass} datatables-table\" data-columns='" . json_encode($tableSchema) . "'>\n";
 
-            // === TABLE HEADER ===
             $html .= "<thead" . (!empty($theadClass) ? " class=\"{$theadClass}\"" : "") . ">\n";
             $html .= $this->renderTableHeaderRow();
             $html .= "</thead>\n";
 
-            // === TABLE BODY ===
             $html .= "<tbody class=\"datatables-tbody" . (!empty($tbodyClass) ? " {$tbodyClass}" : "") . "\" id=\"datatables-tbody\">\n";
 
-            // Calculate total columns for loading placeholder
-            $totalColumns = count($columns) + 1; // +1 for actions
+            $totalColumns = count($columns) + 1;
             if ($bulkActions['enabled']) {
-                $totalColumns++; // +1 for bulk selection checkboxes
+                $totalColumns++;
             }
 
-            // Initial loading placeholder row
-            $html .= "<tr><td colspan=\"{$totalColumns}\" class=\"uk-text-center\">Loading...</td></tr>\n";
+            $centerClass = $tm->getClass('text.center');
+            $html .= "<tr><td colspan=\"{$totalColumns}\" class=\"{$centerClass}\">Loading...</td></tr>\n";
             $html .= "</tbody>\n";
 
-            // table footer
             $html .= "<tfoot" . (!empty($theadClass) ? " class=\"{$theadClass}\"" : "") . ">\n";
             $html .= $this->renderTableHeaderRow();
             $html .= "</tfoot>\n";
 
-            // end the table
-            $html .= "</table>\n";
-            $html .= "</div>\n";
+            $html .= "</table>\n</div>\n";
 
             return $html;
         }
 
-        /**
-         * Render all modal dialogs for forms (auto-generated from schema)
-         *
-         * Creates the modal dialogs used for add, edit, and delete operations.
-         * Each modal is initially hidden and shown by JavaScript when needed.
-         * Forms are automatically generated based on database schema.
-         *
-         * @return string HTML for all modal dialogs
-         */
         protected function renderModals(): string
         {
-            $html = $this->renderAddModal();        // Add record form modal (auto-generated)
-            $html .= $this->renderEditModal();      // Edit record form modal (auto-generated)
-            $html .= $this->renderDeleteModal();    // Delete confirmation modal
+            $html = $this->renderAddModal();
+            $html .= $this->renderEditModal();
+            $html .= $this->renderDeleteModal();
             return $html;
         }
 
-        /**
-         * Render the add record modal form with custom fields
-         *
-         * @return string HTML add record modal
-         */
         protected function renderAddModal(): string
         {
+            $tm = $this->getThemeManager();
             $formConfig = $this->getAddFormConfig();
             $formFields = $formConfig['fields'];
             $title = $formConfig['title'];
             $formClass = $formConfig['class'] ?? '';
 
-            // Modal container
-            $html = "<div id=\"add-modal\" uk-modal>\n";
-            $html .= "<div class=\"uk-modal-dialog uk-modal-body\">\n";
-            $html .= "<h2 class=\"uk-modal-title\">{$title}</h2>\n";
+            if ($this->theme === 'bootstrap') {
+                $html = "<div class=\"modal fade\" id=\"add-modal\" tabindex=\"-1\">\n<div class=\"modal-dialog\">\n<div class=\"modal-content\">\n";
+                $html .= "<div class=\"modal-header\">\n<h5 class=\"modal-title\">{$title}</h5>\n";
+                $html .= "<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"modal\"></button>\n</div>\n";
+                $html .= "<div class=\"modal-body\">\n";
+            } else {
+                $modalClass = $tm->getClass('modal');
+                $dialogClass = $tm->getClass('modal.dialog');
+                $bodyClass = $tm->getClass('modal.body');
+                $titleClass = $tm->getClass('modal.title');
+                $html = "<div id=\"add-modal\" class=\"{$modalClass}\"" . ($this->theme === 'uikit' ? ' uk-modal' : '') . ">\n";
+                $html .= "<div class=\"{$dialogClass}\">\n<div class=\"{$bodyClass}\">\n";
+                $html .= "<h2 class=\"{$titleClass}\">{$title}</h2>\n";
+            }
 
-            // Form with AJAX submission
-            $html .= "<form class=\"uk-form-stacked {$formClass}\" id=\"add-form\" onsubmit=\"return DataTables.submitAddForm(event)\">\n";
+            $formStackedClass = $tm->getClass('form.stacked');
+            $html .= "<form class=\"{$formStackedClass} {$formClass}\" id=\"add-form\" onsubmit=\"return DataTables.submitAddForm(event)\">\n";
 
-            // Generate form fields from configuration
             foreach ($formFields as $field => $config) {
                 $html .= $this->renderFormField($field, $config, 'add');
             }
 
-            // Modal action buttons
-            $html .= "<div class=\"uk-width-1-1 uk-margin-top uk-text-right\">\n";
-            $html .= "<button class=\"uk-button uk-button-default uk-modal-close\" type=\"button\">Cancel</button>\n";
-            $html .= "<button class=\"uk-button uk-button-primary uk-margin-small-left\" type=\"submit\">Add Record</button>\n";
-            $html .= "</div>\n";
+            $marginTopClass = $tm->getClass('margin.top');
+            $textRightClass = $tm->getClass('text.right');
+            $buttonDefaultClass = $tm->getClass('button.default');
+            $buttonPrimaryClass = $tm->getClass('button.primary');
+            $marginSmallLeftClass = $tm->getClass('margin.small.left');
 
-            $html .= "</form>\n";
-            $html .= "</div>\n";
-            $html .= "</div>\n";
+            $html .= "<div class=\"{$marginTopClass} {$textRightClass}\">\n";
+
+            if ($this->theme === 'bootstrap') {
+                $html .= "<button class=\"{$buttonDefaultClass}\" type=\"button\" data-bs-dismiss=\"modal\">Cancel</button>\n";
+            } else {
+                $closeClass = $this->theme === 'uikit' ? ' uk-modal-close' : '';
+                $onclick = $this->theme !== 'uikit' ? " onclick=\"KPDataTablesPlain.hideModal('add-modal')\"" : "";
+                $html .= "<button class=\"{$buttonDefaultClass}{$closeClass}\" type=\"button\"{$onclick}>Cancel</button>\n";
+            }
+
+            $html .= "<button class=\"{$buttonPrimaryClass} {$marginSmallLeftClass}\" type=\"submit\">Add Record</button>\n";
+            $html .= "</div>\n</form>\n";
+
+            if ($this->theme === 'bootstrap') {
+                $html .= "</div>\n</div>\n</div>\n</div>\n";
+            } else {
+                $html .= "</div>\n</div>\n</div>\n";
+            }
 
             return $html;
         }
 
-        /**
-         * Render the edit record modal form with custom fields
-         *
-         * @return string HTML edit record modal
-         */
         protected function renderEditModal(): string
         {
+            $tm = $this->getThemeManager();
             $formConfig = $this->getEditFormConfig();
             $formFields = $formConfig['fields'];
             $title = $formConfig['title'];
             $primaryKey = $this->getPrimaryKey();
             $formClass = $formConfig['class'] ?? '';
 
-            // Get unqualified primary key for form field name
-            $unqualifiedPK = strpos($primaryKey, '.') !== false ?
-                            explode('.', $primaryKey)[1] :
-                            $primaryKey;
+            $unqualifiedPK = strpos($primaryKey, '.') !== false ? explode('.', $primaryKey)[1] : $primaryKey;
 
-            // Modal container
-            $html = "<div id=\"edit-modal\" uk-modal>\n";
-            $html .= "<div class=\"uk-modal-dialog uk-modal-body\">\n";
-            $html .= "<h2 class=\"uk-modal-title\">{$title}</h2>\n";
+            if ($this->theme === 'bootstrap') {
+                $html = "<div class=\"modal fade\" id=\"edit-modal\" tabindex=\"-1\">\n<div class=\"modal-dialog\">\n<div class=\"modal-content\">\n";
+                $html .= "<div class=\"modal-header\">\n<h5 class=\"modal-title\">{$title}</h5>\n";
+                $html .= "<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"modal\"></button>\n</div>\n";
+                $html .= "<div class=\"modal-body\">\n";
+            } else {
+                $modalClass = $tm->getClass('modal');
+                $dialogClass = $tm->getClass('modal.dialog');
+                $bodyClass = $tm->getClass('modal.body');
+                $titleClass = $tm->getClass('modal.title');
+                $html = "<div id=\"edit-modal\" class=\"{$modalClass}\"" . ($this->theme === 'uikit' ? ' uk-modal' : '') . ">\n";
+                $html .= "<div class=\"{$dialogClass}\">\n<div class=\"{$bodyClass}\">\n";
+                $html .= "<h2 class=\"{$titleClass}\">{$title}</h2>\n";
+            }
 
-            // Form with AJAX submission
-            $html .= "<form class=\"uk-form-stacked {$formClass}\" id=\"edit-form\" onsubmit=\"return DataTables.submitEditForm(event)\">\n";
-
-            // Hidden field for record ID - use unqualified name
+            $formStackedClass = $tm->getClass('form.stacked');
+            $html .= "<form class=\"{$formStackedClass} {$formClass}\" id=\"edit-form\" onsubmit=\"return DataTables.submitEditForm(event)\">\n";
             $html .= "<input type=\"hidden\" name=\"{$unqualifiedPK}\" id=\"edit-{$unqualifiedPK}\">\n";
 
-            // Generate form fields from configuration
             foreach ($formFields as $field => $config) {
                 $html .= $this->renderFormField($field, $config, 'edit');
             }
 
-            // Modal action buttons
-            $html .= "<div class=\"uk-width-1-1 uk-margin-top uk-text-right\">\n";
-            $html .= "<button class=\"uk-button uk-button-default uk-modal-close\" type=\"button\">Cancel</button>\n";
-            $html .= "<button class=\"uk-button uk-button-primary uk-margin-small-left\" type=\"submit\">Update Record</button>\n";
-            $html .= "</div>\n";
+            $marginTopClass = $tm->getClass('margin.top');
+            $textRightClass = $tm->getClass('text.right');
+            $buttonDefaultClass = $tm->getClass('button.default');
+            $buttonPrimaryClass = $tm->getClass('button.primary');
+            $marginSmallLeftClass = $tm->getClass('margin.small.left');
 
-            $html .= "</form>\n";
-            $html .= "</div>\n";
-            $html .= "</div>\n";
+            $html .= "<div class=\"{$marginTopClass} {$textRightClass}\">\n";
+
+            if ($this->theme === 'bootstrap') {
+                $html .= "<button class=\"{$buttonDefaultClass}\" type=\"button\" data-bs-dismiss=\"modal\">Cancel</button>\n";
+            } else {
+                $closeClass = $this->theme === 'uikit' ? ' uk-modal-close' : '';
+                $onclick = $this->theme !== 'uikit' ? " onclick=\"KPDataTablesPlain.hideModal('edit-modal')\"" : "";
+                $html .= "<button class=\"{$buttonDefaultClass}{$closeClass}\" type=\"button\"{$onclick}>Cancel</button>\n";
+            }
+
+            $html .= "<button class=\"{$buttonPrimaryClass} {$marginSmallLeftClass}\" type=\"submit\">Update Record</button>\n";
+            $html .= "</div>\n</form>\n";
+
+            if ($this->theme === 'bootstrap') {
+                $html .= "</div>\n</div>\n</div>\n</div>\n";
+            } else {
+                $html .= "</div>\n</div>\n</div>\n";
+            }
 
             return $html;
         }
 
-        /**
-         * Render the delete confirmation modal
-         *
-         * Creates a simple confirmation dialog for delete operations. Contains
-         * warning text and confirmation/cancel buttons. No form fields are needed
-         * since only confirmation is required.
-         *
-         * @return string HTML delete confirmation modal
-         */
         protected function renderDeleteModal(): string
         {
-            $html = "<div id=\"delete-modal\" uk-modal>\n";
-            $html .= "<div class=\"uk-modal-dialog uk-modal-body\">\n";
-            $html .= "<h2 class=\"uk-modal-title\">Confirm Delete</h2>\n";
-            $html .= "<p>Are you sure you want to delete this record? This action cannot be undone.</p>\n";
+            $tm = $this->getThemeManager();
 
-            // Confirmation buttons
-            $html .= "<div class=\"uk-margin-top uk-text-right\">\n";
-            $html .= "<button class=\"uk-button uk-button-default uk-modal-close\" type=\"button\">Cancel</button>\n";
-            $html .= "<button class=\"uk-button uk-button-danger uk-margin-small-left\" type=\"button\" onclick=\"DataTables.confirmDelete()\">Delete</button>\n";
-            $html .= "</div>\n";
+            if ($this->theme === 'bootstrap') {
+                $html = "<div class=\"modal fade\" id=\"delete-modal\" tabindex=\"-1\">\n";
+                $html .= "<div class=\"modal-dialog modal-dialog-centered\">\n<div class=\"modal-content\">\n";
+                $html .= "<div class=\"modal-header\">\n<h5 class=\"modal-title\">Confirm Delete</h5>\n";
+                $html .= "<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"modal\"></button>\n</div>\n";
+                $html .= "<div class=\"modal-body\">\n<p>Are you sure you want to delete this record? This action cannot be undone.</p>\n</div>\n";
+                $html .= "<div class=\"modal-footer\">\n";
+                $html .= "<button class=\"btn btn-secondary\" type=\"button\" data-bs-dismiss=\"modal\">Cancel</button>\n";
+                $html .= "<button class=\"btn btn-danger\" type=\"button\" onclick=\"DataTables.confirmDelete()\">Delete</button>\n";
+                $html .= "</div>\n</div>\n</div>\n</div>\n";
+            } else {
+                $modalClass = $tm->getClass('modal');
+                $dialogClass = $tm->getClass('modal.dialog');
+                $bodyClass = $tm->getClass('modal.body');
+                $titleClass = $tm->getClass('modal.title');
+                $marginTopClass = $tm->getClass('margin.top');
+                $textRightClass = $tm->getClass('text.right');
+                $buttonDefaultClass = $tm->getClass('button.default');
+                $buttonDangerClass = $tm->getClass('button.danger');
+                $marginSmallLeftClass = $tm->getClass('margin.small.left');
 
-            $html .= "</div>\n";
-            $html .= "</div>\n";
+                $html = "<div id=\"delete-modal\" class=\"{$modalClass}\"" . ($this->theme === 'uikit' ? ' uk-modal' : '') . ">\n";
+                $html .= "<div class=\"{$dialogClass}\">\n<div class=\"{$bodyClass}\">\n";
+                $html .= "<h2 class=\"{$titleClass}\">Confirm Delete</h2>\n";
+                $html .= "<p>Are you sure you want to delete this record? This action cannot be undone.</p>\n";
+
+                $html .= "<div class=\"{$marginTopClass} {$textRightClass}\">\n";
+                $closeClass = $this->theme === 'uikit' ? ' uk-modal-close' : '';
+                $onclick = $this->theme !== 'uikit' ? " onclick=\"KPDataTablesPlain.hideModal('delete-modal')\"" : "";
+                $html .= "<button class=\"{$buttonDefaultClass}{$closeClass}\" type=\"button\"{$onclick}>Cancel</button>\n";
+                $html .= "<button class=\"{$buttonDangerClass} {$marginSmallLeftClass}\" type=\"button\" onclick=\"DataTables.confirmDelete()\">Delete</button>\n";
+                $html .= "</div>\n</div>\n</div>\n</div>\n";
+            }
 
             return $html;
         }
 
-        /**
-         * Render a single form field element based on database schema with enhanced configuration
-         *
-         * Generates HTML for various form field types including text inputs, selects,
-         * textareas, checkboxes, radio buttons, file uploads, and date/time fields.
-         * Handles validation attributes, styling classes, and accessibility features.
-         * Field types are automatically determined from database schema or overridden.
-         *
-         * @param  string $field  Field name for form submission
-         * @param  array  $config Field configuration array with type, label, validation, etc.
-         * @param  string $prefix Field prefix for ID generation ('add' or 'edit')
-         * @return string HTML form field element
-         */
         protected function renderFormField(string $field, array $config, string $prefix = 'add'): string
         {
-            // Extract field configuration with defaults
+            $tm = $this->getThemeManager();
+
             $type = $config['type'];
             $label = $config['label'];
             $required = $config['required'] ?? false;
@@ -581,203 +514,108 @@ if (! class_exists('KPT\DataTables\Renderer', false)) {
             $default = $config['default'] ?? '';
             $disabled = $config['disabled'] ?? false;
 
-            // Use default value if no value is set
             if (empty($value) && !empty($default)) {
                 $value = $default;
             }
 
-            // Generate unique IDs for form fields
             $fieldId = "{$prefix}-{$field}";
             $fieldName = $field;
 
-            // Start field container
-            $html = "<div class=\"{$customClass}\">\n";
+            $formControlsClass = $tm->getClass('form.controls');
+            $formLabelClass = $tm->getClass('form.label');
+            $inputClass = $tm->getClasses('input');
+            $selectClass = $tm->getClasses('select');
+            $textareaClass = $tm->getClasses('textarea');
+            $checkboxClass = $tm->getClasses('checkbox');
+            $radioClass = $tm->getClasses('radio');
+            $dangerClass = $tm->getClass('text.danger');
 
-            // Render field based on type
+            if ($type === 'hidden') {
+                return "<input type=\"hidden\" id=\"{$fieldId}\" name=\"{$fieldName}\" value=\"{$value}\">\n";
+            }
+
+            $html = "<div class=\"{$formControlsClass} {$customClass}\">\n";
+            $attrString = $this->buildAttributeString($attributes);
+
             switch ($type) {
-                case 'hidden':
-                    // Hidden field - no label or container div needed
-                    return "<input type=\"hidden\" id=\"{$fieldId}\" name=\"{$fieldName}\" value=\"{$value}\">\n";
-
                 case 'boolean':
-                    // Boolean toggle field rendered as select for forms
-                    $html .= "<label class=\"uk-form-label\" for=\"{$fieldId}\">{$label}" .
-                            ($required ? " <span class=\"uk-text-danger\">*</span>" : "") . "</label>\n";
-
-
-                    $html .= "<div class=\"uk-form-controls\">\n";
-                    $attrString = $this->buildAttributeString($attributes);
-
-                    $html .= "<select class=\"uk-select\" id=\"{$fieldId}\" name=\"{$fieldName}\" " .
-                            "{$attrString} " . ($required ? "required" : "") .
-                            ($disabled ? " disabled" : "") . ">\n";
-
-                    // Boolean options
+                    $html .= "<label class=\"{$formLabelClass}\" for=\"{$fieldId}\">{$label}" . ($required ? " <span class=\"{$dangerClass}\">*</span>" : "") . "</label>\n";
+                    $html .= "<select class=\"{$selectClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" {$attrString} " . ($required ? "required" : "") . ($disabled ? " disabled" : "") . ">\n";
                     $selected0 = ($value == '0' || $value === false) ? ' selected' : '';
                     $selected1 = ($value == '1' || $value === true) ? ' selected' : '';
-
-                    $html .= "<option value=\"0\"{$selected0}>Inactive</option>\n";
-                    $html .= "<option value=\"1\"{$selected1}>Active</option>\n";
-                    $html .= "</select>\n";
-                    $html .= "</div>\n";
+                    $html .= "<option value=\"0\"{$selected0}>Inactive</option>\n<option value=\"1\"{$selected1}>Active</option>\n</select>\n";
                     break;
 
                 case 'checkbox':
-                    // Checkbox field for boolean values (no separate label div)
-                    $attrString = $this->buildAttributeString($attributes);
-
-                    $html .= "<div class=\"uk-form-controls\">\n";
-                    $html .= "<label>";
-                    $html .= "<input type=\"checkbox\" class=\"uk-checkbox\" id=\"{$fieldId}\" name=\"{$fieldName}\" value=\"1\" {$attrString}";
-                    if ($value == '1' || $value === true) {
-                        $html .= " checked";
+                    if ($this->theme === 'bootstrap') {
+                        $html .= "<div class=\"form-check\">\n";
+                        $html .= "<input type=\"checkbox\" class=\"form-check-input\" id=\"{$fieldId}\" name=\"{$fieldName}\" value=\"1\" {$attrString}" . (($value == '1' || $value === true) ? " checked" : "") . ($disabled ? " disabled" : "") . ">\n";
+                        $html .= "<label class=\"form-check-label\" for=\"{$fieldId}\">{$label}" . ($required ? " <span class=\"text-danger\">*</span>" : "") . "</label>\n</div>\n";
+                    } else {
+                        $html .= "<label><input type=\"checkbox\" class=\"{$checkboxClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" value=\"1\" {$attrString}" . (($value == '1' || $value === true) ? " checked" : "") . ($disabled ? " disabled" : "") . "> {$label}" . ($required ? " <span class=\"{$dangerClass}\">*</span>" : "") . "</label>\n";
                     }
-                    if ($disabled) {
-                        $html .= " disabled";
-                    }
-                    $html .= "> {$label}";
-                    if ($required) {
-                        $html .= " <span class=\"uk-text-danger\">*</span>";
-                    }
-                    $html .= "</label>\n";
-                    $html .= "</div>\n";
                     break;
 
                 case 'radio':
-                    // Radio button field for multiple choice values
-                    $html .= "<label class=\"uk-form-label\">{$label}" .
-                            ($required ? " <span class=\"uk-text-danger\">*</span>" : "") . "</label>\n";
-                    $html .= "<div class=\"uk-form-controls\">\n";
-
-                    $attrString = $this->buildAttributeString($attributes);
-
+                    $html .= "<label class=\"{$formLabelClass}\">{$label}" . ($required ? " <span class=\"{$dangerClass}\">*</span>" : "") . "</label>\n";
                     foreach ($options as $optValue => $optLabel) {
                         $checked = ($value == $optValue) ? ' checked' : '';
                         $disabledAttr = $disabled ? ' disabled' : '';
-
-                        $html .= "<label class=\"uk-margin-small-right\">";
-                        $html .= "<input type=\"radio\" class=\"uk-radio\" name=\"{$fieldName}\" value=\"{$optValue}\" {$attrString}{$checked}{$disabledAttr}";
-                        if ($required) {
-                            $html .= " required";
+                        if ($this->theme === 'bootstrap') {
+                            $html .= "<div class=\"form-check\">\n<input type=\"radio\" class=\"form-check-input\" name=\"{$fieldName}\" id=\"{$fieldId}-{$optValue}\" value=\"{$optValue}\" {$attrString}{$checked}{$disabledAttr}" . ($required ? " required" : "") . ">\n";
+                            $html .= "<label class=\"form-check-label\" for=\"{$fieldId}-{$optValue}\">{$optLabel}</label>\n</div>\n";
+                        } else {
+                            $marginClass = $tm->getClass('margin.small.right');
+                            $html .= "<label class=\"{$marginClass}\"><input type=\"radio\" class=\"{$radioClass}\" name=\"{$fieldName}\" value=\"{$optValue}\" {$attrString}{$checked}{$disabledAttr}" . ($required ? " required" : "") . "> {$optLabel}</label>\n";
                         }
-                        $html .= "> {$optLabel}";
-                        $html .= "</label>\n";
                     }
-                    $html .= "</div>\n";
                     break;
 
                 case 'textarea':
-                    // Multi-line text input for TEXT columns
-                    $html .= "<label class=\"uk-form-label\" for=\"{$fieldId}\">{$label}" .
-                            ($required ? " <span class=\"uk-text-danger\">*</span>" : "") . "</label>\n";
-                    $html .= "<div class=\"uk-form-controls\">\n";
-
-                    $attrString = $this->buildAttributeString($attributes);
-
-                    $html .= "<textarea class=\"uk-textarea\" id=\"{$fieldId}\" name=\"{$fieldName}\" " .
-                            "placeholder=\"{$placeholder}\" {$attrString} " . ($required ? "required" : "") .
-                            ($disabled ? " disabled" : "") . "></textarea>\n";
-                    $html .= "</div>\n";
+                    $html .= "<label class=\"{$formLabelClass}\" for=\"{$fieldId}\">{$label}" . ($required ? " <span class=\"{$dangerClass}\">*</span>" : "") . "</label>\n";
+                    $html .= "<textarea class=\"{$textareaClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" placeholder=\"{$placeholder}\" {$attrString} " . ($required ? "required" : "") . ($disabled ? " disabled" : "") . "></textarea>\n";
                     break;
 
                 case 'select':
-                    // Dropdown selection for ENUM columns
-                    $html .= "<label class=\"uk-form-label\" for=\"{$fieldId}\">{$label}" .
-                            ($required ? " <span class=\"uk-text-danger\">*</span>" : "") . "</label>\n";
-                    $html .= "<div class=\"uk-form-controls\">\n";
-
-                    $attrString = $this->buildAttributeString($attributes);
-
-                    $html .= "<select class=\"uk-select\" id=\"{$fieldId}\" name=\"{$fieldName}\" " .
-                            "{$attrString} " . ($required ? "required" : "") .
-                            ($disabled ? " disabled" : "") . ">\n";
-
-                    // Add empty option if field is not required
+                    $html .= "<label class=\"{$formLabelClass}\" for=\"{$fieldId}\">{$label}" . ($required ? " <span class=\"{$dangerClass}\">*</span>" : "") . "</label>\n";
+                    $html .= "<select class=\"{$selectClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" {$attrString} " . ($required ? "required" : "") . ($disabled ? " disabled" : "") . ">\n";
                     if (!$required) {
                         $html .= "<option value=\"\">-- Select --</option>\n";
                     }
-
-                    // Add all options (from enum or custom)
                     foreach ($options as $optValue => $optLabel) {
                         $selected = ($value == $optValue) ? ' selected' : '';
                         $html .= "<option value=\"{$optValue}\"{$selected}>{$optLabel}</option>\n";
                     }
                     $html .= "</select>\n";
-                    $html .= "</div>\n";
                     break;
 
                 case 'file':
-                    // File upload field
-                    $html .= "<label class=\"uk-form-label\" for=\"{$fieldId}\">{$label}" .
-                            ($required ? " <span class=\"uk-text-danger\">*</span>" : "") . "</label>\n";
-                    $html .= "<div class=\"uk-form-controls\">\n";
-
-                    $attrString = $this->buildAttributeString($attributes);
-
-                    $html .= "<input type=\"file\" class=\"uk-input\" id=\"{$fieldId}\" name=\"{$fieldName}\" " .
-                            "{$attrString} " . ($required ? "required" : "") .
-                            ($disabled ? " disabled" : "") . ">\n";
-                    $html .= "</div>\n";
+                    $html .= "<label class=\"{$formLabelClass}\" for=\"{$fieldId}\">{$label}" . ($required ? " <span class=\"{$dangerClass}\">*</span>" : "") . "</label>\n";
+                    $html .= "<input type=\"file\" class=\"{$inputClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" {$attrString} " . ($required ? "required" : "") . ($disabled ? " disabled" : "") . ">\n";
                     break;
 
                 case 'image':
-                    // Image field with URL input and file upload
-                    $html .= "<label class=\"uk-form-label\" for=\"{$fieldId}\">{$label}" .
-                            ($required ? " <span class=\"uk-text-danger\">*</span>" : "") . "</label>\n";
-                    $html .= "<div class=\"uk-form-controls\">\n";
-
-                    // Current image preview if value exists
+                    $html .= "<label class=\"{$formLabelClass}\" for=\"{$fieldId}\">{$label}" . ($required ? " <span class=\"{$dangerClass}\">*</span>" : "") . "</label>\n";
                     if (!empty($value)) {
                         $imageSrc = (strpos($value, 'http') === 0) ? $value : "/uploads/{$value}";
-                        $html .= "<div class=\"uk-margin-small-bottom\">\n";
-                        $html .= "<img src=\"{$imageSrc}\" alt=\"Current image\" style=\"max-width: 150px; max-height: 150px; object-fit: cover;\" class=\"uk-border-rounded\">\n";
-                        $html .= "</div>\n";
+                        $html .= "<div class=\"mb-2\"><img src=\"{$imageSrc}\" alt=\"Current image\" style=\"max-width: 150px; max-height: 150px; object-fit: cover;\" class=\"rounded\"></div>\n";
                     }
-
-                    // URL input
-                    $attrString = $this->buildAttributeString($attributes);
-                    $html .= "<input type=\"url\" class=\"uk-input uk-margin-small-bottom\" id=\"{$fieldId}\" name=\"{$fieldName}\" " .
-                            "placeholder=\"Enter image URL or upload file below\" value=\"{$value}\" {$attrString} " .
-                            ($disabled ? " disabled" : "") . ">\n";
-
-                    // File upload with UIKit styling
-                    $html .= "<div class=\"uk-margin-small-top\">\n";
-                    $html .= "<div uk-form-custom=\"target: true\">\n";
-                    $html .= "<input type=\"file\" id=\"{$fieldId}-file\" name=\"{$fieldName}-file\" accept=\"image/*\" {$attrString} " . ($disabled ? " disabled" : "") . ">\n";
-                    $html .= "<input class=\"uk-input\" type=\"text\" placeholder=\"Select image file\" disabled>\n";
-                    $html .= "</div>\n";
-                    $html .= "<small class=\"uk-text-muted\">Upload an image file or enter URL above</small>\n";
-                    $html .= "</div>\n";
-                    $html .= "</div>\n";
+                    $html .= "<input type=\"url\" class=\"{$inputClass} mb-2\" id=\"{$fieldId}\" name=\"{$fieldName}\" placeholder=\"Enter image URL or upload file below\" value=\"{$value}\" {$attrString} " . ($disabled ? " disabled" : "") . ">\n";
+                    $html .= "<div class=\"mt-2\">\n<input type=\"file\" class=\"{$inputClass}\" id=\"{$fieldId}-file\" name=\"{$fieldName}-file\" accept=\"image/*\" {$attrString} " . ($disabled ? " disabled" : "") . ">\n";
+                    $html .= "<small class=\"" . $tm->getClass('text.muted') . "\">Upload an image file or enter URL above</small>\n</div>\n";
                     break;
 
                 default:
-                    // Standard input fields (text, email, number, date, datetime-local, time, etc.)
-                    $html .= "<label class=\"uk-form-label\" for=\"{$fieldId}\">{$label}" .
-                            ($required ? " <span class=\"uk-text-danger\">*</span>" : "") . "</label>\n";
-                    $html .= "<div class=\"uk-form-controls\">\n";
-
-                    $attrString = $this->buildAttributeString($attributes);
-
-                    $html .= "<input type=\"{$type}\" class=\"uk-input\" id=\"{$fieldId}\" name=\"{$fieldName}\" " .
-                            "placeholder=\"{$placeholder}\" value=\"{$value}\" {$attrString} " .
-                            ($required ? "required" : "") . ($disabled ? " disabled" : "") . ">\n";
-                    $html .= "</div>\n";
+                    $html .= "<label class=\"{$formLabelClass}\" for=\"{$fieldId}\">{$label}" . ($required ? " <span class=\"{$dangerClass}\">*</span>" : "") . "</label>\n";
+                    $inputType = ($type === 'email') ? 'email' : 'text';
+                    $html .= "<input type=\"{$inputType}\" class=\"{$inputClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" placeholder=\"{$placeholder}\" value=\"{$value}\" {$attrString} " . ($required ? "required" : "") . ($disabled ? " disabled" : "") . ">\n";
                     break;
             }
 
-            // Close field container
             $html .= "</div>\n";
-
             return $html;
         }
 
-        /**
-         * Build HTML attribute string from array
-         *
-         * @param  array $attributes Associative array of attribute name => value pairs
-         * @return string HTML attribute string
-         */
         protected function buildAttributeString(array $attributes): string
         {
             $attrParts = [];
@@ -787,40 +625,22 @@ if (! class_exists('KPT\DataTables\Renderer', false)) {
             return implode(' ', $attrParts);
         }
 
-        /**
-         * Render JavaScript initialization script
-         *
-         * Generates the JavaScript code that initializes the DataTables instance
-         * with all configuration options. This script runs when the DOM is ready
-         * and sets up all interactive functionality.
-         *
-         * @return string JavaScript initialization code
-         */
         protected function renderInitScript(): string
         {
-            // Extract configuration for JavaScript
             $tableName = $this->getTableName();
             $primaryKey = $this->getPrimaryKey();
-
-            // If primary key is qualified, pass just the column name to JavaScript
-            if (strpos($primaryKey, '.') !== false) {
-                $jsPrimaryKey = explode('.', $primaryKey)[1];
-            } else {
-                $jsPrimaryKey = $primaryKey;
-            }
-
+            $jsPrimaryKey = strpos($primaryKey, '.') !== false ? explode('.', $primaryKey)[1] : $primaryKey;
             $inlineEditableColumns = json_encode($this->getInlineEditableColumns());
             $bulkActions = $this->getBulkActions();
             $actionConfig = $this->getActionConfig();
+            $columns = $this->getColumns();
+            $defaultSortColumn = $this->getDefaultSortColumn();
+            $defaultSortDirection = $this->getDefaultSortDirection();
 
-            // FILTER OUT 'html' KEYS FROM ACTION GROUPS BEFORE PASSING TO JAVASCRIPT
             if (isset($actionConfig['groups'])) {
                 foreach ($actionConfig['groups'] as $groupIndex => $group) {
                     if (is_array($group) && !empty($group)) {
-                        // Remove 'html' key from each group
                         unset($actionConfig['groups'][$groupIndex]['html']);
-
-                        // Also check nested actions for html keys
                         foreach ($group as $actionKey => $actionData) {
                             if ($actionKey === 'html') {
                                 unset($actionConfig['groups'][$groupIndex][$actionKey]);
@@ -830,11 +650,6 @@ if (! class_exists('KPT\DataTables\Renderer', false)) {
                 }
             }
 
-            $columns = $this->getColumns();
-            $defaultSortColumn = $this->getDefaultSortColumn();
-            $defaultSortDirection = $this->getDefaultSortDirection();
-
-            // Generate initialization script
             $html = "<script>\n";
             $html .= "document.addEventListener('DOMContentLoaded', function() {\n";
             $html .= "    window.DataTables = new DataTablesJS({\n";
@@ -848,7 +663,8 @@ if (! class_exists('KPT\DataTables\Renderer', false)) {
             $html .= "        columns: " . json_encode($columns) . ",\n";
             $html .= "        cssClasses: " . json_encode($this->getCssClasses()) . ",\n";
             $html .= "        defaultSortColumn: '{$defaultSortColumn}',\n";
-            $html .= "        defaultSortDirection: '{$defaultSortDirection}'\n";
+            $html .= "        defaultSortDirection: '{$defaultSortDirection}',\n";
+            $html .= "        theme: '{$this->theme}'\n";
             $html .= "    });\n";
             $html .= "});\n";
             $html .= "</script>\n";

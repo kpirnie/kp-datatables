@@ -1,7 +1,7 @@
 {
-"name": "kevinpirnie/kpt-datatables",
-"description": "Advanced PHP DataTables library with CRUD operations, search, sorting, pagination, bulk actions, and UIKit3 integration",
-"type": "library",
+    "name": "kevinpirnie/kpt-datatables",
+    "description": "Advanced PHP DataTables library with CRUD operations, search, sorting, pagination, bulk actions, and multi-framework theme support (UIKit3, Bootstrap 5, Tailwind, Plain)",
+    "type": "library",
     "keywords": [
         "datatables",
         "pdo",
@@ -9,7 +9,10 @@
         "fluent",
         "orm",
         "sql",
-        "query-builder"
+        "query-builder",
+        "uikit",
+        "bootstrap",
+        "tailwind"
     ],
     "homepage": "https://github.com/kpirnie/kp-datatables",
     "license": "MIT",
@@ -45,7 +48,8 @@
         "test-coverage": "phpunit tests --coverage-html coverage --coverage-filter src",
         "phpstan": "phpstan analyse src",
         "cs-check": "phpcs src --standard=PSR12 --ignore=*.js,*.css -n",
-        "cs-fix": "phpcbf src --standard=PSR12 --ignore=*.js,*.css -n"
+        "cs-fix": "phpcbf src --standard=PSR12 --ignore=*.js,*.css -n",
+        "build-tailwind": "npm run build:tailwind"
     },
     "config": {
         "sort-packages": true,

@@ -21,3 +21,5 @@ Thumbs.db
 *.cache
 
 *Zone.Identifier*
+
+node_modules/

@@ -224,6 +224,29 @@ if (! class_exists('KPT\DataTables\DataTablesBase', false)) {
          */
         protected string $defaultSortDirection = 'ASC';
 
+        /**
+         * Theme identifier for UI framework
+         *
+         * Valid values: 'plain', 'uikit', 'bootstrap', 'tailwind'
+         *
+         * @var string
+         */
+        protected string $theme = 'uikit';
+
+        /**
+         * ThemeManager instance
+         *
+         * @var ThemeManager|null
+         */
+        protected ?ThemeManager $themeManager = null;
+
+        /**
+         * Whether to include CDN links for framework assets
+         *
+         * @var bool
+         */
+        protected bool $includeCdn = true;
+
         // === GETTER METHODS FOR CONFIGURATION ACCESS ===
         // These methods provide read-only access to configuration for other classes
 
@@ -445,6 +468,39 @@ if (! class_exists('KPT\DataTables\DataTablesBase', false)) {
         public function getDefaultSortDirection(): string
         {
             return $this->defaultSortDirection;
+        }
+
+        /**
+         * Get the current theme
+         *
+         * @return string Current theme identifier
+         */
+        public function getTheme(): string
+        {
+            return $this->theme;
+        }
+
+        /**
+         * Get the ThemeManager instance
+         *
+         * @return ThemeManager The theme manager instance
+         */
+        public function getThemeManager(): ThemeManager
+        {
+            if ($this->themeManager === null) {
+                $this->themeManager = new ThemeManager($this->theme);
+            }
+            return $this->themeManager;
+        }
+
+        /**
+         * Get whether to include CDN links
+         *
+         * @return bool Whether to include CDN links
+         */
+        public function getIncludeCdn(): bool
+        {
+            return $this->includeCdn;
         }
     }
 

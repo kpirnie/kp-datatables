@@ -1,0 +1,93 @@
+/**
+ * DataTables UIKit Theme
+ * 
+ * Theme using UIKit3 framework classes with kp-dt-* prefixed overrides.
+ * Requires UIKit3 CSS/JS to be loaded externally (from CDN or local).
+ * 
+ * @since   1.1.0
+ * @author  Kevin Pirnie <me@kpirnie.com>
+ * @package KPT/DataTables
+ */
+
+/* === CONTAINER === */
+.kp-dt-container-uikit {
+    /* UIKit container uses uk-container */
+}
+
+/* === TABLE OVERRIDES === */
+.kp-dt-table-uikit {
+    /* Additional customizations for UIKit tables */
+}
+
+.kp-dt-table-uikit .sortable-header {
+    cursor: pointer;
+    user-select: none;
+}
+
+.kp-dt-table-uikit .sortable-header:hover {
+    color: #1e87f0;
+}
+
+/* === FORM OVERRIDES === */
+.kp-dt-form-uikit .uk-form-label {
+    font-weight: 600;
+}
+
+/* === BUTTON OVERRIDES === */
+.kp-dt-button-uikit {
+    /* Additional button customizations */
+}
+
+/* === PAGINATION OVERRIDES === */
+.kp-dt-pagination-uikit {
+    /* Additional pagination customizations */
+}
+
+/* === MODAL OVERRIDES === */
+.kp-dt-modal-uikit .uk-modal-title {
+    font-size: 1.5rem;
+}
+
+/* === BULK ACTION BUTTONS === */
+.kp-dt-bulk-action-btn-uikit[disabled] {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* === INLINE EDITING === */
+.kp-dt-inline-editable-uikit {
+    cursor: pointer;
+    border-bottom: 1px dashed #999;
+}
+
+.kp-dt-inline-editable-uikit:hover {
+    border-bottom-color: #1e87f0;
+}
+
+/* === ROW SELECTION === */
+.kp-dt-row-select-uikit {
+    cursor: pointer;
+}
+
+.kp-dt-row-select-uikit:hover {
+    background-color: #ffd !important;
+}
+
+/* === CUSTOM SCROLLBAR === */
+.kp-dt-overflow-auto-uikit::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.kp-dt-overflow-auto-uikit::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.kp-dt-overflow-auto-uikit::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+.kp-dt-overflow-auto-uikit::-webkit-scrollbar-thumb:hover {
+    background: #a1a1a1;
+}

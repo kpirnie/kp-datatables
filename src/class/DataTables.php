@@ -17,7 +17,7 @@ if (! class_exists('KPT\DataTables\DataTables', false)) {
      * DataTables - Advanced Database Table Management System
      *
      * A comprehensive table management system with CRUD operations, search, sorting,
-     * pagination, bulk actions, and modal forms using UIKit3. This is the main class
+     * pagination, bulk actions, and modal forms using multiple UI frameworks. This is the main class
      * that orchestrates all DataTables functionality and provides a fluent interface
      * for configuration.
      *
@@ -31,6 +31,7 @@ if (! class_exists('KPT\DataTables\DataTables', false)) {
      * - File upload handling
      * - Responsive design with theme support
      * - Database JOIN support
+     * - Multiple UI framework themes (Plain, UIKit, Bootstrap, Tailwind)
      * - Extensive customization options
      *
      * @since   1.0.0
@@ -231,6 +232,53 @@ if (! class_exists('KPT\DataTables\DataTables', false)) {
         {
             // Remove any non-alphanumeric characters except underscore, dash, and dot
             return preg_replace('/[^a-zA-Z0-9_\-\.]/', '', trim($input));
+        }
+
+        /**
+         * Set the UI theme for the DataTable
+         *
+         * Available themes: 'plain', 'uikit', 'bootstrap', 'tailwind'
+         *
+         * @param  string $theme      Theme identifier
+         * @param  bool   $includeCdn Whether to include CDN links for framework assets
+         * @return self Returns self for method chaining
+         */
+        public function theme(string $theme, bool $includeCdn = true): self
+        {
+            $validThemes = [
+                ThemeManager::THEME_PLAIN,
+                ThemeManager::THEME_UIKIT,
+                ThemeManager::THEME_BOOTSTRAP,
+                ThemeManager::THEME_TAILWIND
+            ];
+
+            if (in_array($theme, $validThemes)) {
+                $this->theme = $theme;
+                $this->includeCdn = $includeCdn;
+                $this->themeManager = new ThemeManager($theme);
+
+                // Update default CSS classes based on theme
+                $this->updateCssClassesForTheme();
+
+                Logger::debug("DataTables theme set", ['theme' => $theme, 'includeCdn' => $includeCdn]);
+            }
+
+            return $this;
+        }
+
+        /**
+         * Update default CSS classes based on selected theme
+         *
+         * @return void
+         */
+        private function updateCssClassesForTheme(): void
+        {
+            $tm = $this->getThemeManager();
+
+            $this->cssClasses['table'] = $tm->getClass('table.full');
+            $this->cssClasses['thead'] = $tm->getClass('thead');
+            $this->cssClasses['tbody'] = $tm->getClass('tbody');
+            $this->cssClasses['tfoot'] = $tm->getClass('tfoot');
         }
 
         /**
@@ -763,17 +811,49 @@ if (! class_exists('KPT\DataTables\DataTables', false)) {
         }
 
         /**
+         * Get CSS includes for the current theme
+         *
+         * Generates the necessary link tags for CSS files, including optional
+         * framework CDN links based on the configured theme.
+         *
+         * @param  bool $includeCdn Whether to include CDN links (overrides instance setting)
+         * @return string HTML with CSS includes
+         */
+        public static function getCssIncludes(string $theme = 'uikit', bool $includeCdn = true): string
+        {
+            $tm = new ThemeManager($theme);
+            return $tm->getCssIncludes($includeCdn);
+        }
+
+        /**
          * Render JavaScript file includes
          *
-         * Generates the necessary <script> tags for external files.
+         * Generates the necessary script tags for JavaScript files.
          * Files are loaded from the vendor directory structure.
+         * Includes framework CDN links based on the configured theme.
          *
+         * @param  string $theme      Theme identifier
+         * @param  bool   $includeCdn Whether to include CDN links
          * @return string HTML with JavaScript includes
          */
-        public static function getJsIncludes(): string
+        public static function getJsIncludes(string $theme = 'uikit', bool $includeCdn = true): string
         {
+            $tm = new ThemeManager($theme);
             $html = "<!-- DataTables JavaScript -->\n";
-            $html .= "<script src=\"/vendor/kevinpirnie/kpt-datatables/src/assets/js/datatables.js\"></script>\n";
+
+            // Include framework JS from CDN if enabled
+            if ($includeCdn) {
+                $html .= $tm->getJsIncludes(true);
+            }
+
+            // Include theme helper for plain/tailwind/bootstrap themes
+            if (in_array($theme, [ThemeManager::THEME_PLAIN, ThemeManager::THEME_TAILWIND, ThemeManager::THEME_BOOTSTRAP])) {
+                $html .= "<script src=\"/vendor/kevinpirnie/kpt-datatables/src/assets/js/theme-helpers.js\" defer></script>\n";
+            }
+
+            // Include main DataTables JS
+            $html .= "<script src=\"/vendor/kevinpirnie/kpt-datatables/src/assets/js/datatables.js\" defer></script>\n";
+
             return $html;
         }
 

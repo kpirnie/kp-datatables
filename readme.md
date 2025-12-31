@@ -1,6 +1,6 @@
 # KPT DataTables
 
-Advanced PHP DataTables library with CRUD operations, search, sorting, pagination, bulk actions, JOIN support, and UIKit3 integration.
+Advanced PHP DataTables library with CRUD operations, search, sorting, pagination, bulk actions, JOIN support, and multi-framework theme support (UIKit3, Bootstrap 5, Tailwind CSS, Plain).
 
 ## Features
 
@@ -12,7 +12,7 @@ Advanced PHP DataTables library with CRUD operations, search, sorting, paginatio
 - ✅ **Bulk Actions** - Select multiple records for bulk operations with custom callbacks
 - ✏️ **Inline Editing** - Double-click to edit fields directly in the table
 - 📁 **File Uploads** - Built-in file upload handling with validation
-- 🎨 **Themes** - Light and dark UIKit3 themes with toggle
+- 🎨 **Multi-Framework Themes** - UIKit3, Bootstrap 5, Tailwind CSS, and Plain (framework-agnostic)
 - 📱 **Responsive** - Mobile-friendly design
 - 🎛️ **Customizable** - Extensive configuration options
 - 🔧 **Chainable API** - Fluent interface for easy configuration
@@ -63,8 +63,11 @@ $dataTable = new DataTables($dbConfig);
 ### 2. Include Required Assets
 
 ```php
+// Include CSS (with theme)
+echo DataTables::getCssIncludes('uikit', true);
+
 // Include JavaScript files
-echo DataTables::getJsIncludes();
+echo DataTables::getJsIncludes('uikit', true);
 ```
 
 ### 3. Handle AJAX Requests
@@ -81,6 +84,7 @@ if (isset($_POST['action']) || isset($_GET['action'])) {
 ```php
 // Configure and render table
 echo $dataTable
+    ->theme('uikit')  // Set theme: 'plain', 'uikit', 'bootstrap', or 'tailwind'
     ->table('users')
     ->columns([
         'id' => 'ID',
@@ -92,6 +96,108 @@ echo $dataTable
     ->renderDataTableComponent();
 ```
 
+## Theme Support
+
+KPT DataTables supports multiple UI frameworks through a flexible theming system:
+
+### Available Themes
+
+| Theme | Description | CDN Support |
+|-------|-------------|-------------|
+| `plain` | Framework-agnostic with `kp-dt-*` prefixed classes | No |
+| `uikit` | UIKit 3 framework (default) | Yes |
+| `bootstrap` | Bootstrap 5 framework | Yes |
+| `tailwind` | Tailwind CSS framework | Requires compilation |
+
+### Using Themes
+
+```php
+// Set theme with CDN includes (default: true)
+$dataTable->theme('bootstrap', true);
+
+// Set theme without CDN (for self-hosted assets)
+$dataTable->theme('uikit', false);
+```
+
+### Theme-Specific Assets
+
+#### UIKit3 (Default)
+
+```php
+// CSS and JS includes
+echo DataTables::getCssIncludes('uikit', true);
+echo DataTables::getJsIncludes('uikit', true);
+```
+
+Automatically includes from CDN:
+- UIKit CSS
+- UIKit JS
+- UIKit Icons
+
+#### Bootstrap 5
+
+```php
+echo DataTables::getCssIncludes('bootstrap', true);
+echo DataTables::getJsIncludes('bootstrap', true);
+```
+
+Automatically includes from CDN:
+- Bootstrap CSS
+- Bootstrap Icons CSS
+- Bootstrap Bundle JS
+
+#### Tailwind CSS
+
+```php
+echo DataTables::getCssIncludes('tailwind', false);
+echo DataTables::getJsIncludes('tailwind', false);
+```
+
+**Tailwind Compilation Required:**
+
+```bash
+# Install dependencies
+npm install
+
+# Build CSS
+npm run build:tailwind
+
+# Watch for changes during development
+npm run watch:tailwind
+```
+
+#### Plain Theme
+
+```php
+echo DataTables::getCssIncludes('plain', false);
+echo DataTables::getJsIncludes('plain', false);
+```
+
+The plain theme uses `kp-dt-*` prefixed classes for all elements, making it easy to customize or integrate with any CSS framework. Styled similarly to UIKit3.
+
+### CSS Class Structure
+
+All themes include both framework-specific classes AND `kp-dt-*` prefixed classes for custom styling:
+
+```html
+<!-- Example table element -->
+<table class="uk-table uk-table-striped kp-dt-table-uikit datatables-table">
+```
+
+This allows you to:
+1. Override specific styles with `kp-dt-*` classes
+2. Target elements consistently across themes
+3. Add custom CSS without conflicts
+
+### Custom Theme CSS
+
+Each theme has its own CSS file at:
+```
+/vendor/kevinpirnie/kpt-datatables/src/assets/css/themes/{theme}.css
+```
+
+You can copy and modify these files for custom styling.
+
 ## Advanced Usage with JOINs
 
 ### JOIN Tables with Aliases
@@ -100,6 +206,7 @@ echo $dataTable
 $dataTable = new DataTables($dbConfig);
 
 echo $dataTable
+    ->theme('bootstrap')
     ->table('kptv_stream_other s')  // Main table with alias
     ->primaryKey('s.id')            // Qualified primary key
     ->join('LEFT', 'kptv_stream_providers p', 's.p_id = p.id')  // JOIN with alias
@@ -137,6 +244,7 @@ echo $dataTable
 $dataTable = new DataTables($dbConfig);
 
 echo $dataTable
+    ->theme('uikit')  // Choose your theme
     ->table('users u')
     ->primaryKey('u.user_id')
     ->join('LEFT', 'user_roles r', 'u.role_id = r.role_id')
@@ -275,304 +383,6 @@ echo $dataTable
     ->renderDataTableComponent();
 ```
 
-## Field Types
-
-### Text Inputs
-```php
-'field_name' => [
-    'type' => 'text', // text, email, url, tel, number, password
-    'label' => 'Field Label',
-    'required' => true,
-    'placeholder' => 'Placeholder text',
-    'class' => 'custom-css-class',
-    'attributes' => ['maxlength' => '100']
-]
-```
-
-### Enhanced Column Configuration
-```php
-->columns([
-    'u.active' => [
-        'label' => 'Status',
-        'type' => 'boolean',
-        'class' => 'uk-text-center'
-    ],
-    'u.category_id' => [
-        'label' => 'Category',
-        'type' => 'select',
-        'options' => [
-            '1' => 'Category 1',
-            '2' => 'Category 2'
-        ]
-    ]
-])
-```
-
-### Boolean/Checkbox Fields
-```php
-'active' => [
-    'type' => 'boolean', // Renders as select in forms, toggle in table
-    'label' => 'Active Status'
-],
-'newsletter' => [
-    'type' => 'checkbox',
-    'label' => 'Subscribe to Newsletter',
-    'value' => '1'
-]
-```
-
-### Select Dropdown
-```php
-'category' => [
-    'type' => 'select',
-    'label' => 'Category',
-    'required' => true,
-    'options' => [
-        '1' => 'Category 1',
-        '2' => 'Category 2',
-        '3' => 'Category 3'
-    ]
-]
-```
-
-### File Upload
-```php
-'document' => [
-    'type' => 'file',
-    'label' => 'Upload Document'
-]
-```
-
-## Bulk Actions
-
-### Built-in Delete Action
-```php
-->bulkActions(true) // Enables default delete action
-```
-
-### Custom Bulk Actions
-```php
-->bulkActions(true, [
-    'archive' => [
-        'label' => 'Archive Selected',
-        'icon' => 'archive',
-        'class' => 'uk-button-secondary',
-        'confirm' => 'Archive selected records?',
-        'callback' => function($selectedIds, $database, $tableName) {
-            $placeholders = implode(',', array_fill(0, count($selectedIds), '?'));
-            return $database->query("UPDATE {$tableName} SET archived = 1 WHERE id IN ({$placeholders})")
-                           ->bind($selectedIds)
-                           ->execute();
-        },
-        'success_message' => 'Records archived successfully',
-        'error_message' => 'Failed to archive records'
-    ]
-])
-```
-
-## Action Button Groups
-
-### Grouped Actions with Separators
-```php
-->actionGroups([
-    ['edit', 'delete'], // Group 1: built-in actions
-    [ // Group 2: custom actions
-        'email' => [
-            'icon' => 'mail',
-            'title' => 'Send Email',
-            'class' => 'btn-email',
-            'href' => '/email/{id}'
-        ],
-        'export' => [
-            'icon' => 'download',
-            'title' => 'Export Data',
-            'class' => 'btn-export',
-            'href' => '/export/{id}'
-        ]
-    ]
-])
-```
-
-## Database Joins
-
-### Multiple JOINs with Complex Relationships
-```php
-$dataTable
-    ->table('orders o')
-    ->join('INNER', 'customers c', 'o.customer_id = c.customer_id')
-    ->join('LEFT', 'order_status s', 'o.status_id = s.status_id')
-    ->join('LEFT', 'shipping_addresses sa', 'o.order_id = sa.order_id')
-    ->columns([
-        'o.order_id' => 'Order ID',
-        'c.customer_name' => 'Customer',
-        'o.order_date' => 'Date',
-        's.status_name' => 'Status',
-        'o.total' => 'Total',
-        'sa.city' => 'Ship To City'
-    ]);
-```
-
-## WHERE Conditions
-
-### Filter Records with Custom Conditions
-```php
-->where([
-    'AND' => [
-        [
-            'field' => 'status',
-            'comparison' => '=',
-            'value' => 'active'
-        ],
-        [
-            'field' => 'created_at',
-            'comparison' => '>=',
-            'value' => '2024-01-01'
-        ]
-    ]
-])
-```
-
-### Multiple Condition Groups
-```php
-->where([
-    'AND' => [
-        [
-            'field' => 'department_id',
-            'comparison' => 'IN',
-            'value' => [1, 2, 3]
-        ]
-    ],
-    'OR' => [
-        [
-            'field' => 'priority',
-            'comparison' => '=',
-            'value' => 'high'
-        ],
-        [
-            'field' => 'urgent',
-            'comparison' => '=',
-            'value' => 1
-        ]
-    ]
-])
-```
-
-### Supported Comparison Operators
-- `=`, `!=`, `<>`, `>`, `<`, `>=`, `<=`
-- `LIKE`, `NOT LIKE`
-- `IN`, `NOT IN` (with array values)
-- `REGEXP`
-
----
-
-## Action Groups with Callbacks
-
-Add this section within the existing "Action Button Groups" section, after the "Grouped Actions with Separators" example:
-
-### Actions with Callbacks
-```php
-->actionGroups([
-    [
-        'activate' => [
-            'icon' => 'check',
-            'title' => 'Activate User',
-            'class' => 'btn-activate',
-            'confirm' => 'Activate this user?',
-            'callback' => function($rowId, $rowData, $database, $tableName) {
-                // Custom logic with full row data access
-                $email = $rowData['email'] ?? '';
-                $name = $rowData['name'] ?? '';
-                
-                // Update database
-                $result = $database->query("UPDATE {$tableName} SET status = 'active', activated_at = NOW() WHERE id = ?")
-                                  ->bind([$rowId])
-                                  ->execute();
-                
-                // Send notification email (example)
-                if ($result) {
-                    mail($email, 'Account Activated', "Hello {$name}, your account has been activated.");
-                }
-                
-                return $result !== false;
-            },
-            'success_message' => 'User activated and notified',
-            'error_message' => 'Failed to activate user'
-        ],
-        'export' => [
-            'icon' => 'download',
-            'title' => 'Export Data',
-            'class' => 'btn-export',
-            'callback' => function($rowId, $rowData, $database, $tableName) {
-                // Generate export file
-                $filename = "user_{$rowId}_" . date('Y-m-d') . ".csv";
-                $filepath = "exports/{$filename}";
-                
-                // Create CSV content
-                $csv = fopen($filepath, 'w');
-                fputcsv($csv, array_keys($rowData));
-                fputcsv($csv, array_values($rowData));
-                fclose($csv);
-                
-                return file_exists($filepath);
-            },
-            'success_message' => 'Data exported successfully',
-            'error_message' => 'Export failed'
-        ]
-    ],
-    ['edit', 'delete'] // Built-in actions
-])
-```
-
-### Callback Function Parameters
-Action callbacks receive four parameters:
-- `$rowId` - The ID of the clicked row
-- `$rowData` - Complete row data as associative array
-- `$database` - Database instance for queries
-- `$tableName` - Base table name for operations
-
-The callback should return `true` for success or `false` for failure.
-
----
-
-## API Methods Update
-
-In the existing "API Methods" section under "Core Configuration", add this line after the `join()` method:
-
-```markdown
-- `where(array $conditions)` - Add WHERE conditions to filter records
-```
-
-## File Upload Configuration
-
-```php
-->fileUpload(
-    'uploads/documents/',           // Upload path
-    ['pdf', 'doc', 'docx', 'jpg'],  // Allowed extensions
-    10485760                        // Max file size (10MB)
-)
-```
-
-## CSS Customization
-
-### Table Classes
-```php
-->tableClass('uk-table uk-table-striped uk-table-hover custom-table')
-```
-
-### Row Classes with ID Suffix
-```php
-->rowClass('highlight') // Creates classes like "highlight-123" for row with ID 123
-```
-
-### Column-Specific Classes
-```php
-->columnClasses([
-    'u.name' => 'uk-text-bold uk-text-primary',
-    'u.status' => 'uk-text-center',
-    'actions' => 'uk-text-nowrap'
-])
-```
-
 ## Complete Working Example
 
 ```php
@@ -598,22 +408,21 @@ $dataTable = new DataTables($dbConfig);
 if (isset($_POST['action']) || isset($_GET['action'])) {
     $dataTable->handleAjax();
 }
+
+// Choose your theme
+$theme = 'uikit'; // 'plain', 'uikit', 'bootstrap', 'tailwind'
 ?>
 <!DOCTYPE html>
 <html>
 <head>
     <title>DataTables Example</title>
-    <!-- UIKit CSS -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uikit@3.16.14/dist/css/uikit.min.css" />
-    <!-- UIKit JS -->
-    <script src="https://cdn.jsdelivr.net/npm/uikit@3.16.14/dist/js/uikit.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/uikit@3.16.14/dist/js/uikit-icons.min.js"></script>
-    <?php echo DataTables::getJsIncludes(); ?>
+    <?php echo DataTables::getCssIncludes($theme, true); ?>
 </head>
 <body>
     <div class="uk-container uk-margin-top">
         <?php
         echo $dataTable
+            ->theme($theme)
             ->table('users u')
             ->primaryKey('u.id')
             ->join('LEFT', 'user_roles r', 'u.role_id = r.role_id')
@@ -682,6 +491,7 @@ if (isset($_POST['action']) || isset($_GET['action'])) {
             ->renderDataTableComponent();
         ?>
     </div>
+    <?php echo DataTables::getJsIncludes($theme, true); ?>
 </body>
 </html>
 ```
@@ -689,11 +499,13 @@ if (isset($_POST['action']) || isset($_GET['action'])) {
 ## API Methods
 
 ### Core Configuration
+- `theme(string $theme, bool $includeCdn = true)` - Set UI framework theme
 - `table(string $tableName)` - Set the database table (supports aliases)
 - `primaryKey(string $column)` - Set primary key column (supports qualified names)
 - `database(array $config)` - Configure database connection
 - `columns(array $columns)` - Configure table columns (supports qualified names)
 - `join(string $type, string $table, string $condition)` - Add JOIN clause with alias support
+- `where(array $conditions)` - Add WHERE conditions to filter records
 
 ### Display Options
 - `sortable(array $columns)` - Set sortable columns (supports qualified names)
@@ -722,24 +534,83 @@ if (isset($_POST['action']) || isset($_GET['action'])) {
 - `handleAjax()` - Handle AJAX requests
 
 ### Static Methods
-- `DataTables::getJsIncludes()` - Get JavaScript include tags
+- `DataTables::getCssIncludes(string $theme, bool $includeCdn)` - Get CSS include tags
+- `DataTables::getJsIncludes(string $theme, bool $includeCdn)` - Get JavaScript include tags
 
-## Key Features for Complex Applications
+## Field Types
 
-### Qualified Column Names
-- Support for fully qualified column names like `'users.id'`, `'roles.name'`
-- Automatic handling of table aliases in SELECT, WHERE, and ORDER BY clauses
-- Proper separation of qualified names for display vs base table operations
+### Text Inputs
+```php
+'field_name' => [
+    'type' => 'text', // text, email, url, tel, number, password
+    'label' => 'Field Label',
+    'required' => true,
+    'placeholder' => 'Placeholder text',
+    'class' => 'custom-css-class',
+    'attributes' => ['maxlength' => '100']
+]
+```
 
-### Advanced JOIN Support
-- Multiple JOIN types (INNER, LEFT, RIGHT, FULL OUTER)
-- Table aliases preserved in queries
-- Complex relationship mapping between tables
+### Boolean/Checkbox Fields
+```php
+'active' => [
+    'type' => 'boolean', // Renders as select in forms, toggle in table
+    'label' => 'Active Status'
+],
+'newsletter' => [
+    'type' => 'checkbox',
+    'label' => 'Subscribe to Newsletter',
+    'value' => '1'
+]
+```
 
-### Flexible Primary Keys
-- Support for qualified primary keys (`'users.user_id'`)
-- Automatic extraction of base column names for operations
-- Proper handling in bulk actions and CRUD operations
+### Select Dropdown
+```php
+'category' => [
+    'type' => 'select',
+    'label' => 'Category',
+    'required' => true,
+    'options' => [
+        '1' => 'Category 1',
+        '2' => 'Category 2',
+        '3' => 'Category 3'
+    ]
+]
+```
+
+### File Upload
+```php
+'document' => [
+    'type' => 'file',
+    'label' => 'Upload Document'
+]
+```
+
+## WHERE Conditions
+
+### Filter Records with Custom Conditions
+```php
+->where([
+    'AND' => [
+        [
+            'field' => 'status',
+            'comparison' => '=',
+            'value' => 'active'
+        ],
+        [
+            'field' => 'created_at',
+            'comparison' => '>=',
+            'value' => '2024-01-01'
+        ]
+    ]
+])
+```
+
+### Supported Comparison Operators
+- `=`, `!=`, `<>`, `>`, `<`, `>=`, `<=`
+- `LIKE`, `NOT LIKE`
+- `IN`, `NOT IN` (with array values)
+- `REGEXP`
 
 ## Browser Support
 
@@ -783,7 +654,9 @@ The MIT License (MIT). Please see [License File](LICENSE) for more information.
 ## Credits
 
 - [Kevin Pirnie](https://github.com/kpirnie)
-- [UIKit3](https://getuikit.com/) for the UI framework
+- [UIKit3](https://getuikit.com/) for the default UI framework
+- [Bootstrap](https://getbootstrap.com/) for Bootstrap theme support
+- [Tailwind CSS](https://tailwindcss.com/) for Tailwind theme support
 - All contributors
 
 ## Support
@@ -796,6 +669,7 @@ The MIT License (MIT). Please see [License File](LICENSE) for more information.
 - [ ] Integration with popular PHP frameworks
 - [ ] REST API endpoints
 - [ ] Audit trail/change logging
+- [x] Multi-framework theme support
 
 ---
 
