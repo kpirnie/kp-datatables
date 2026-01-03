@@ -59,7 +59,15 @@ if (! class_exists('KPT\DataTables\Renderer', false)) {
             $html .= "      </div>\n";
 
             if (isset($bulkConfig['html'])) {
-                $html .= "<div>\n{$bulkConfig['html']}\n</div>\n";
+                if (is_array($bulkConfig['html']) && isset($bulkConfig['html']['location']) && isset($bulkConfig['html']['content'])) {
+                    $location = $bulkConfig['html']['location'];
+                    $content = $bulkConfig['html']['content'];
+                    if ($location === 'before' || $location === 'both') {
+                        $html .= "<div>\n{$content}\n</div>\n";
+                    }
+                } else {
+                    $html .= "<div>\n{$bulkConfig['html']}\n</div>\n";
+                }
             }
 
             $actionsToRender = [];
@@ -95,19 +103,26 @@ if (! class_exists('KPT\DataTables\Renderer', false)) {
                 }
                 $totalActions = count($actionsToRender);
                 foreach ($actionsToRender as $action => $config) {
-
-                    /*// before/both positioned html
-                    if (isset($config['html']) && ( $config['html']['position'] == 'before' || $config['html']['position'] == 'both' )) {
-                        $content = $config['html']['content'];
-                        $html .= "<div>\n{$content}\n</div>\n";
-                        continue;
-                    }*/
+                    // Handle html with location/content structure
                     if (isset($config['html'])) {
-                        $content = $config['html'];
-                        $html .= "<div>\n{$content}\n</div>\n";
-                        continue;
+                        if (is_array($config['html']) && isset($config['html']['location']) && isset($config['html']['content'])) {
+                            $location = $config['html']['location'];
+                            $content = $config['html']['content'];
+                            if ($location === 'before' || $location === 'both') {
+                                $html .= "<div>\n{$content}\n</div>\n";
+                            }
+                            // For 'after' and 'both', we skip here and handle after the action buttons
+                            if ($location !== 'after' && $location !== 'both') {
+                                continue;
+                            }
+                        } else {
+                            // Legacy string format
+                            $content = $config['html'];
+                            $html .= "<div>\n{$content}\n</div>\n";
+                            continue;
+                        }
                     }
-                    
+
                     $actionCount++;
                     $icon = $config['icon'] ?? 'link';
                     $label = $config['label'] ?? ucfirst($action);
@@ -126,13 +141,23 @@ if (! class_exists('KPT\DataTables\Renderer', false)) {
                     }
                     $html .= "</a>\n</div>\n";
 
-                    /*// after/both positioned html
-                    if (isset($config['html']) && ( $config['html']['position'] == 'after' || $config['html']['position'] == 'both' )) {
+                    // Handle 'after' and 'both' positioned html
+                    if (isset($config['html']) && is_array($config['html']) && isset($config['html']['location']) && isset($config['html']['content'])) {
+                        $location = $config['html']['location'];
                         $content = $config['html']['content'];
-                        $html .= "<div>\n{$content}\n</div>\n";
-                        continue;
-                    }*/
+                        if ($location === 'after' || $location === 'both') {
+                            $html .= "<div>\n{$content}\n</div>\n";
+                        }
+                    }
+                }
+            }
 
+            // Handle bulk config html with 'after' or 'both' location
+            if (isset($bulkConfig['html']) && is_array($bulkConfig['html']) && isset($bulkConfig['html']['location']) && isset($bulkConfig['html']['content'])) {
+                $location = $bulkConfig['html']['location'];
+                $content = $bulkConfig['html']['content'];
+                if ($location === 'after' || $location === 'both') {
+                    $html .= "<div>\n{$content}\n</div>\n";
                 }
             }
 
@@ -650,13 +675,14 @@ if (! class_exists('KPT\DataTables\Renderer', false)) {
             $defaultSortColumn = $this->getDefaultSortColumn();
             $defaultSortDirection = $this->getDefaultSortDirection();
 
+            // Process action config for JavaScript - remove callbacks but KEEP html
             if (isset($actionConfig['groups'])) {
                 foreach ($actionConfig['groups'] as $groupIndex => $group) {
                     if (is_array($group) && !empty($group)) {
-                        unset($actionConfig['groups'][$groupIndex]['html']);
                         foreach ($group as $actionKey => $actionData) {
-                            if ($actionKey === 'html') {
-                                unset($actionConfig['groups'][$groupIndex][$actionKey]);
+                            // Remove callbacks (can't be serialized to JSON)
+                            if (is_array($actionData) && isset($actionData['callback'])) {
+                                unset($actionConfig['groups'][$groupIndex][$actionKey]['callback']);
                             }
                         }
                     }

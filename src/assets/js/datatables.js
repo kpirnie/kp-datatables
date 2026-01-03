@@ -477,20 +477,12 @@ class DataTablesJS {
 
         // Check if we have action groups configured
         if (this.actionConfig.groups && this.actionConfig.groups.length > 0) {
-            let groupCount = 0;
-            const totalGroups = this.actionConfig.groups.length;
 
             this.actionConfig.groups.forEach(group => {
-                groupCount++;
 
                 if (Array.isArray(group)) {
                     // Array of built-in actions like ['edit', 'delete']
-                    let actionCount = 0;
-                    const totalActions = group.length;
-
                     group.forEach(actionItem => {
-                        actionCount++;
-
                         switch (actionItem) {
                             case 'edit':
                                 if (this.theme === 'uikit') {
@@ -507,35 +499,40 @@ class DataTablesJS {
                                 }
                                 break;
                         }
-
-                        // Add separator within group if not the last action
-                        if (actionCount < totalActions) {
-                            html += ' ';
-                        }
                     });
-                } else if (typeof group === 'object') {
-                    // Object of custom actions - FILTER OUT 'html' keys first
-                    const actionKeys = Object.keys(group).filter(key => key !== 'html');
-                    const totalActions = actionKeys.length;
-                    let actionCount = 0;
-
-                    // Render HTML injection FIRST if it exists
+                } else if (typeof group === 'object' && group !== null) {
+                    
+                    // Check for group-level html with location/content BEFORE actions
                     if (group.html) {
-                        html += typeof group.html === 'string' ? group.html : '';
-                        html += ' ';
+                        if (typeof group.html === 'object' && group.html.location && group.html.content) {
+                            // New format: { location: 'before'|'after'|'both', content: '...' }
+                            if (group.html.location === 'before' || group.html.location === 'both') {
+                                html += replacePlaceholders(group.html.content);
+                            }
+                        } else if (typeof group.html === 'string') {
+                            // Legacy string format - render immediately
+                            html += replacePlaceholders(group.html);
+                        }
                     }
+
+                    // Get action keys (excluding 'html')
+                    const actionKeys = Object.keys(group).filter(key => key !== 'html');
 
                     actionKeys.forEach(actionKey => {
                         const actionConfig = group[actionKey];
+                        
+                        if (!actionConfig || typeof actionConfig !== 'object') return;
 
-                        actionCount++;
-
-                        // Check if actionConfig has html property and if it's positioned either before or both
-                        //if ((actionConfig && typeof actionConfig === 'object' && actionConfig.html) && (actionConfig.html.position == 'before' || actionConfig.html.position == 'both')) {
-                        if ((actionConfig && typeof actionConfig === 'object' && actionConfig.html)) {
-                            //html += replacePlaceholders(actionConfig.html.content);
-                            html += replacePlaceholders(actionConfig.html);
-                            return; // Skip normal action rendering
+                        // Check for action-level html before
+                        if (actionConfig.html) {
+                            if (typeof actionConfig.html === 'object' && actionConfig.html.location && actionConfig.html.content) {
+                                if (actionConfig.html.location === 'before' || actionConfig.html.location === 'both') {
+                                    html += replacePlaceholders(actionConfig.html.content);
+                                }
+                            } else if (typeof actionConfig.html === 'string') {
+                                html += replacePlaceholders(actionConfig.html);
+                                return; // Skip rendering action if it's just html
+                            }
                         }
 
                         if (actionConfig.callback) {
@@ -559,8 +556,7 @@ class DataTablesJS {
                                 html += this.renderIcon(icon);
                             }
                             html += '</a>';
-                        } else {
-
+                        } else if (actionConfig.href !== undefined || actionConfig.icon !== undefined) {
                             // Handle link-based action
                             const icon = replacePlaceholders(actionConfig.icon || 'link');
                             const title = replacePlaceholders(actionConfig.title || '');
@@ -578,7 +574,7 @@ class DataTablesJS {
                                 html += ' onclick="' + onclick + '"';
                             }
 
-                            // Add custom attributes (also replace placeholders)
+                            // Add custom attributes
                             for (const [attrName, attrValue] of Object.entries(attributes)) {
                                 const processedValue = replacePlaceholders(String(attrValue));
                                 html += ' ' + attrName + '="' + processedValue + '"';
@@ -589,12 +585,23 @@ class DataTablesJS {
                                 html += this.renderIcon(icon);
                             }
                             html += '</a>';
-
                         }
 
+                        // Check for action-level html after
+                        if (actionConfig.html && typeof actionConfig.html === 'object' && actionConfig.html.location && actionConfig.html.content) {
+                            if (actionConfig.html.location === 'after' || actionConfig.html.location === 'both') {
+                                html += replacePlaceholders(actionConfig.html.content);
+                            }
+                        }
                     });
-                }
 
+                    // Check for group-level html with location/content AFTER actions
+                    if (group.html && typeof group.html === 'object' && group.html.location && group.html.content) {
+                        if (group.html.location === 'after' || group.html.location === 'both') {
+                            html += replacePlaceholders(group.html.content);
+                        }
+                    }
+                }
             });
         } else {
             // Fallback to default buttons if no groups configured
@@ -612,47 +619,11 @@ class DataTablesJS {
                     html += `<a href="#" class="${iconLinkClass} btn-delete" title="Delete Record">${this.renderIcon('trash')}</a>`;
                 }
             }
-
-            // Custom actions
-            if (this.actionConfig.custom_actions) {
-                Object.entries(this.actionConfig.custom_actions).forEach(
-                    ([actionKey, action]) => {
-                        const icon = replacePlaceholders(action.icon || 'link');
-                        const title = replacePlaceholders(action.title || '');
-                        const className = replacePlaceholders(action.class || 'btn-custom');
-                        const href = replacePlaceholders(action.href || '#');
-                        const onclick = replacePlaceholders(action.onclick || '');
-                        const attributes = action.attributes || {};
-
-                        if (this.theme === 'uikit') {
-                            html += '<a href="' + href + '" class="uk-icon-link ' + className + ' ' + marginSmallRightClass + '" uk-icon="' + icon + '" title="' + title + '" uk-tooltip="' + title + '"';
-                        } else {
-                            html += '<a href="' + href + '" class="' + iconLinkClass + ' ' + className + ' ' + marginSmallRightClass + '" title="' + title + '"';
-                        }
-                        if (onclick) {
-                            html += ' onclick="' + onclick + '"';
-                        }
-
-                        // Add custom attributes (also replace placeholders)
-                        for (const [attrName, attrValue] of Object.entries(attributes)) {
-                            const processedValue = replacePlaceholders(String(attrValue));
-                            html += ' ' + attrName + '="' + processedValue + '"';
-                        }
-
-                        html += '>';
-                        if (this.theme !== 'uikit') {
-                            html += this.renderIcon(icon);
-                        }
-                        html += '</a>';
-                    }
-                );
-            }
         }
 
         return html;
     }
-
-
+    
     // === PAGINATION ===
     renderInfo(data) {
         const start = (data.page - 1) * data.per_page + 1;
