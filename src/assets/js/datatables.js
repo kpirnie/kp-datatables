@@ -501,26 +501,25 @@ class DataTablesJS {
                         }
                     });
                 } else if (typeof group === 'object' && group !== null) {
-                    
-                    // Check for group-level html with location/content BEFORE actions
-                    if (group.html) {
-                        if (typeof group.html === 'object' && group.html.location && group.html.content) {
-                            // New format: { location: 'before'|'after'|'both', content: '...' }
-                            if (group.html.location === 'before' || group.html.location === 'both') {
-                                html += replacePlaceholders(group.html.content);
+
+                    // Handle all html* keys with location 'before' first
+                    Object.keys(group).filter(key => key.startsWith('html')).forEach(htmlKey => {
+                        const htmlConfig = group[htmlKey];
+                        if (typeof htmlConfig === 'object' && htmlConfig.location && htmlConfig.content) {
+                            if (htmlConfig.location === 'before') {
+                                html += replacePlaceholders(htmlConfig.content);
                             }
-                        } else if (typeof group.html === 'string') {
-                            // Legacy string format - render immediately
-                            html += replacePlaceholders(group.html);
+                        } else if (typeof htmlConfig === 'string') {
+                            html += replacePlaceholders(htmlConfig);
                         }
-                    }
+                    });
 
                     // Get action keys (excluding 'html')
-                    const actionKeys = Object.keys(group).filter(key => key !== 'html');
+                    const actionKeys = Object.keys(group).filter(key => !key.startsWith('html'));
 
                     actionKeys.forEach(actionKey => {
                         const actionConfig = group[actionKey];
-                        
+
                         if (!actionConfig || typeof actionConfig !== 'object') return;
 
                         // Check for action-level html before
@@ -595,12 +594,15 @@ class DataTablesJS {
                         }
                     });
 
-                    // Check for group-level html with location/content AFTER actions
-                    if (group.html && typeof group.html === 'object' && group.html.location && group.html.content) {
-                        if (group.html.location === 'after' || group.html.location === 'both') {
-                            html += replacePlaceholders(group.html.content);
+                    // Handle all html* keys with location 'after' last
+                    Object.keys(group).filter(key => key.startsWith('html')).forEach(htmlKey => {
+                        const htmlConfig = group[htmlKey];
+                        if (typeof htmlConfig === 'object' && htmlConfig.location && htmlConfig.content) {
+                            if (htmlConfig.location === 'after') {
+                                html += replacePlaceholders(htmlConfig.content);
+                            }
                         }
-                    }
+                    });
                 }
             });
         } else {
@@ -623,7 +625,7 @@ class DataTablesJS {
 
         return html;
     }
-    
+
     // === PAGINATION ===
     renderInfo(data) {
         const start = (data.page - 1) * data.per_page + 1;
