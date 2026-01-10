@@ -39,6 +39,9 @@ class DataTablesJS {
     init() {
         this.bindEvents();
         this.loadData();
+
+        // Expose methods globally
+        window.DataTables = this;
     }
 
     // === THEME HELPERS ===
@@ -528,14 +531,15 @@ class DataTablesJS {
                                 if (actionConfig.html.location === 'before' || actionConfig.html.location === 'both') {
                                     html += replacePlaceholders(actionConfig.html.content);
                                 }
-                            } else if (typeof actionConfig.html === 'string') {
+                            } else if (typeof actionConfig.html === 'string' && !actionConfig.hasCallback && actionConfig.href === undefined && actionConfig.icon === undefined) {
+                                // Only skip if this is PURELY an html entry with no action
                                 html += replacePlaceholders(actionConfig.html);
-                                return; // Skip rendering action if it's just html
+                                return;
                             }
                         }
 
-                        if (actionConfig.callback) {
-                            // Handle callback action
+                        if (actionConfig.hasCallback) {
+                            // Handle callback action (callback was stripped but hasCallback flag remains)
                             const icon = actionConfig.icon || 'link';
                             const title = actionConfig.title || '';
                             const className = actionConfig.class || 'btn-custom';
@@ -831,6 +835,7 @@ class DataTablesJS {
     }
 
     executeBulkActionDirect(action, event) {
+        
 
         if (event) {
             event.preventDefault();
@@ -873,7 +878,7 @@ class DataTablesJS {
         if (this.actionConfig.groups) {
             for (const group of this.actionConfig.groups) {
                 if (typeof group === 'object' && !Array.isArray(group)) {
-                    if (group[action] && group[action].callback) {
+                    if (group[action] && group[action].hasCallback) {
                         actionConfig = group[action];
                         break;
                     }

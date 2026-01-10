@@ -680,8 +680,9 @@ if (! class_exists('KPT\DataTables\Renderer', false)) {
                 foreach ($actionConfig['groups'] as $groupIndex => $group) {
                     if (is_array($group) && !empty($group)) {
                         foreach ($group as $actionKey => $actionData) {
-                            // Remove callbacks (can't be serialized to JSON)
+                            // Remove callbacks (can't be serialized to JSON) but mark that it had one
                             if (is_array($actionData) && isset($actionData['callback'])) {
+                                $actionConfig['groups'][$groupIndex][$actionKey]['hasCallback'] = true;
                                 unset($actionConfig['groups'][$groupIndex][$actionKey]['callback']);
                             }
                         }
@@ -690,8 +691,9 @@ if (! class_exists('KPT\DataTables\Renderer', false)) {
             }
 
             $html = "<script>\n";
+            $html .= "var DataTables;\n";
             $html .= "document.addEventListener('DOMContentLoaded', function() {\n";
-            $html .= "    window.DataTables = new DataTablesJS({\n";
+            $html .= "    DataTables = new DataTablesJS({\n";
             $html .= "        tableName: '{$tableName}',\n";
             $html .= "        primaryKey: '{$jsPrimaryKey}',\n";
             $html .= "        inlineEditableColumns: {$inlineEditableColumns},\n";
