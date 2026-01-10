@@ -506,7 +506,7 @@ class DataTablesJS {
                     Object.keys(group).filter(key => key.startsWith('html')).forEach(htmlKey => {
                         const htmlConfig = group[htmlKey];
                         if (typeof htmlConfig === 'object' && htmlConfig.location && htmlConfig.content) {
-                            if (htmlConfig.location === 'before') {
+                            if (htmlConfig.location === 'before' || htmlConfig.location === 'both') {
                                 html += replacePlaceholders(htmlConfig.content);
                             }
                         } else if (typeof htmlConfig === 'string') {
@@ -598,7 +598,7 @@ class DataTablesJS {
                     Object.keys(group).filter(key => key.startsWith('html')).forEach(htmlKey => {
                         const htmlConfig = group[htmlKey];
                         if (typeof htmlConfig === 'object' && htmlConfig.location && htmlConfig.content) {
-                            if (htmlConfig.location === 'after') {
+                            if (htmlConfig.location === 'after' || htmlConfig.location === 'both') {
                                 html += replacePlaceholders(htmlConfig.content);
                             }
                         }
