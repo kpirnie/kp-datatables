@@ -16,6 +16,16 @@
     ],
     "homepage": "https://github.com/kpirnie/kp-datatables",
     "license": "MIT",
+    "funding": [
+        {
+            "type": "paypal",
+            "url": "https://www.paypal.biz/kevinpirnie"
+        },
+        {
+            "type": "ko-fi",
+            "url": "https://ko-fi.com/kevinpirnie"
+        }
+    ],
     "authors": [
         {
             "name": "Kevin Pirnie",
@@ -60,11 +70,5 @@
     "support": {
         "issues": "https://github.com/kpirnie/kp-datatables/issues",
         "source": "https://github.com/kpirnie/kp-datatables"
-    },
-    "funding": [
-        {
-            "type": "github",
-            "url": "https://github.com/sponsors/kpirnie"
-        }
-    ]
+    }
 }
