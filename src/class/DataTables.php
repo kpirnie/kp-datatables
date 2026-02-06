@@ -926,13 +926,15 @@ if (! class_exists('KPT\DataTables\DataTables', false)) {
          * Generates the necessary link tags for CSS files, including optional
          * framework CDN links based on the configured theme.
          *
-         * @param  bool $includeCdn Whether to include CDN links (overrides instance setting)
+         * @param  string $theme        Theme identifier
+         * @param  bool   $includeCdn   Whether to include CDN links (overrides instance setting)
+         * @param  bool   $useMinified  Whether to use minified versions
          * @return string HTML with CSS includes
          */
-        public static function getCssIncludes(string $theme = 'uikit', bool $includeCdn = true): string
+        public static function getCssIncludes(string $theme = 'uikit', bool $includeCdn = true, bool $useMinified = false): string
         {
             $tm = new ThemeManager($theme);
-            return $tm->getCssIncludes($includeCdn);
+            return $tm->getCssIncludes($includeCdn, $useMinified);
         }
 
         /**
@@ -954,7 +956,7 @@ if (! class_exists('KPT\DataTables\DataTables', false)) {
 
             // Include framework JS from CDN if enabled
             if ($includeCdn) {
-                $html .= $tm->getJsIncludes(true);
+                $html .= $tm->getJsIncludes(true, $useMinified);
             }
 
             // if we are minifying

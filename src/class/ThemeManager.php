@@ -224,8 +224,8 @@ if (! class_exists('KPT\DataTables\ThemeManager', false)) {
         public function getThemeCssPath(bool $useMinified = true): string
         {
             // seutp the css file to use
-            $cssFile = ($useMinified) ? sprintf('dist/%s.min', $this->theme) : $this->theme;
-            return "/vendor/kevinpirnie/kpt-datatables/src/assets/css/themes/{$cssFile}.css";
+            $cssFile = ($useMinified) ? sprintf('dist/%s.min', $this->theme) : sprintf('themes/%s.min', $this->theme);
+            return "/vendor/kevinpirnie/kpt-datatables/src/assets/css/{$cssFile}.css";
         }
 
         /**
