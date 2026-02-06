@@ -30,12 +30,21 @@ if (! class_exists('KPT\DataTables\ThemeManager', false)) {
         /**
          * CDN URLs for framework assets
          */
-        private const CDN_UIKIT_CSS = 'https://cdn.jsdelivr.net/npm/uikit@3/dist/css/uikit.min.css';
-        private const CDN_UIKIT_JS = 'https://cdn.jsdelivr.net/npm/uikit@3/dist/js/uikit.min.js';
-        private const CDN_UIKIT_ICONS = 'https://cdn.jsdelivr.net/npm/uikit@3/dist/js/uikit-icons.min.js';
-        private const CDN_BOOTSTRAP_CSS = 'https://cdn.jsdelivr.net/npm/bootstrap@5/dist/css/bootstrap.min.css';
-        private const CDN_BOOTSTRAP_JS = 'https://cdn.jsdelivr.net/npm/bootstrap@5/dist/js/bootstrap.bundle.min.js';
-        private const CDN_BOOTSTRAP_ICONS = 'https://cdn.jsdelivr.net/npm/bootstrap-icons@1/font/bootstrap-icons.css';
+        // UIKIT
+        private const CDN_UIKIT_CSS = 'https://cdn.jsdelivr.net/npm/uikit@latest/dist/css/uikit.css';
+        private const CDN_UIKIT_JS = 'https://cdn.jsdelivr.net/npm/uikit@latest/dist/js/uikit.js';
+        private const CDN_UIKIT_ICONS = 'https://cdn.jsdelivr.net/npm/uikit@latest/dist/js/uikit-icons.js';
+        private const CDN_UIKIT_MINCSS = 'https://cdn.jsdelivr.net/npm/uikit@latest/dist/css/uikit.min.css';
+        private const CDN_UIKIT_MINJS = 'https://cdn.jsdelivr.net/npm/uikit@latest/dist/js/uikit.min.js';
+        private const CDN_UIKIT_MINICONS = 'https://cdn.jsdelivr.net/npm/uikit@latest/dist/js/uikit-icons.min.js';
+
+        // BOOSTRAP
+        private const CDN_BOOTSTRAP_CSS = 'https://cdn.jsdelivr.net/npm/bootstrap@latest/dist/css/bootstrap.css';
+        private const CDN_BOOTSTRAP_JS = 'https://cdn.jsdelivr.net/npm/bootstrap@latest/dist/js/bootstrap.bundle.js';
+        private const CDN_BOOTSTRAP_ICONS = 'https://cdn.jsdelivr.net/npm/bootstrap-icons@latest/font/bootstrap-icons.css';
+        private const CDN_BOOTSTRAP_MINCSS = 'https://cdn.jsdelivr.net/npm/bootstrap@latest/dist/css/bootstrap.min.css';
+        private const CDN_BOOTSTRAP_MINJS = 'https://cdn.jsdelivr.net/npm/bootstrap@latest/dist/js/bootstrap.bundle.min.js';
+        private const CDN_BOOTSTRAP_MINICONS = 'https://cdn.jsdelivr.net/npm/bootstrap-icons@latest/font/bootstrap-icons.min.css';
 
         /**
          * Current theme
@@ -145,9 +154,10 @@ if (! class_exists('KPT\DataTables\ThemeManager', false)) {
          * Get CSS includes for the current theme
          *
          * @param  bool $includeCdn Whether to include CDN links for framework
+         * @param  bool $useMinified Whether to include the minified versions for framework
          * @return string HTML link tags
          */
-        public function getCssIncludes(bool $includeCdn = true): string
+        public function getCssIncludes(bool $includeCdn = true, bool $useMinified = false): string
         {
             $html = '';
 
@@ -155,17 +165,20 @@ if (! class_exists('KPT\DataTables\ThemeManager', false)) {
             if ($includeCdn) {
                 switch ($this->theme) {
                     case self::THEME_UIKIT:
-                        $html .= "<link rel=\"stylesheet\" href=\"" . self::CDN_UIKIT_CSS . "\">\n";
+                        $css = ($useMinified) ? self::CDN_UIKIT_MINCSS : self::CDN_UIKIT_CSS;
+                        $html .= "<link rel=\"stylesheet\" href=\"" . $css . "\">\n";
                         break;
                     case self::THEME_BOOTSTRAP:
-                        $html .= "<link rel=\"stylesheet\" href=\"" . self::CDN_BOOTSTRAP_CSS . "\">\n";
-                        $html .= "<link rel=\"stylesheet\" href=\"" . self::CDN_BOOTSTRAP_ICONS . "\">\n";
+                        $css = ($useMinified) ? self::CDN_BOOTSTRAP_MINCSS : self::CDN_BOOTSTRAP_CSS;
+                        $cssIcons = ($useMinified) ? self::CDN_BOOTSTRAP_MINICONS : self::CDN_BOOTSTRAP_ICONS;
+                        $html .= "<link rel=\"stylesheet\" href=\"" . $css . "\">\n";
+                        $html .= "<link rel=\"stylesheet\" href=\"" . $cssIcons . "\">\n";
                         break;
                 }
             }
 
             // Add theme-specific CSS
-            $themeCss = $this->getThemeCssPath();
+            $themeCss = $this->getThemeCssPath($useMinified);
             if ($themeCss) {
                 $html .= "<link rel=\"stylesheet\" href=\"{$themeCss}\">\n";
             }
@@ -177,9 +190,10 @@ if (! class_exists('KPT\DataTables\ThemeManager', false)) {
          * Get JavaScript includes for the current theme
          *
          * @param  bool $includeCdn Whether to include CDN links for framework
+         * @param  bool $useMinified Whether to include the minified versions for framework
          * @return string HTML script tags
          */
-        public function getJsIncludes(bool $includeCdn = true): string
+        public function getJsIncludes(bool $includeCdn = true, bool $useMinified = false): string
         {
             $html = '';
 
@@ -187,11 +201,14 @@ if (! class_exists('KPT\DataTables\ThemeManager', false)) {
             if ($includeCdn) {
                 switch ($this->theme) {
                     case self::THEME_UIKIT:
-                        $html .= "<script src=\"" . self::CDN_UIKIT_JS . "\" defer></script>\n";
-                        $html .= "<script src=\"" . self::CDN_UIKIT_ICONS . "\" defer></script>\n";
+                        $js = ($useMinified) ? self::CDN_UIKIT_MINJS : self::CDN_UIKIT_JS;
+                        $jsIcons = ($useMinified) ? self::CDN_UIKIT_MINICONS : self::CDN_UIKIT_ICONS;
+                        $html .= "<script src=\"" . $js . "\" defer></script>\n";
+                        $html .= "<script src=\"" . $jsIcons . "\" defer></script>\n";
                         break;
                     case self::THEME_BOOTSTRAP:
-                        $html .= "<script src=\"" . self::CDN_BOOTSTRAP_JS . "\" defer></script>\n";
+                        $js = ($useMinified) ? self::CDN_BOOTSTRAP_MINJS : self::CDN_BOOTSTRAP_JS;
+                        $html .= "<script src=\"" . $js . "\" defer></script>\n";
                         break;
                 }
             }
@@ -204,9 +221,11 @@ if (! class_exists('KPT\DataTables\ThemeManager', false)) {
          *
          * @return string Path to theme CSS file
          */
-        public function getThemeCssPath(): string
+        public function getThemeCssPath(bool $useMinified = true): string
         {
-            return "/vendor/kevinpirnie/kpt-datatables/src/assets/css/themes/{$this->theme}.css";
+            // seutp the css file to use
+            $cssFile = ($useMinified) ? sprintf('dist/%s.min', $this->theme) : $this->theme;
+            return "/vendor/kevinpirnie/kpt-datatables/src/assets/css/themes/{$cssFile}.css";
         }
 
         /**
@@ -573,5 +592,4 @@ if (! class_exists('KPT\DataTables\ThemeManager', false)) {
             }
         }
     }
-
 }

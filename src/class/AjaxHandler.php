@@ -57,8 +57,16 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
         {
             // Whitelist of allowed actions for security
             $allowedActions = [
-                'fetch_data', 'add_record', 'edit_record', 'delete_record',
-                'bulk_action', 'inline_edit', 'upload_file', 'fetch_record', 'action_callback'
+                'fetch_data',
+                'add_record',
+                'edit_record',
+                'delete_record',
+                'bulk_action',
+                'inline_edit',
+                'upload_file',
+                'fetch_record',
+                'action_callback',
+                'fetch_aggregations',
             ];
 
             if (!in_array($action, $allowedActions)) {
@@ -102,6 +110,9 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
                 case 'action_callback':
                     // Handle action callbacks with full row data
                     $this->handleActionCallback();
+                    break;
+                case 'fetch_aggregations':
+                    $this->handleFetchAggregations();
                     break;
             }
         }
@@ -757,15 +768,15 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
 
             // Use BASE table name for INSERT (no alias)
             $query = "INSERT INTO `{$this->dataTable->getBaseTableName()}` (`" .
-                    implode('`, `', $fields) .
-                    "`) VALUES (" .
-                    implode(', ', $placeholders) .
-                    ")";
+                implode('`, `', $fields) .
+                "`) VALUES (" .
+                implode(', ', $placeholders) .
+                ")";
 
             $result = $this->dataTable->getDatabase()
-                                ->query($query)
-                                ->bind(array_values($validatedData))
-                                ->execute();
+                ->query($query)
+                ->bind(array_values($validatedData))
+                ->execute();
 
             $success = $result !== false;
             $message = $success ? 'Record added successfully' : 'Failed to add record';
@@ -840,9 +851,9 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
             }
 
             $result = $this->dataTable->getDatabase()
-                                    ->query($sql)
-                                    ->bind($params)
-                                    ->execute();
+                ->query($sql)
+                ->bind($params)
+                ->execute();
 
             $success = $result !== false;
             $message = $success ? 'Record updated successfully' : 'Failed to update record';
@@ -890,9 +901,9 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
             }
 
             $result = $this->dataTable->getDatabase()
-                                    ->query($sql)
-                                    ->bind($params)
-                                    ->execute();
+                ->query($sql)
+                ->bind($params)
+                ->execute();
 
             $success = $result !== false && $result > 0;
             $message = $success ? 'Record deleted successfully' : ($result === 0 ? 'Record not found' : 'Failed to delete record');
@@ -946,10 +957,10 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
             }
 
             $result = $this->dataTable->getDatabase()
-                                    ->query($sql)
-                                    ->bind($params)
-                                    ->single()
-                                    ->fetch();
+                ->query($sql)
+                ->bind($params)
+                ->single()
+                ->fetch();
 
             $success = $result !== false;
             $message = $success ? 'Record fetched successfully' : 'Record not found';
@@ -1016,9 +1027,9 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
                     }
 
                     $result = $this->dataTable->getDatabase()
-                                            ->query($sql)
-                                            ->bind($params)
-                                            ->execute();
+                        ->query($sql)
+                        ->bind($params)
+                        ->execute();
                     $message = $result !== false ? 'Selected records deleted successfully' : 'Failed to delete selected records';
                     break;
 
@@ -1032,8 +1043,7 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
                             $this->dataTable->getBaseTableName()  // Pass base table name
                         );
                         $message = $result ?
-                            ($actionConfig['success_message'] ?? 'Bulk action completed successfully') :
-                            ($actionConfig['error_message'] ?? 'Bulk action failed');
+                            ($actionConfig['success_message'] ?? 'Bulk action completed successfully') : ($actionConfig['error_message'] ?? 'Bulk action failed');
                     }
                     break;
             }
@@ -1100,9 +1110,9 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
             }
 
             $result = $this->dataTable->getDatabase()
-                                    ->query($sql)
-                                    ->bind($params)
-                                    ->execute();
+                ->query($sql)
+                ->bind($params)
+                ->execute();
 
             $success = $result !== false;
             $message = $success ? 'Field updated successfully' : 'Failed to update field';
@@ -1143,6 +1153,9 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
 
             if (isset($actionConfig['groups'])) {
                 foreach ($actionConfig['groups'] as $group) {
+                    // hold the action and data for the html check
+                    $actionKey = array_key_first($group) ?? '';
+                    $actionData = is_array($group) ? reset($group) : $group;
                     // Skip 'html' entries
                     if ($actionKey === 'html' || (is_array($actionData) && isset($actionData['html']))) {
                         continue;
@@ -1173,14 +1186,121 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
 
             $success = $result !== false;
             $message = $success ?
-                ($callbackConfig['success_message'] ?? 'Action completed successfully') :
-                ($callbackConfig['error_message'] ?? 'Action failed');
+                ($callbackConfig['success_message'] ?? 'Action completed successfully') : ($callbackConfig['error_message'] ?? 'Action failed');
 
             header('Content-Type: application/json');
             echo json_encode([
                 'success' => $success,
                 'message' => $message
             ]);
+            exit;
+        }
+
+        /**
+         * Handle aggregation data requests for footer calculations
+         *
+         * Computes SUM and/or AVG for configured columns across the full
+         * (filtered) recordset. Returns JSON with aggregation results.
+         *
+         * @return void Outputs JSON and exits
+         */
+        private function handleFetchAggregations(): void
+        {
+            $search = $this->sanitizeSearchInput($_GET['search'] ?? '');
+            $searchColumn = $this->sanitizeColumnName($_GET['search_column'] ?? '');
+
+            $aggregations = $this->dataTable->getFooterAggregations();
+            $calculatedColumns = $this->dataTable->getCalculatedColumns();
+
+            if (empty($aggregations)) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => true, 'aggregations' => []]);
+                exit;
+            }
+
+            $selectParts = [];
+            foreach ($aggregations as $column => $config) {
+                $type = $config['type'];
+
+                // Determine SQL expression: use calculated column expression or raw column
+                $sqlExpr = $column;
+                if (isset($calculatedColumns[$column])) {
+                    $sqlExpr = $calculatedColumns[$column]['expression'];
+                } elseif (strpos($column, '.') === false) {
+                    $sqlExpr = "`{$column}`";
+                }
+
+                if ($type === 'sum' || $type === 'both') {
+                    $selectParts[] = "SUM({$sqlExpr}) AS `{$column}_sum`";
+                }
+                if ($type === 'avg' || $type === 'both') {
+                    $selectParts[] = "AVG({$sqlExpr}) AS `{$column}_avg`";
+                }
+            }
+
+            $tableName = $this->dataTable->getTableName();
+            if (strpos($tableName, ' ') !== false) {
+                $sql = "SELECT " . implode(', ', $selectParts) . " FROM {$tableName}";
+            } else {
+                $sql = "SELECT " . implode(', ', $selectParts) . " FROM `{$tableName}`";
+            }
+
+            foreach ($this->dataTable->getJoins() as $join) {
+                $sql .= " {$join['type']} JOIN {$join['table']} ON {$join['condition']}";
+            }
+
+            $params = [];
+            $whereClause = $this->buildWhereClause($this->dataTable->getWhereConditions(), $params);
+            $hasWhere = !empty($whereClause);
+
+            if ($hasWhere) {
+                $sql .= $whereClause;
+            }
+
+            if (!empty($search)) {
+                $searchConditions = [];
+                foreach ($this->dataTable->getColumns() as $col => $label) {
+                    $sc = $col;
+                    if (stripos($col, ' AS ') !== false) {
+                        $parts = explode(' AS ', $col);
+                        $sc = trim($parts[0]);
+                    }
+                    if (strpos($sc, '.') !== false) {
+                        $searchConditions[] = "{$sc} LIKE ?";
+                    } else {
+                        $searchConditions[] = "`{$sc}` LIKE ?";
+                    }
+                    $params[] = "%{$search}%";
+                }
+                if (!empty($searchConditions)) {
+                    $sql .= ($hasWhere ? ' AND ' : ' WHERE ') . '(' . implode(' OR ', $searchConditions) . ')';
+                }
+            }
+
+            $query = $this->dataTable->getDatabase()->query($sql);
+            if (!empty($params)) {
+                $query->bind($params);
+            }
+            $result = $query->single()->fetch();
+
+            $output = [];
+            if ($result) {
+                foreach ($aggregations as $column => $config) {
+                    $entry = ['column' => $column];
+                    $sumKey = "{$column}_sum";
+                    $avgKey = "{$column}_avg";
+                    if (isset($result->$sumKey)) {
+                        $entry['sum'] = (float) $result->$sumKey;
+                    }
+                    if (isset($result->$avgKey)) {
+                        $entry['avg'] = (float) $result->$avgKey;
+                    }
+                    $output[$column] = $entry;
+                }
+            }
+
+            header('Content-Type: application/json');
+            echo json_encode(['success' => true, 'aggregations' => $output]);
             exit;
         }
 
@@ -1526,5 +1646,4 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
             return $field;
         }
     }
-
 }

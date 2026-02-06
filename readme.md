@@ -1,6 +1,6 @@
 # KPT DataTables
 
-Advanced PHP DataTables library with CRUD operations, search, sorting, pagination, bulk actions, JOIN support, and multi-framework theme support (UIKit3, Bootstrap 5, Tailwind CSS, Plain).
+Advanced PHP DataTables library with CRUD operations, search, sorting, pagination, bulk actions, JOIN support, calculated columns, footer aggregations, and multi-framework theme support (UIKit3, Bootstrap 5, Tailwind CSS, Plain).
 
 ## Features
 
@@ -16,6 +16,8 @@ Advanced PHP DataTables library with CRUD operations, search, sorting, paginatio
 - 📱 **Responsive** - Mobile-friendly design
 - 🎛️ **Customizable** - Extensive configuration options
 - 🔧 **Chainable API** - Fluent interface for easy configuration
+- 🧮 **Calculated Columns** - Computed columns with basic math operations (+, -, *, /, %) or custom SQL expressions
+- 📈 **Footer Aggregations** - Sum and average calculations per page, full recordset, or both
 
 ## Requirements
 
@@ -34,6 +36,7 @@ composer require kevinpirnie/kpt-datatables
 ## Dependencies
 
 This package depends on:
+
 - [`kevinpirnie/kpt-database`](https://packagist.org/packages/kevinpirnie/kpt-database) - Database wrapper
 - [`kevinpirnie/kpt-logger`](https://packagist.org/packages/kevinpirnie/kpt-logger) - Logging functionality
 
@@ -64,10 +67,10 @@ $dataTable = new DataTables($dbConfig);
 
 ```php
 // Include CSS (with theme)
-echo DataTables::getCssIncludes('uikit', true);
+echo DataTables::getCssIncludes('uikit', true, true);
 
 // Include JavaScript files
-echo DataTables::getJsIncludes('uikit', true);
+echo DataTables::getJsIncludes('uikit', true, true);
 ```
 
 ### 3. Handle AJAX Requests
@@ -125,11 +128,12 @@ $dataTable->theme('uikit', false);
 
 ```php
 // CSS and JS includes
-echo DataTables::getCssIncludes('uikit', true);
-echo DataTables::getJsIncludes('uikit', true);
+echo DataTables::getCssIncludes('uikit', true, true);
+echo DataTables::getJsIncludes('uikit', true, true);
 ```
 
 Automatically includes from CDN:
+
 - UIKit CSS
 - UIKit JS
 - UIKit Icons
@@ -137,11 +141,12 @@ Automatically includes from CDN:
 #### Bootstrap 5
 
 ```php
-echo DataTables::getCssIncludes('bootstrap', true);
-echo DataTables::getJsIncludes('bootstrap', true);
+echo DataTables::getCssIncludes('bootstrap', true, true);
+echo DataTables::getJsIncludes('bootstrap', true, true);
 ```
 
 Automatically includes from CDN:
+
 - Bootstrap CSS
 - Bootstrap Icons CSS
 - Bootstrap Bundle JS
@@ -149,8 +154,8 @@ Automatically includes from CDN:
 #### Tailwind CSS
 
 ```php
-echo DataTables::getCssIncludes('tailwind', false);
-echo DataTables::getJsIncludes('tailwind', false);
+echo DataTables::getCssIncludes('tailwind', false, true);
+echo DataTables::getJsIncludes('tailwind', false, true);
 ```
 
 **Tailwind Compilation Required:**
@@ -169,8 +174,8 @@ npm run watch:tailwind
 #### Plain Theme
 
 ```php
-echo DataTables::getCssIncludes('plain', false);
-echo DataTables::getJsIncludes('plain', false);
+echo DataTables::getCssIncludes('plain', false, true);
+echo DataTables::getJsIncludes('plain', false, true);
 ```
 
 The plain theme uses `kp-dt-*` prefixed classes for all elements, making it easy to customize or integrate with any CSS framework. Styled similarly to UIKit3.
@@ -185,6 +190,7 @@ All themes include both framework-specific classes AND `kp-dt-*` prefixed classe
 ```
 
 This allows you to:
+
 1. Override specific styles with `kp-dt-*` classes
 2. Target elements consistently across themes
 3. Add custom CSS without conflicts
@@ -192,6 +198,7 @@ This allows you to:
 ### Custom Theme CSS
 
 Each theme has its own CSS file at:
+
 ```
 /vendor/kevinpirnie/kpt-datatables/src/assets/css/themes/{theme}.css
 ```
@@ -416,7 +423,7 @@ $theme = 'uikit'; // 'plain', 'uikit', 'bootstrap', 'tailwind'
 <html>
 <head>
     <title>DataTables Example</title>
-    <?php echo DataTables::getCssIncludes($theme, true); ?>
+    <?php echo DataTables::getCssIncludes($theme, true, true); ?>
 </head>
 <body>
     <div class="uk-container uk-margin-top">
@@ -499,6 +506,7 @@ $theme = 'uikit'; // 'plain', 'uikit', 'bootstrap', 'tailwind'
 ## API Methods
 
 ### Core Configuration
+
 - `theme(string $theme, bool $includeCdn = true)` - Set UI framework theme
 - `table(string $tableName)` - Set the database table (supports aliases)
 - `primaryKey(string $column)` - Set primary key column (supports qualified names)
@@ -508,6 +516,7 @@ $theme = 'uikit'; // 'plain', 'uikit', 'bootstrap', 'tailwind'
 - `where(array $conditions)` - Add WHERE conditions to filter records
 
 ### Display Options
+
 - `sortable(array $columns)` - Set sortable columns (supports qualified names)
 - `inlineEditable(array $columns)` - Set inline editable columns
 - `search(bool $enabled)` - Enable/disable search
@@ -515,31 +524,44 @@ $theme = 'uikit'; // 'plain', 'uikit', 'bootstrap', 'tailwind'
 - `pageSizeOptions(array $options, bool $includeAll)` - Set page size options
 
 ### Actions and Forms
+
 - `actions(string $position, bool $showEdit, bool $showDelete, array $customActions)` - Configure action buttons
 - `actionGroups(array $groups)` - Configure grouped actions with separators
 - `bulkActions(bool $enabled, array $actions)` - Configure bulk actions with callbacks
 - `addForm(string $title, array $fields, bool $ajax)` - Configure add form
 - `editForm(string $title, array $fields, bool $ajax)` - Configure edit form
 
+### Calculations and Aggregations
+
+- `calculatedColumn(string $alias, string $label, array $columns, string $operator)` - Add a computed column
+- `calculatedColumnRaw(string $alias, string $label, string $expression)` - Add a computed column with custom SQL
+- `footerAggregate(string $column, string $type, string $scope)` - Configure footer aggregation for a column
+- `footerAggregateColumns(array $columns, string $type, string $scope)` - Configure footer aggregation for multiple columns
+
 ### Styling
+
 - `tableClass(string $class)` - Set table CSS class
 - `rowClass(string $class)` - Set row CSS class base
 - `columnClasses(array $classes)` - Set column-specific CSS classes
 
 ### File Handling
+
 - `fileUpload(string $path, array $extensions, int $maxSize)` - Configure file uploads
 
 ### Rendering
+
 - `renderDataTableComponent()` - Generate complete HTML output
 - `handleAjax()` - Handle AJAX requests
 
 ### Static Methods
-- `DataTables::getCssIncludes(string $theme, bool $includeCdn)` - Get CSS include tags
-- `DataTables::getJsIncludes(string $theme, bool $includeCdn)` - Get JavaScript include tags
+
+- `DataTables::getCssIncludes(string $theme, bool $includeCdn, bool $useMinified)` - Get CSS include tags
+- `DataTables::getJsIncludes(string $theme, bool $includeCdn, bool $useMinified)` - Get JavaScript include tags
 
 ## Field Types
 
 ### Text Inputs
+
 ```php
 'field_name' => [
     'type' => 'text', // text, email, url, tel, number, password
@@ -552,6 +574,7 @@ $theme = 'uikit'; // 'plain', 'uikit', 'bootstrap', 'tailwind'
 ```
 
 ### Boolean/Checkbox Fields
+
 ```php
 'active' => [
     'type' => 'boolean', // Renders as select in forms, toggle in table
@@ -565,6 +588,7 @@ $theme = 'uikit'; // 'plain', 'uikit', 'bootstrap', 'tailwind'
 ```
 
 ### Select Dropdown
+
 ```php
 'category' => [
     'type' => 'select',
@@ -579,6 +603,7 @@ $theme = 'uikit'; // 'plain', 'uikit', 'bootstrap', 'tailwind'
 ```
 
 ### File Upload
+
 ```php
 'document' => [
     'type' => 'file',
@@ -589,6 +614,7 @@ $theme = 'uikit'; // 'plain', 'uikit', 'bootstrap', 'tailwind'
 ## WHERE Conditions
 
 ### Filter Records with Custom Conditions
+
 ```php
 ->where([
     'AND' => [
@@ -607,10 +633,130 @@ $theme = 'uikit'; // 'plain', 'uikit', 'bootstrap', 'tailwind'
 ```
 
 ### Supported Comparison Operators
+
 - `=`, `!=`, `<>`, `>`, `<`, `>=`, `<=`
 - `LIKE`, `NOT LIKE`
 - `IN`, `NOT IN` (with array values)
 - `REGEXP`
+
+## Calculated Columns
+
+Add computed columns that perform math operations on existing numeric fields.
+
+### Basic Calculated Column
+
+```php
+$dataTable
+    ->table('order_items oi')
+    ->columns([
+        'oi.id' => 'ID',
+        'oi.quantity' => 'Quantity',
+        'oi.unit_price' => 'Unit Price',
+    ])
+    ->calculatedColumn('line_total', 'Line Total', ['oi.quantity', 'oi.unit_price'], '*')
+    ->renderDataTableComponent();
+```
+
+### Supported Operators
+
+| Operator | Description    | Example                          |
+|----------|----------------|----------------------------------|
+| `+`      | Addition       | `['col_a', 'col_b'], '+'`       |
+| `-`      | Subtraction    | `['col_a', 'col_b'], '-'`       |
+| `*`      | Multiplication | `['qty', 'price'], '*'`         |
+| `/`      | Division       | `['total', 'count'], '/'`       |
+| `%`      | Modulus        | `['value', 'divisor'], '%'`     |
+
+### Multiple Columns
+
+Calculations can span more than two columns:
+
+```php
+->calculatedColumn('total', 'Grand Total', ['subtotal', 'tax', 'shipping'], '+')
+```
+
+### Custom SQL Expressions
+
+For complex calculations that go beyond a single operator:
+
+```php
+->calculatedColumnRaw('profit_margin', 'Margin %', '((oi.sell_price - oi.cost_price) / oi.sell_price) * 100')
+```
+
+## Footer Aggregations
+
+Display sum and/or average values in the table footer for numeric columns, scoped to the current page, the full filtered recordset, or both.
+
+### Basic Usage
+
+```php
+$dataTable
+    ->table('orders')
+    ->columns([
+        'id' => 'ID',
+        'customer' => 'Customer',
+        'amount' => 'Amount',
+        'tax' => 'Tax',
+    ])
+    ->footerAggregate('amount', 'sum', 'both')
+    ->footerAggregate('tax', 'avg', 'all')
+    ->renderDataTableComponent();
+```
+
+### Aggregate Multiple Columns
+
+Apply the same aggregation type and scope to multiple columns at once:
+
+```php
+->footerAggregateColumns(['amount', 'tax', 'shipping'], 'both', 'both')
+```
+
+### Configuration Options
+
+**Type** - What calculation to display:
+
+| Type   | Description                     |
+|--------|---------------------------------|
+| `sum`  | Total of all values             |
+| `avg`  | Average of all values           |
+| `both` | Display both sum and average    |
+
+**Scope** - Which records to calculate across:
+
+| Scope  | Description                                      |
+|--------|--------------------------------------------------|
+| `page` | Calculate using only records on the current page  |
+| `all`  | Calculate using the full filtered recordset       |
+| `both` | Display both page-level and full recordset values |
+
+### Aggregation with Calculated Columns
+
+Footer aggregations work with calculated columns by referencing the alias:
+
+```php
+$dataTable
+    ->table('order_items oi')
+    ->columns([
+        'oi.id' => 'ID',
+        'oi.quantity' => 'Quantity',
+        'oi.unit_price' => 'Unit Price',
+    ])
+    ->calculatedColumn('line_total', 'Line Total', ['oi.quantity', 'oi.unit_price'], '*')
+    ->footerAggregate('line_total', 'sum', 'both')
+    ->footerAggregate('oi.unit_price', 'avg', 'all')
+    ->renderDataTableComponent();
+```
+
+### Footer Row Output
+
+Depending on configuration, the table footer will display up to four aggregation rows:
+
+| Row Label | Type | Scope | Description                          |
+|-----------|------|-------|--------------------------------------|
+| Page Sum  | sum  | page  | Sum of values on the current page    |
+| Total Sum | sum  | all   | Sum of all filtered records          |
+| Page Avg  | avg  | page  | Average of values on the current page|
+| Total Avg | avg  | all   | Average of all filtered records      |
 
 ## Browser Support
 
@@ -643,9 +789,28 @@ composer phpstan
 composer cs-check
 ```
 
+## Building Assets
+
+```bash
+# Install Node dependencies
+npm install
+
+# Build everything (Tailwind + JS bundle + CSS minification)
+npm run build
+
+# Build JS bundle only
+npm run build:js
+
+# Build CSS minification only
+npm run build:css
+
+# Tailwind watch mode for development
+npm run watch:tailwind
+```
+
 ## Security
 
-If you discover any security-related issues, please email security@kpirnie.com instead of using the issue tracker.
+If you discover any security-related issues, please email <security@kpirnie.com> instead of using the issue tracker.
 
 ## License
 
@@ -666,10 +831,9 @@ The MIT License (MIT). Please see [License File](LICENSE) for more information.
 ## Roadmap
 
 - [ ] Export functionality (CSV, Excel, PDF)
-- [ ] Integration with popular PHP frameworks
 - [ ] REST API endpoints
-- [ ] Audit trail/change logging
 - [x] Multi-framework theme support
+- [x] Calculated columns and footer aggregations
 
 ---
 

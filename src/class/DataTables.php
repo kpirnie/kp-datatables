@@ -48,8 +48,8 @@ if (! class_exists('KPT\DataTables\DataTables', false)) {
         public function __construct(array $dbConfig = [])
         {
             if (! empty($dbConfig)) {
-                $this -> dbConfig = $dbConfig;
-                $this -> initializeDatabase();
+                $this->dbConfig = $dbConfig;
+                $this->initializeDatabase();
             }
 
             Logger::debug("DataTables instance created successfully");
@@ -185,10 +185,10 @@ if (! class_exists('KPT\DataTables\DataTables', false)) {
             // Handle image fields (VARCHAR fields with 'image' in name or specific pattern)
             if (
                 strpos($type, 'varchar') !== false && (
-                strpos(strtolower($field ?? ''), 'image') !== false ||
-                strpos(strtolower($field ?? ''), 'photo') !== false ||
-                strpos(strtolower($field ?? ''), 'avatar') !== false ||
-                strpos(strtolower($field ?? ''), 'picture') !== false
+                    strpos(strtolower($field ?? ''), 'image') !== false ||
+                    strpos(strtolower($field ?? ''), 'photo') !== false ||
+                    strpos(strtolower($field ?? ''), 'avatar') !== false ||
+                    strpos(strtolower($field ?? ''), 'picture') !== false
                 )
             ) {
                 return 'image';
@@ -502,8 +502,8 @@ if (! class_exists('KPT\DataTables\DataTables', false)) {
             Logger::debug(
                 "DataTables page size options set",
                 [
-                'options' => $options,
-                'include_all' => $includeAll
+                    'options' => $options,
+                    'include_all' => $includeAll
                 ]
             );
 
@@ -548,8 +548,8 @@ if (! class_exists('KPT\DataTables\DataTables', false)) {
             Logger::debug(
                 "DataTables bulk actions configured",
                 [
-                'enabled' => $enabled,
-                'actions' => array_keys($this->bulkActions['actions'])
+                    'enabled' => $enabled,
+                    'actions' => array_keys($this->bulkActions['actions'])
                 ]
             );
 
@@ -716,6 +716,116 @@ if (! class_exists('KPT\DataTables\DataTables', false)) {
         }
 
         /**
+         * Add a calculated column to the table
+         *
+         * Supports operators: +, -, *, /, %
+         *
+         * @param  string $alias    Column alias for the result
+         * @param  string $label    Display label
+         * @param  array  $columns  Array of numeric column names to calculate
+         * @param  string $operator Mathematical operator (+, -, *, /, %)
+         * @return self Returns self for method chaining
+         */
+        public function calculatedColumn(string $alias, string $label, array $columns, string $operator = '+'): self
+        {
+            $validOperators = ['+', '-', '*', '/', '%'];
+            if (!in_array($operator, $validOperators)) {
+                throw new \InvalidArgumentException("Invalid operator: {$operator}. Allowed: " . implode(', ', $validOperators));
+            }
+
+            if (count($columns) < 2) {
+                throw new \InvalidArgumentException('At least two columns are required for a calculation');
+            }
+
+            $expressionParts = [];
+            foreach ($columns as $col) {
+                $expressionParts[] = strpos($col, '.') !== false ? $col : "`{$col}`";
+            }
+            $expression = implode(" {$operator} ", $expressionParts);
+
+            $this->calculatedColumns[$alias] = [
+                'label' => $label,
+                'expression' => $expression,
+                'columns' => $columns,
+                'operator' => $operator,
+            ];
+
+            $this->columns["{$expression} AS `{$alias}`"] = $label;
+
+            Logger::debug("Calculated column added", ['alias' => $alias, 'expression' => $expression]);
+            return $this;
+        }
+
+        /**
+         * Add a calculated column with a custom SQL expression
+         *
+         * @param  string $alias      Column alias for the result
+         * @param  string $label      Display label
+         * @param  string $expression Raw SQL expression (e.g., '(price * quantity) - discount')
+         * @return self Returns self for method chaining
+         */
+        public function calculatedColumnRaw(string $alias, string $label, string $expression): self
+        {
+            $this->calculatedColumns[$alias] = [
+                'label' => $label,
+                'expression' => $expression,
+                'columns' => [],
+                'operator' => 'raw',
+            ];
+
+            $this->columns["{$expression} AS `{$alias}`"] = $label;
+
+            Logger::debug("Raw calculated column added", ['alias' => $alias, 'expression' => $expression]);
+            return $this;
+        }
+
+        /**
+         * Configure footer aggregation for a column
+         *
+         * @param  string $column Column name to aggregate
+         * @param  string $type   Aggregation type: 'sum', 'avg', or 'both'
+         * @param  string $scope  Scope: 'page', 'all', or 'both'
+         * @return self Returns self for method chaining
+         */
+        public function footerAggregate(string $column, string $type = 'sum', string $scope = 'both'): self
+        {
+            $validTypes = ['sum', 'avg', 'both'];
+            $validScopes = ['page', 'all', 'both'];
+
+            if (!in_array($type, $validTypes)) {
+                throw new \InvalidArgumentException("Invalid aggregation type: {$type}. Allowed: " . implode(', ', $validTypes));
+            }
+
+            if (!in_array($scope, $validScopes)) {
+                throw new \InvalidArgumentException("Invalid scope: {$scope}. Allowed: " . implode(', ', $validScopes));
+            }
+
+            $this->footerAggregations[$column] = [
+                'type' => $type,
+                'scope' => $scope,
+            ];
+
+            Logger::debug("Footer aggregation configured", ['column' => $column, 'type' => $type, 'scope' => $scope]);
+            return $this;
+        }
+
+        /**
+         * Configure footer aggregation for multiple columns at once
+         *
+         * @param  array  $columns Array of column names
+         * @param  string $type    Aggregation type: 'sum', 'avg', or 'both'
+         * @param  string $scope   Scope: 'page', 'all', or 'both'
+         * @return self Returns self for method chaining
+         */
+        public function footerAggregateColumns(array $columns, string $type = 'sum', string $scope = 'both'): self
+        {
+            foreach ($columns as $column) {
+                $this->footerAggregate($column, $type, $scope);
+            }
+            return $this;
+        }
+
+        /**
          * Handle incoming AJAX requests
          *
          * Processes all AJAX requests for DataTables operations including data fetching,
@@ -834,9 +944,10 @@ if (! class_exists('KPT\DataTables\DataTables', false)) {
          *
          * @param  string $theme      Theme identifier
          * @param  bool   $includeCdn Whether to include CDN links
+         * @param  bool   $useMinified Whether to include the minified js
          * @return string HTML with JavaScript includes
          */
-        public static function getJsIncludes(string $theme = 'uikit', bool $includeCdn = true): string
+        public static function getJsIncludes(string $theme = 'uikit', bool $includeCdn = true, bool $useMinified = false): string
         {
             $tm = new ThemeManager($theme);
             $html = "<!-- DataTables JavaScript -->\n";
@@ -846,13 +957,22 @@ if (! class_exists('KPT\DataTables\DataTables', false)) {
                 $html .= $tm->getJsIncludes(true);
             }
 
-            // Include theme helper for plain/tailwind/bootstrap themes
-            if (in_array($theme, [ThemeManager::THEME_PLAIN, ThemeManager::THEME_TAILWIND, ThemeManager::THEME_BOOTSTRAP])) {
-                $html .= "<script src=\"/vendor/kevinpirnie/kpt-datatables/src/assets/js/theme-helpers.js\" defer></script>\n";
+            // if we are minifying
+            if ($useMinified) {
+                // Include main DataTables JS
+                $html .= "<script src=\"/vendor/kevinpirnie/kpt-datatables/src/assets/js/dist/kpt-datatables.min.js\" defer></script>\n";
+
+                // otherwise
+            } else {
+                // Include theme helper for plain/tailwind/bootstrap themes
+                if (in_array($theme, [ThemeManager::THEME_PLAIN, ThemeManager::THEME_TAILWIND, ThemeManager::THEME_BOOTSTRAP])) {
+                    $html .= "<script src=\"/vendor/kevinpirnie/kpt-datatables/src/assets/js/theme-helpers.js\" defer></script>\n";
+                }
+
+                // Include main DataTables JS
+                $html .= "<script src=\"/vendor/kevinpirnie/kpt-datatables/src/assets/js/datatables.js\" defer></script>\n";
             }
 
-            // Include main DataTables JS
-            $html .= "<script src=\"/vendor/kevinpirnie/kpt-datatables/src/assets/js/datatables.js\" defer></script>\n";
 
             return $html;
         }
@@ -897,5 +1017,4 @@ if (! class_exists('KPT\DataTables\DataTables', false)) {
             return $this->renderPagination();
         }
     }
-
 }

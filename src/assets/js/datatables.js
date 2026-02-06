@@ -23,6 +23,7 @@ class DataTablesJS {
         this.columns = config.columns || {};
         this.cssClasses = config.cssClasses || {};
         this.theme = config.theme || 'uikit';
+        this.footerAggregations = config.footerAggregations || {};
 
         // State
         this.currentPage = 1;
@@ -292,6 +293,7 @@ class DataTablesJS {
                         this.renderTable(data.data);
                         this.renderPagination(data);
                         this.renderInfo(data);
+                        this.loadAggregations();
                     } else {
                         console.error('Failed to load data:', data.message);
                         this.showNotification(data.message || 'Failed to load data', 'danger');
@@ -304,6 +306,87 @@ class DataTablesJS {
                     this.showNotification('Error loading data', 'danger');
                 }
             );
+    }
+
+    // === AGGREGATION ===
+    loadAggregations() {
+        if (!this.footerAggregations || Object.keys(this.footerAggregations).length === 0) {
+            return;
+        }
+
+        const params = new URLSearchParams({
+            action: 'fetch_aggregations',
+            table: this.tableName,
+            search: this.search
+        });
+
+        fetch('?' + params.toString())
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.aggregations) {
+                    this.renderAggregations(data.aggregations);
+                }
+            })
+            .catch(error => {
+                console.error('Error loading aggregations:', error);
+            });
+    }
+
+    renderAggregations(serverAggregations) {
+        // Update "all" scope cells from server data
+        document.querySelectorAll('.datatables-agg-cell[data-agg-scope="all"]').forEach(cell => {
+            const column = cell.getAttribute('data-agg-column');
+            const type = cell.getAttribute('data-agg-type');
+            if (serverAggregations[column] && serverAggregations[column][type] !== undefined) {
+                cell.textContent = this.formatAggValue(serverAggregations[column][type]);
+            }
+        });
+    }
+
+    calculatePageAggregations(data) {
+        if (!this.footerAggregations || Object.keys(this.footerAggregations).length === 0) {
+            return;
+        }
+
+        if (!data || data.length === 0) {
+            document.querySelectorAll('.datatables-agg-cell[data-agg-scope="page"]').forEach(cell => {
+                cell.textContent = '—';
+            });
+            return;
+        }
+
+        document.querySelectorAll('.datatables-agg-cell[data-agg-scope="page"]').forEach(cell => {
+            const column = cell.getAttribute('data-agg-column');
+            const type = cell.getAttribute('data-agg-type');
+
+            let values = data.map(row => {
+                let val = row[column];
+                if (val === null || val === undefined || val === '') {
+                    return 0;
+                }
+                return parseFloat(val) || 0;
+            });
+
+            let result = 0;
+            if (type === 'sum') {
+                result = values.reduce((a, b) => a + b, 0);
+            } else if (type === 'avg') {
+                const sum = values.reduce((a, b) => a + b, 0);
+                result = values.length > 0 ? sum / values.length : 0;
+            }
+
+            cell.textContent = this.formatAggValue(result);
+        });
+    }
+
+    formatAggValue(value) {
+        if (Number.isInteger(value)) {
+            return value.toLocaleString();
+        }
+        return parseFloat(value.toFixed(2)).toLocaleString(undefined, {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 2
+        });
     }
 
     // === TABLE RENDERING ===
@@ -453,6 +536,7 @@ class DataTablesJS {
         tbody.innerHTML = html;
         this.bindTableEvents();
         this.updateBulkActionButtons();
+        this.calculatePageAggregations(data);
     }
 
     renderActionButtons(rowId, rowData = {}) {
@@ -835,7 +919,7 @@ class DataTablesJS {
     }
 
     executeBulkActionDirect(action, event) {
-        
+
 
         if (event) {
             event.preventDefault();

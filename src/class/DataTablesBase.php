@@ -225,6 +225,24 @@ if (! class_exists('KPT\DataTables\DataTablesBase', false)) {
         protected string $defaultSortDirection = 'ASC';
 
         /**
+         * Calculated column configurations
+         *
+         * Format: ['alias' => ['label' => 'Label', 'expression' => 'col1 + col2', 'columns' => ['col1', 'col2'], 'operator' => '+']]
+         *
+         * @var array
+         */
+        protected array $calculatedColumns = [];
+
+        /**
+         * Footer aggregation configurations
+         *
+         * Format: ['column' => ['type' => 'sum|avg', 'scope' => 'page|all|both']]
+         *
+         * @var array
+         */
+        protected array $footerAggregations = [];
+
+        /**
          * Theme identifier for UI framework
          *
          * Valid values: 'plain', 'uikit', 'bootstrap', 'tailwind'
@@ -471,6 +489,26 @@ if (! class_exists('KPT\DataTables\DataTablesBase', false)) {
         }
 
         /**
+         * Get calculated column configurations
+         *
+         * @return array Calculated column configurations
+         */
+        public function getCalculatedColumns(): array
+        {
+            return $this->calculatedColumns;
+        }
+
+        /**
+         * Get footer aggregation configurations
+         *
+         * @return array Footer aggregation configurations
+         */
+        public function getFooterAggregations(): array
+        {
+            return $this->footerAggregations;
+        }
+
+        /**
          * Get the current theme
          *
          * @return string Current theme identifier
@@ -503,5 +541,4 @@ if (! class_exists('KPT\DataTables\DataTablesBase', false)) {
             return $this->includeCdn;
         }
     }
-
 }

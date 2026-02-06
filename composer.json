@@ -58,6 +58,9 @@
         "test-coverage": "phpunit tests --coverage-html coverage --coverage-filter src",
         "cs-check": "phpcs src --standard=PSR12 --ignore=*.js,*.css -n",
         "cs-fix": "phpcbf src --standard=PSR12 --ignore=*.js,*.css -n",
+        "build": "npm run build",
+        "build-js": "npm run build:js",
+        "build-css": "npm run build:css",
         "build-tailwind": "npm run build:tailwind"
     },
     "config": {
