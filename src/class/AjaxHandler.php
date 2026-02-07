@@ -510,6 +510,12 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
                 }
             }
 
+            // Add GROUP BY clause if configured
+            $groupBy = $this->dataTable->getGroupBy();
+            if (!empty($groupBy)) {
+                $sql .= strpos($groupBy, '.') !== false ? " GROUP BY {$groupBy}" : " GROUP BY `{$groupBy}`";
+            }
+
             // Check if sortColumn is sortable (handle both full expressions and aliases)
             $isSortable = false;
             if (!empty($sortColumn)) {
@@ -635,6 +641,13 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
                 if (!empty($searchConditions)) {
                     $sql .= ($hasWhere ? ' AND ' : ' WHERE ') . '(' . implode(' OR ', $searchConditions) . ')';
                 }
+            }
+
+            // Wrap with GROUP BY subquery if configured
+            $groupBy = $this->dataTable->getGroupBy();
+            if (!empty($groupBy)) {
+                $groupExpr = strpos($groupBy, '.') !== false ? $groupBy : "`{$groupBy}`";
+                $sql = "SELECT COUNT(*) as total FROM ({$sql} GROUP BY {$groupExpr}) AS grouped";
             }
 
             $query = $this->dataTable->getDatabase()->query($sql);
@@ -1269,6 +1282,74 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
                 if (!empty($searchConditions)) {
                     $sql .= ($hasWhere ? ' AND ' : ' WHERE ') . '(' . implode(' OR ', $searchConditions) . ')';
                 }
+            }
+
+            // Handle GROUP BY - must wrap as subquery for aggregating over grouped results
+            $groupBy = $this->dataTable->getGroupBy();
+            if (!empty($groupBy)) {
+                $groupExpr = strpos($groupBy, '.') !== false ? $groupBy : "`{$groupBy}`";
+
+                // Build inner query that produces per-group values
+                $innerSelectParts = [];
+                foreach ($aggregations as $column => $config) {
+                    if (isset($calculatedColumns[$column])) {
+                        $innerSelectParts[] = $calculatedColumns[$column]['expression'] . " AS `{$column}`";
+                    } elseif (strpos($column, '.') === false) {
+                        $innerSelectParts[] = "`{$column}`";
+                    } else {
+                        $innerSelectParts[] = $column;
+                    }
+                }
+
+                $innerSql = "SELECT " . implode(', ', $innerSelectParts) . " FROM " . (strpos($this->dataTable->getTableName(), ' ') !== false ? $this->dataTable->getTableName() : "`{$this->dataTable->getTableName()}`");
+
+                foreach ($this->dataTable->getJoins() as $join) {
+                    $innerSql .= " {$join['type']} JOIN {$join['table']} ON {$join['condition']}";
+                }
+
+                // Re-apply WHERE and search conditions
+                $innerParams = [];
+                $innerWhere = $this->buildWhereClause($this->dataTable->getWhereConditions(), $innerParams);
+                if (!empty($innerWhere)) {
+                    $innerSql .= $innerWhere;
+                }
+
+                if (!empty($search)) {
+                    $innerSearchConditions = [];
+                    foreach ($this->dataTable->getColumns() as $col => $label) {
+                        $sc = $col;
+                        if (stripos($col, ' AS ') !== false) {
+                            $parts = explode(' AS ', $col);
+                            $sc = trim($parts[0]);
+                        }
+                        if (strpos($sc, '.') !== false) {
+                            $innerSearchConditions[] = "{$sc} LIKE ?";
+                        } else {
+                            $innerSearchConditions[] = "`{$sc}` LIKE ?";
+                        }
+                        $innerParams[] = "%{$search}%";
+                    }
+                    if (!empty($innerSearchConditions)) {
+                        $innerSql .= (!empty($innerWhere) ? ' AND ' : ' WHERE ') . '(' . implode(' OR ', $innerSearchConditions) . ')';
+                    }
+                }
+
+                $innerSql .= " GROUP BY {$groupExpr}";
+
+                // Outer query aggregates the per-group values
+                $outerSelectParts = [];
+                foreach ($aggregations as $column => $config) {
+                    $type = $config['type'];
+                    if ($type === 'sum' || $type === 'both') {
+                        $outerSelectParts[] = "SUM(`{$column}`) AS `{$column}_sum`";
+                    }
+                    if ($type === 'avg' || $type === 'both') {
+                        $outerSelectParts[] = "AVG(`{$column}`) AS `{$column}_avg`";
+                    }
+                }
+
+                $sql = "SELECT " . implode(', ', $outerSelectParts) . " FROM ({$innerSql}) AS grouped";
+                $params = $innerParams;
             }
 
             $query = $this->dataTable->getDatabase()->query($sql);
