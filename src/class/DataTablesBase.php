@@ -210,6 +210,9 @@ if (! class_exists('KPT\DataTables\DataTablesBase', false)) {
          */
         protected array $whereConditions = [];
 
+        /** @var string GROUP BY clause column */
+        protected string $groupBy = '';
+
         /**
          * Default sort column
          *
@@ -516,6 +519,16 @@ if (! class_exists('KPT\DataTables\DataTablesBase', false)) {
         public function getTheme(): string
         {
             return $this->theme;
+        }
+
+        /**
+         * Get the groupby clause
+         *
+         * @return string Current theme identifier
+         */
+        public function getGroupBy(): string
+        {
+            return $this->groupBy;
         }
 
         /**

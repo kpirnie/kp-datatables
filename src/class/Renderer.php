@@ -432,7 +432,7 @@ if (! class_exists('KPT\DataTables\Renderer', false)) {
             // Action column at end position
             if ($actionConfig['position'] === 'end') {
                 $shrinkClass = $tm->getClass('th.shrink');
-                $html .= "<th" . ($shrinkClass ? " class=\"{$shrinkClass}\"" : "") . ">Actions</th>\n";
+                $html .= "<th" . ($shrinkClass ? " class=\"{$shrinkClass}\"" : "") . " style=\"text-align: right\">Actions</th>\n";
             }
 
             $html .= "</tr>\n";
@@ -907,17 +907,24 @@ if (! class_exists('KPT\DataTables\Renderer', false)) {
          * @return string HTML for aggregation footer rows
          * @since  1.1.0
          */
+        /**
+         * Render aggregation footer rows for sum/avg display
+         *
+         * Uses colspan for the label cell spanning all non-aggregated leading columns,
+         * then individual cells for each remaining column (aggregated or empty).
+         *
+         * @param  array $aggregations Footer aggregation configurations
+         * @return string HTML for aggregation rows
+         */
         protected function renderAggregationFooterRows(array $aggregations): string
         {
             $tm = $this->getThemeManager();
             $columns = $this->getColumns();
             $bulkActions = $this->getBulkActions();
             $actionConfig = $this->getActionConfig();
-            $mutedClass = $tm->getClass('text.muted');
-            $boldClass = 'font-weight: bold;';
+            $boldStyle = 'font-weight: bold;';
 
-            // Determine which aggregation rows are needed based on configuration
-            // Each combination of type (sum/avg) and scope (page/all) may produce a row
+            // Determine which row types are needed
             $needsPageSum = false;
             $needsPageAvg = false;
             $needsAllSum = false;
@@ -944,83 +951,88 @@ if (! class_exists('KPT\DataTables\Renderer', false)) {
                 }
             }
 
-            $html = '';
+            // Collect custom labels from aggregation configs
+            $customLabel = '';
+            foreach ($aggregations as $column => $config) {
+                if (!empty($config['label'])) {
+                    $customLabel = $config['label'];
+                    break;
+                }
+            }
 
-            // Build the list of aggregation rows to render
-            // Each row represents a unique combination of aggregation type and scope
             $rows = [];
             if ($needsPageSum) {
-                $rows[] = ['label' => 'Page Sum', 'agg' => 'sum', 'scope' => 'page'];
+                $rows[] = ['label' => $customLabel ?: 'Page Sum', 'agg' => 'sum', 'scope' => 'page'];
             }
             if ($needsAllSum) {
-                $rows[] = ['label' => 'Total Sum', 'agg' => 'sum', 'scope' => 'all'];
+                $rows[] = ['label' => $customLabel ?: 'Total Sum', 'agg' => 'sum', 'scope' => 'all'];
             }
             if ($needsPageAvg) {
-                $rows[] = ['label' => 'Page Avg', 'agg' => 'avg', 'scope' => 'page'];
+                $rows[] = ['label' => $customLabel ?: 'Page Avg', 'agg' => 'avg', 'scope' => 'page'];
             }
             if ($needsAllAvg) {
-                $rows[] = ['label' => 'Total Avg', 'agg' => 'avg', 'scope' => 'all'];
+                $rows[] = ['label' => $customLabel ?: 'Total Avg', 'agg' => 'avg', 'scope' => 'all'];
             }
 
-            // Render each aggregation row with labeled first cell and
-            // placeholder cells for columns that have matching aggregation config
+            // Build ordered list of column keys, resolving aliases
+            $colKeys = [];
+            foreach ($columns as $column => $label) {
+                $colKey = $column;
+                if (stripos($column, ' AS ') !== false) {
+                    $parts = preg_split('/\s+AS\s+/i', $column);
+                    $colKey = trim($parts[1] ?? $column, '`\'" ');
+                }
+                $colKeys[] = $colKey;
+            }
+
+            // Count leading non-aggregated data columns
+            $dataLeading = 0;
+            foreach ($colKeys as $colKey) {
+                if (isset($aggregations[$colKey])) {
+                    break;
+                }
+                $dataLeading++;
+            }
+
+            // Total colspan = extra columns (bulk, action-start) + non-aggregated data columns
+            $leadingCols = $dataLeading;
+            if ($bulkActions['enabled']) {
+                $leadingCols++;
+            }
+            if ($actionConfig['position'] === 'start') {
+                $leadingCols++;
+            }
+            $leadingCols = max(1, $leadingCols);
+
+            // Trailing columns use only the data column offset
+            $trailingColKeys = array_slice($colKeys, $dataLeading);
+            ;
+
+            $html = '';
+
             foreach ($rows as $row) {
                 $html .= "<tr class=\"datatables-agg-row\" data-agg-type=\"{$row['agg']}\" data-agg-scope=\"{$row['scope']}\">\n";
 
-                // Empty cell for bulk selection checkbox column
-                if ($bulkActions['enabled']) {
-                    $html .= "<td></td>\n";
-                }
+                // Label cell with colspan
+                $html .= "<td colspan=\"{$leadingCols}\" style=\"{$boldStyle} text-align: right;\">{$row['label']}</td>\n";
 
-                // Empty cell for action column at start position
-                if ($actionConfig['position'] === 'start') {
-                    $html .= "<td></td>\n";
-                }
-
-                // Render cells for each data column
-                $first = true;
-                foreach ($columns as $column => $label) {
-                    // Extract column key, handling aliased columns
-                    $colKey = $column;
-                    if (stripos($column, ' AS ') !== false) {
-                        $parts = preg_split('/\s+AS\s+/i', $column);
-                        $colKey = trim($parts[1] ?? $column, '`\'" ');
-                    }
-
-                    // First column displays the aggregation row label
-                    if ($first) {
-                        $html .= "<td style=\"{$boldClass}\">{$row['label']}</td>\n";
-                        $first = false;
-                        continue;
-                    }
-
-                    // Check if this column has aggregation configured and whether
-                    // the current row's type/scope matches the column's configuration
+                // Individual cells for remaining columns
+                foreach ($trailingColKeys as $colKey) {
                     if (isset($aggregations[$colKey])) {
                         $aggConfig = $aggregations[$colKey];
-                        $showThis = false;
-                        if (
-                            ($aggConfig['type'] === $row['agg'] || $aggConfig['type'] === 'both')
-                            && ($aggConfig['scope'] === $row['scope'] || $aggConfig['scope'] === 'both')
-                        ) {
-                            $showThis = true;
-                        }
+                        $showThis = ($aggConfig['type'] === $row['agg'] || $aggConfig['type'] === 'both')
+                            && ($aggConfig['scope'] === $row['scope'] || $aggConfig['scope'] === 'both');
+
                         if ($showThis) {
-                            // Render aggregation placeholder cell with data attributes for JS population
                             $html .= "<td class=\"datatables-agg-cell\" data-agg-column=\"{$colKey}\" "
                                 . "data-agg-type=\"{$row['agg']}\" data-agg-scope=\"{$row['scope']}\" "
-                                . "style=\"{$boldClass}\">—</td>\n";
+                                . ">—</td>\n";
                         } else {
                             $html .= "<td></td>\n";
                         }
                     } else {
                         $html .= "<td></td>\n";
                     }
-                }
-
-                // Empty cell for action column at end position
-                if ($actionConfig['position'] === 'end') {
-                    $html .= "<td></td>\n";
                 }
 
                 $html .= "</tr>\n";

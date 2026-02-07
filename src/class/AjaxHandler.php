@@ -1153,20 +1153,14 @@ if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
 
             if (isset($actionConfig['groups'])) {
                 foreach ($actionConfig['groups'] as $group) {
-                    // hold the action and data for the html check
-                    $actionKey = array_key_first($group) ?? '';
-                    $actionData = is_array($group) ? reset($group) : $group;
-                    // Skip 'html' entries
-                    if ($actionKey === 'html' || (is_array($actionData) && isset($actionData['html']))) {
+                    if (!is_array($group)) {
                         continue;
                     }
-                    //if (is_array($group) && !is_numeric(key($group))) {
-                    if (is_array($group)) {
-                        if (isset($group[$actionName]['callback']) && is_callable($group[$actionName]['callback'])) {
-                            $callback = $group[$actionName]['callback'];
-                            $callbackConfig = $group[$actionName];
-                            break;
-                        }
+                    // Check if this group contains our action with a callable callback
+                    if (isset($group[$actionName]['callback']) && is_callable($group[$actionName]['callback'])) {
+                        $callback = $group[$actionName]['callback'];
+                        $callbackConfig = $group[$actionName];
+                        break;
                     }
                 }
             }

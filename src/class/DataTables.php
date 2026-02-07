@@ -787,7 +787,7 @@ if (! class_exists('KPT\DataTables\DataTables', false)) {
          * @param  string $scope  Scope: 'page', 'all', or 'both'
          * @return self Returns self for method chaining
          */
-        public function footerAggregate(string $column, string $type = 'sum', string $scope = 'both'): self
+        public function footerAggregate(string $column, string $type = 'sum', string $scope = 'both', string $label = ''): self
         {
             $validTypes = ['sum', 'avg', 'both'];
             $validScopes = ['page', 'all', 'both'];
@@ -803,6 +803,7 @@ if (! class_exists('KPT\DataTables\DataTables', false)) {
             $this->footerAggregations[$column] = [
                 'type' => $type,
                 'scope' => $scope,
+                'label' => $label,
             ];
 
             Logger::debug("Footer aggregation configured", ['column' => $column, 'type' => $type, 'scope' => $scope]);
@@ -817,11 +818,24 @@ if (! class_exists('KPT\DataTables\DataTables', false)) {
          * @param  string $scope   Scope: 'page', 'all', or 'both'
          * @return self Returns self for method chaining
          */
-        public function footerAggregateColumns(array $columns, string $type = 'sum', string $scope = 'both'): self
+        public function footerAggregateColumns(array $columns, string $type = 'sum', string $scope = 'both', string $label = ''): self
         {
             foreach ($columns as $column) {
-                $this->footerAggregate($column, $type, $scope);
+                $this->footerAggregate($column, $type, $scope, $label);
             }
+            return $this;
+        }
+
+        /**
+         * Set GROUP BY clause for aggregate queries
+         *
+         * @param  string $column Column or expression to group by
+         * @return self Returns self for method chaining
+         */
+        public function groupBy(string $column): self
+        {
+            $this->groupBy = $column;
+            Logger::debug("DataTables GROUP BY set", ['column' => $column]);
             return $this;
         }
 
