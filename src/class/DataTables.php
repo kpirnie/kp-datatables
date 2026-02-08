@@ -356,37 +356,37 @@ if (! class_exists('KPT\DataTables', false)) {
             $this->columns = [];
             foreach ($columns as $column => $config) {
                 if (is_string($config)) {
-                    // Simple: 'column_name' => 'Display Label'
                     $this->columns[$column] = $config;
                 } else {
-                    // Enhanced: 'column_name' => ['label' => 'Label', 'type' => 'checkbox', etc.]
                     $this->columns[$column] = $config['label'] ?? $this->generateColumnLabel($column);
 
+                    // Get the unqualified column name for schema lookup
+                    $schemaKey = $column;
+                    if (strpos($column, '.') !== false) {
+                        $schemaKey = explode('.', $column)[1];
+                    }
+
                     // Store enhanced configuration in schema if available
-                    if (isset($this->tableSchema[$column])) {
-                        // Override type if specified
+                    if (isset($this->tableSchema[$schemaKey])) {
                         if (isset($config['type'])) {
-                            $this->tableSchema[$column]['override_type'] = $config['type'];
+                            $this->tableSchema[$schemaKey]['override_type'] = $config['type'];
                         }
-
-                        // Store form field options
                         if (isset($config['options'])) {
-                            $this->tableSchema[$column]['form_options'] = $config['options'];
+                            $this->tableSchema[$schemaKey]['form_options'] = $config['options'];
                         }
-
-                        // Store CSS classes for form field
                         if (isset($config['class'])) {
-                            $this->tableSchema[$column]['form_class'] = $config['class'];
+                            $this->tableSchema[$schemaKey]['form_class'] = $config['class'];
                         }
-
-                        // Store HTML attributes for form field
                         if (isset($config['attributes'])) {
-                            $this->tableSchema[$column]['form_attributes'] = $config['attributes'];
+                            $this->tableSchema[$schemaKey]['form_attributes'] = $config['attributes'];
+                        }
+                        if (isset($config['placeholder'])) {
+                            $this->tableSchema[$schemaKey]['form_placeholder'] = $config['placeholder'];
                         }
 
-                        // Store placeholder text
-                        if (isset($config['placeholder'])) {
-                            $this->tableSchema[$column]['form_placeholder'] = $config['placeholder'];
+                        // ONLY copy if qualified name is different
+                        if ($column !== $schemaKey) {
+                            $this->tableSchema[$column] = $this->tableSchema[$schemaKey];
                         }
                     }
                 }
