@@ -455,7 +455,7 @@ class DataTablesJS {
                             }
                         }
 
-                        let cellContent = row[dataKey] || '';
+                        let cellContent = row[dataKey] ?? '';
                         const tdClass = isEditable ? ' cell-edit' : '';
 
                         // Get field type from schema

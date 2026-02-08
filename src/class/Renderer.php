@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace KPT\DataTables;
+namespace KPT;
 
 // Check if class already exists before declaring it
-if (! class_exists('KPT\DataTables\Renderer', false)) {
+if (! class_exists('KPT\Renderer', false)) {
 
     /**
      * Renderer - HTML Rendering Engine for DataTables

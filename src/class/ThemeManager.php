@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace KPT\DataTables;
+namespace KPT;
 
 // Check if class already exists before declaring it
-if (! class_exists('KPT\DataTables\ThemeManager', false)) {
+if (! class_exists('KPT\ThemeManager', false)) {
 
     /**
      * ThemeManager - Theme Configuration and Asset Management
@@ -15,7 +15,7 @@ if (! class_exists('KPT\DataTables\ThemeManager', false)) {
      *
      * @since   1.1.0
      * @author  Kevin Pirnie <me@kpirnie.com>
-     * @package KPT\DataTables
+     * @package
      */
     class ThemeManager
     {

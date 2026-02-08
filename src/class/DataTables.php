@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace KPT\DataTables;
+namespace KPT;
 
 use KPT\Database;
 use KPT\Logger;
@@ -11,7 +11,7 @@ use RuntimeException;
 use InvalidArgumentException;
 
 // Check if class already exists before declaring it
-if (! class_exists('KPT\DataTables\DataTables', false)) {
+if (! class_exists('KPT\DataTables', false)) {
 
     /**
      * DataTables - Advanced Database Table Management System

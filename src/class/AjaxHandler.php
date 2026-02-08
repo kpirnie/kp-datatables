@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace KPT\DataTables;
+namespace KPT;
 
 use KPT\Logger;
 use Exception;
 use InvalidArgumentException;
 
 // Check if class already exists before declaring it
-if (! class_exists('KPT\DataTables\AjaxHandler', false)) {
+if (! class_exists('KPT\AjaxHandler', false)) {
 
     /**
      * AjaxHandler - Handles AJAX Requests for DataTables

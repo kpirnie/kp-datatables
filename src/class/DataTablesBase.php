@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace KPT\DataTables;
+namespace KPT;
 
 use KPT\Database;
 
 // Check if class already exists before declaring it
-if (! class_exists('KPT\DataTables\DataTablesBase', false)) {
+if (! class_exists('KPT\DataTablesBase', false)) {
 
     /**
      * DataTablesBase - Base class with shared properties and getters
