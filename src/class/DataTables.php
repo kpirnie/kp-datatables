@@ -177,6 +177,11 @@ if (! class_exists('KPT\DataTables', false)) {
                 return 'textarea';
             }
 
+            // Handle select2 fields (before enum/select check)
+            if (isset($field) && strpos(strtolower($field), 'select2') !== false) {
+                return 'select2';
+            }
+
             // Handle enum types
             if (strpos($type, 'enum') !== false) {
                 return 'select';
@@ -372,7 +377,7 @@ if (! class_exists('KPT\DataTables', false)) {
                             $this->tableSchema[$schemaKey]['override_type'] = $config['type'];
                         }
                         if (isset($config['options'])) {
-                            $this->tableSchema[$schemaKey]['form_options'] = $config['options'];
+                            $this->tableSchema[$schemaKey]['form_options'] = (object)$config['options'];
                         }
                         if (isset($config['class'])) {
                             $this->tableSchema[$schemaKey]['form_class'] = $config['class'];
@@ -382,6 +387,18 @@ if (! class_exists('KPT\DataTables', false)) {
                         }
                         if (isset($config['placeholder'])) {
                             $this->tableSchema[$schemaKey]['form_placeholder'] = $config['placeholder'];
+                        }
+                        // Store select2 specific configuration
+                        if (isset($config['type']) && $config['type'] === 'select2') {
+                            if (isset($config['query'])) {
+                                $this->tableSchema[$schemaKey]['select2_query'] = $config['query'];
+                            }
+                            if (isset($config['min_search_chars'])) {
+                                $this->tableSchema[$schemaKey]['select2_min_search_chars'] = $config['min_search_chars'];
+                            }
+                            if (isset($config['max_results'])) {
+                                $this->tableSchema[$schemaKey]['select2_max_results'] = $config['max_results'];
+                            }
                         }
 
                         // ONLY copy if qualified name is different
@@ -977,6 +994,7 @@ if (! class_exists('KPT\DataTables', false)) {
             if ($useMinified) {
                 // Include main DataTables JS
                 $html .= "<script src=\"/vendor/kevinpirnie/kpt-datatables/src/assets/js/dist/kpt-datatables.min.js\" defer></script>\n";
+                $html .= "<script src=\"/vendor/kevinpirnie/kpt-datatables/src/assets/js/dist/select2.min.js\" defer></script>\n";
 
                 // otherwise
             } else {
@@ -987,8 +1005,8 @@ if (! class_exists('KPT\DataTables', false)) {
 
                 // Include main DataTables JS
                 $html .= "<script src=\"/vendor/kevinpirnie/kpt-datatables/src/assets/js/datatables.js\" defer></script>\n";
+                $html .= "<script src=\"/vendor/kevinpirnie/kpt-datatables/src/assets/js/select2.js\" defer></script>\n";
             }
-
 
             return $html;
         }

@@ -67,6 +67,7 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                 'fetch_record',
                 'action_callback',
                 'fetch_aggregations',
+                'fetch_select2_options',
             ];
 
             if (!in_array($action, $allowedActions)) {
@@ -112,7 +113,12 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                     $this->handleActionCallback();
                     break;
                 case 'fetch_aggregations':
+                    // Handle calculation aggregations
                     $this->handleFetchAggregations();
+                    break;
+                case 'fetch_select2_options':
+                    // Handle Select2 options fetch
+                    $this->handleFetchSelect2Options();
                     break;
             }
         }
@@ -561,7 +567,34 @@ if (! class_exists('KPT\AjaxHandler', false)) {
             if (!empty($params)) {
                 $query->bind($params);
             }
-            return $query->fetch();
+            $data = $query->fetch();
+
+            // Fetch select2 labels for display
+            if ($data) {
+                $columns = $this->dataTable->getColumns();
+                $tableSchema = $this->dataTable->getTableSchema();
+
+                foreach ($columns as $column => $label) {
+                    $schemaKey = strpos($column, '.') !== false ? explode('.', $column)[1] : $column;
+                    $fieldInfo = $tableSchema[$schemaKey] ?? [];
+
+                    if (isset($fieldInfo['override_type']) && $fieldInfo['override_type'] === 'select2') {
+                        $query = $fieldInfo['select2_query'] ?? '';
+                        if ($query) {
+                            $labelMap = $this->fetchSelect2Labels($data, $schemaKey, $query);
+
+                            // Replace IDs with labels in data
+                            foreach ($data as &$row) {
+                                if (isset($row->$schemaKey) && isset($labelMap[$row->$schemaKey])) {
+                                    $row->{$schemaKey . '_label'} = $labelMap[$row->$schemaKey];
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            return $data;
         }
 
 
@@ -1719,6 +1752,220 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                 return explode('.', $field)[1];
             }
             return $field;
+        }
+
+        /**
+         * Handle Select2 options fetch request
+         *
+         * Processes AJAX requests for Select2 dropdown options including search filtering,
+         * parameter substitution from record data, and result limiting. Executes the
+         * configured SQL query with ID/Label aliases and returns JSON results.
+         *
+         * @return void (outputs JSON and exits)
+         * @throws InvalidArgumentException If query is missing or invalid
+         * @since  1.2.0
+         */
+        private function handleFetchSelect2Options(): void
+        {
+
+            $query = $_POST['query'] ?? '';
+            $search = $this->sanitizeSearchInput($_POST['search'] ?? '');
+            $maxResults = $this->validateInteger($_POST['max_results'] ?? 50, 0);
+            $valueFilter = $_POST['value_filter'] ?? '';
+            $recordDataJson = $_POST['record_data'] ?? '{}';
+            Logger::debug("Select2 fetch options", [
+                'query' => $query,
+                'search' => $search,
+                'maxResults' => $maxResults,
+                'valueFilter' => $valueFilter,
+                'recordData' => $recordDataJson
+            ]);
+            if (empty($query)) {
+                throw new InvalidArgumentException('Query is required for Select2 options');
+            }
+
+            // Parse record data for parameter substitution
+            $recordData = json_decode($recordDataJson, true);
+            if (!is_array($recordData)) {
+                $recordData = [];
+            }
+
+            // Substitute {field_name} placeholders with record data values
+            $processedQuery = $this->substituteQueryParameters($query, $recordData);
+
+            // Build WHERE clause for search and value filter
+            $whereClauses = [];
+            $params = [];
+
+            // Add value filter if present (for loading initial selected value)
+            if (!empty($valueFilter)) {
+                $whereClauses[] = "ID = ?";
+                $params[] = $valueFilter;
+            }
+
+            // Add search filter if present
+            if (!empty($search)) {
+                // Extract the original column expression from the query before AS Label
+                // Pattern: word/expression AS Label
+                if (preg_match('/,\s*([a-zA-Z0-9_\.]+)\s+AS\s+[`\'"]*Label[`\'"]*\s*/i', $processedQuery, $matches)) {
+                    $labelColumn = trim($matches[1]);
+                } else {
+                    $labelColumn = 'Label';
+                }
+
+                $whereClauses[] = "{$labelColumn} LIKE ?";
+                $params[] = "%{$search}%";
+            }
+
+            // Combine base query with WHERE clause
+            $finalQuery = $processedQuery;
+
+            if (!empty($whereClauses)) {
+                // Check if query already has WHERE clause
+                if (stripos($finalQuery, 'WHERE') !== false) {
+                    $finalQuery .= ' AND (' . implode(' AND ', $whereClauses) . ')';
+                } else {
+                    $finalQuery .= ' WHERE ' . implode(' AND ', $whereClauses);
+                }
+            }
+
+            // Add LIMIT if max_results is specified
+            if ($maxResults > 0) {
+                $finalQuery .= " LIMIT {$maxResults}";
+            }
+
+            try {
+                Logger::debug("Select2 executing query", ['sql' => $finalQuery, 'params' => $params]);
+
+                // Execute query using database connection
+                $query = $this->dataTable->getDatabase()->query($finalQuery);
+                if (!empty($params)) {
+                    $query->bind($params);
+                }
+                $results = $query->fetch();
+
+                // Ensure results is an array
+                if (!$results) {
+                    $results = [];
+                }
+
+                header('Content-Type: application/json');
+                echo json_encode([
+                    'success' => true,
+                    'results' => $results
+                ]);
+                exit;
+            } catch (\Exception $e) {
+                Logger::error("Select2 query failed", [
+                    'query' => $finalQuery,
+                    'error' => $e->getMessage()
+                ]);
+
+                header('Content-Type: application/json');
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Failed to fetch options',
+                    'results' => []
+                ]);
+                exit;
+            }
+        }
+
+        /**
+         * Fetch select2 labels for display in table
+         *
+         * @param  array  $rows   Data rows with IDs
+         * @param  string $column Column name
+         * @param  string $query  Select2 query
+         * @return array  Map of ID => Label
+         */
+        private function fetchSelect2Labels(array $rows, string $column, string $query): array
+        {
+            $ids = array_unique(array_column($rows, $column));
+            $ids = array_filter($ids); // Remove empty values
+
+            if (empty($ids)) {
+                return [];
+            }
+
+            // Extract original column from query for WHERE clause
+            if (preg_match('/,\s*([a-zA-Z0-9_\.]+)\s+AS\s+[`\'"]*Label[`\'"]*\s*/i', $query, $matches)) {
+                $labelColumn = trim($matches[1]);
+            } else {
+                return [];
+            }
+
+            // Build query to fetch labels for all IDs
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $fetchQuery = "{$query} WHERE ID IN ({$placeholders})";
+
+            try {
+                $results = $this->dataTable->getDatabase()
+                    ->query($fetchQuery)
+                    ->bind($ids)
+                    ->fetch();
+
+                // Build ID => Label map
+                $labelMap = [];
+                if ($results) {
+                    foreach ($results as $row) {
+                        $labelMap[$row->ID] = $row->Label;
+                    }
+                }
+
+                return $labelMap;
+            } catch (\Exception $e) {
+                Logger::error("Failed to fetch select2 labels", ['error' => $e->getMessage()]);
+                return [];
+            }
+        }
+
+        /**
+         * Substitute query parameters from record data
+         *
+         * Replaces {field_name} placeholders in the query with actual values
+         * from the provided record data array. Parameters are properly escaped
+         * for SQL injection prevention.
+         *
+         * @param  string $query      SQL query with {field_name} placeholders
+         * @param  array  $recordData Associative array of field => value pairs
+         * @return string Processed query with substituted values
+         * @since  1.2.0
+         */
+        private function substituteQueryParameters(string $query, array $recordData): string
+        {
+            // Find all {field_name} placeholders
+            preg_match_all('/\{([a-zA-Z0-9_]+)\}/', $query, $matches);
+
+            if (empty($matches[0])) {
+                return $query;
+            }
+
+            $processedQuery = $query;
+
+            // Replace each placeholder with its value from record data
+            foreach ($matches[1] as $index => $fieldName) {
+                $placeholder = $matches[0][$index];
+
+                if (isset($recordData[$fieldName])) {
+                    $value = $recordData[$fieldName];
+
+                    // Escape value for SQL safety
+                    if (is_numeric($value)) {
+                        $escapedValue = $value;
+                    } else {
+                        // Use database escape method if available, otherwise basic escaping
+                        $escapedValue = "'" . addslashes($value) . "'";
+                    }
+
+                    $processedQuery = str_replace($placeholder, $escapedValue, $processedQuery);
+                } else {
+                    // Replace with NULL if field not found in record data
+                    $processedQuery = str_replace($placeholder, 'NULL', $processedQuery);
+                }
+            }
+
+            return $processedQuery;
         }
     }
 }

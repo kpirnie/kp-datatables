@@ -61,6 +61,13 @@ if (! class_exists('KPT\DataTablesBase', false)) {
         protected array $columns = [];
 
         /**
+         * Select2 field configurations
+         *
+         * @var array
+         */
+        protected array $select2Fields = [];
+
+        /**
          * Table schema information loaded from database
          *
          * @var array
@@ -270,6 +277,16 @@ if (! class_exists('KPT\DataTablesBase', false)) {
 
         // === GETTER METHODS FOR CONFIGURATION ACCESS ===
         // These methods provide read-only access to configuration for other classes
+
+        /**
+         * Get the Select2 fields configuration
+         *
+         * @return array Select2 fields configuration array
+         */
+        public function getSelect2Fields(): array
+        {
+            return $this->select2Fields;
+        }
 
         /**
          * Get the database instance

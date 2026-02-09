@@ -151,6 +151,10 @@ class DataTablesJS {
         } else if (typeof KPDataTablesPlain !== 'undefined') {
             KPDataTablesPlain.hideModal(modalId);
         }
+        // Cleanup any open select2 dropdowns
+        document.querySelectorAll('.kp-select2-dropdown').forEach(dd => {
+            dd.style.display = 'none';
+        });
     }
 
     // Theme-aware confirm dialog
@@ -490,6 +494,17 @@ class DataTablesJS {
                                 cellContent = `<span class="inline-editable" data-field="${column}" data-id="${rowId}" data-type="${fieldType}" data-value="${cellContent}" style="cursor: pointer;">${displayLabel}</span>`;
                             } else {
                                 cellContent = displayLabel;
+                            }
+
+                            // Handle select2 display with fetched labels
+                        } else if (fieldType === 'select2') {
+                            const labelKey = dataKey + '_label';
+                            const displayValue = row[labelKey] || cellContent;
+
+                            if (isEditable) {
+                                cellContent = `<span class="inline-editable" data-field="${column}" data-id="${rowId}" data-type="${fieldType}" data-value="${cellContent}" style="cursor: pointer;">${displayValue}</span>`;
+                            } else {
+                                cellContent = displayValue;
                             }
 
                             // Handle image display with thumbnails
@@ -1153,7 +1168,6 @@ class DataTablesJS {
             });
     }
 
-
     populateEditForm(recordData) {
         // Get unqualified primary key name
         let unqualifiedPK = this.primaryKey;
@@ -1191,6 +1205,10 @@ class DataTablesJS {
                 } else if (element.type === 'radio') {
                     element.checked = element.value === String(value);
                 } else {
+                    // For select2 fields, add the option before setting value
+                    if (element.hasAttribute('data-select2')) {
+                        element.innerHTML = `<option value="${value}" selected>${value}</option>`;
+                    }
                     element.value = value;
                 }
             } else {
@@ -1202,6 +1220,23 @@ class DataTablesJS {
                 }
             }
         });
+
+        // Update Select2 fields with record data for query parameter substitution
+        const select2Fields = editForm.querySelectorAll('select[data-select2]');
+        if (select2Fields.length > 0) {
+            const recordDataJson = JSON.stringify(recordData);
+            select2Fields.forEach(field => {
+                field.setAttribute('data-record-data', recordDataJson);
+
+                // Re-initialize Select2 with new record data if already initialized
+                const existingInstance = field.kptSelect2Instance;
+                if (existingInstance && field.value) {
+                    existingInstance.config.recordData = recordData;
+                    existingInstance.selectedValue = field.value;
+                    existingInstance.loadInitialValue();
+                }
+            });
+        }
     }
 
     submitAddForm(event) {
@@ -1368,6 +1403,11 @@ class DataTablesJS {
     }
 
     startInlineEdit(element) {
+        // Prevent multiple edits on the same cell
+        if (element.querySelector('input, select, textarea')) {
+            return;
+        }
+
         const field = element.getAttribute('data-field');
         const id = element.getAttribute('data-id');
         const fieldType = element.getAttribute('data-type') || 'text';
@@ -1389,14 +1429,16 @@ class DataTablesJS {
         const roundedClass = this.getThemeClass('border.rounded');
         const displayBlockClass = this.getThemeClass('display.block');
 
+        // Get schema information for options
+        const tableElement = document.querySelector('.datatables-table');
+        const tableSchema = tableElement ? JSON.parse(tableElement.dataset.columns || '{}') : {};
+
+
         let inputElement;
 
         // Create appropriate input based on field type
         switch (fieldType) {
             case 'select':
-                // Get schema information for options
-                const tableElement = document.querySelector('.datatables-table');
-                const tableSchema = tableElement ? JSON.parse(tableElement.dataset.columns || '{}') : {};
                 const options = tableSchema[field]?.form_options || {};
 
                 inputElement = document.createElement('select');
@@ -1413,6 +1455,97 @@ class DataTablesJS {
                     inputElement.appendChild(option);
                 }
                 break;
+
+            case 'select2':
+                const query = tableSchema[field]?.select2_query || '';
+                const minChars = 0;
+                const maxResults = tableSchema[field]?.select2_max_results || 50;
+                let originalLabel = currentValue;
+
+                if (!query) {
+                    console.error('No query configured for select2 field:', field);
+                    element.textContent = currentValue;
+                    return;
+                }
+
+                const selectEl = document.createElement('select');
+                selectEl.className = selectClass;
+                selectEl.setAttribute('data-select2', 'true');
+                selectEl.setAttribute('data-query', query);
+                selectEl.setAttribute('data-placeholder', 'Select...');
+                selectEl.setAttribute('data-min-search-chars', minChars);
+                selectEl.setAttribute('data-max-results', maxResults);
+                selectEl.setAttribute('data-theme', this.theme);
+                selectEl.innerHTML = `<option value="${currentValue}" selected>Loading...</option>`;
+                selectEl.value = currentValue;
+
+                element.innerHTML = '';
+                element.appendChild(selectEl);
+
+                setTimeout(() => {
+
+                    if (typeof window.KPTSelect2 === 'function') {
+                        const config = {
+                            placeholder: selectEl.getAttribute('data-placeholder') || 'Select...',
+                            query: selectEl.getAttribute('data-query') || '',
+                            minSearchChars: selectEl.getAttribute('data-min-search-chars') || 0,
+                            maxResults: selectEl.getAttribute('data-max-results') || 50,
+                            theme: selectEl.getAttribute('data-theme') || 'uikit',
+                            recordData: {}
+                        };
+
+                        new KPTSelect2(selectEl, config);
+
+                        // Add change listener AFTER instance is created
+                        selectEl.addEventListener('change', () => {
+                            const newValue = selectEl.value;
+                            if (newValue !== currentValue) {
+                                this.saveInlineEdit(id, field, newValue, element);
+                            } else {
+                                if (selectEl.kptSelect2Instance) {
+                                    element.textContent = selectEl.kptSelect2Instance.selectedLabel || currentValue;
+                                } else {
+                                    element.textContent = currentValue;
+                                }
+                            }
+                        });
+
+                        // Override close method to restore if no change
+                        const instance = selectEl.kptSelect2Instance;
+                        const originalClose = instance.close.bind(instance);
+                        instance.close = function () {
+                            const valueChanged = selectEl.value !== currentValue;
+                            originalClose();
+
+                            if (!valueChanged) {
+                                // Restore original cell content
+                                element.textContent = originalLabel;
+                            }
+                        };
+                    } else {
+                        console.error('KPTSelect2 class not found!');
+                    }
+
+                    setTimeout(() => {
+                        if (selectEl.kptSelect2Instance) {
+                            selectEl.kptSelect2Instance.selectedValue = currentValue;
+                            selectEl.kptSelect2Instance.loadInitialValue();
+
+                            // Store the label once loaded
+                            setTimeout(() => {
+                                originalLabel = selectEl.kptSelect2Instance.selectedLabel || currentValue;
+                            }, 25);
+
+                            setTimeout(() => {
+                                selectEl.kptSelect2Instance.open();
+                            }, 50);
+                        } else {
+                            console.error('NO INSTANCE CREATED');
+                        }
+                    }, 100);
+                }, 150);
+
+                return;
 
             case 'textarea':
                 inputElement = document.createElement('textarea');
@@ -1561,7 +1694,6 @@ class DataTablesJS {
                 urlInput.focus();
                 return; // Exit early since we handle everything custom
 
-
             default: // text, email, etc.
                 inputElement = document.createElement('input');
                 inputElement.type = fieldType === 'email' ? 'email' : 'text';
@@ -1665,6 +1797,7 @@ class DataTablesJS {
                             const selectOptions = tableSchema[field]?.form_options || {};
                             const valueStr = String(value);
                             const displayLabel = valueStr in selectOptions ? selectOptions[valueStr] : value;
+
 
                             element.setAttribute('data-value', value);
                             element.textContent = displayLabel;
