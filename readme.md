@@ -602,6 +602,61 @@ $theme = 'uikit'; // 'plain', 'uikit', 'bootstrap', 'tailwind'
 ]
 ```
 
+### Select2 - AJAX Searchable Dropdown
+
+For large datasets where loading all options upfront is impractical, use Select2 fields with server-side search.
+
+```php
+'user_id' => [
+    'type' => 'select2',
+    'label' => 'User',
+    'query' => 'SELECT id AS ID, u_name AS Label FROM kptv_users',
+    'placeholder' => 'Select a user...',
+    'required' => true,
+    'min_search_chars' => 2,  // Minimum characters before search
+    'max_results' => 50,       // Maximum results to return
+    'class' => 'uk-width-1-1'
+]
+```
+
+**Required Configuration:**
+
+- `query` - SQL query that returns `ID` (value) and `Label` (display text) columns
+- The query must use `AS ID` and `AS Label` aliases
+
+**Optional Configuration:**
+
+- `min_search_chars` - Minimum characters required before searching (default: 0)
+- `max_results` - Maximum number of results to return (default: 50)
+- `placeholder` - Placeholder text when no selection
+- `required` - Whether the field is required
+- `class` - CSS classes for styling
+
+**Features:**
+
+- ✅ AJAX-powered search as you type
+- ✅ Debounced search (300ms delay)
+- ✅ Works in add forms, edit forms, and inline editing
+- ✅ Supports all themes (UIKit, Bootstrap, Tailwind, Plain)
+- ✅ Displays labels in table, stores IDs in database
+- ✅ Automatically loads current selection in edit mode
+
+**Query Parameter Substitution:**
+
+Use `{column_name}` placeholders in queries to reference other field values:
+
+```php
+'state' => [
+    'type' => 'select',
+    'options' => [/* states */]
+],
+'city' => [
+    'type' => 'select2',
+    'query' => 'SELECT id AS ID, city_name AS Label FROM cities WHERE state_id = {state}',
+    'placeholder' => 'Select city...'
+]
+```
+
 ### File Upload
 
 ```php
@@ -837,4 +892,4 @@ The MIT License (MIT). Please see [License File](LICENSE) for more information.
 
 ---
 
-**Made with ❤️ by [Kevin Pirnie](https://kpirnie.com)**
+**Made with ❤️ by [Kevin Pirnie](https://kkevinpirniecom)**
