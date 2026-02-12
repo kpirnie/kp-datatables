@@ -70,7 +70,7 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                 'fetch_select2_options',
             ];
 
-            if (!in_array($action, $allowedActions)) {
+            if (!in_array($action, $allowedActions, true)) {
                 throw new InvalidArgumentException("Invalid action: {$action}");
             }
 
@@ -204,23 +204,57 @@ if (! class_exists('KPT\AjaxHandler', false)) {
 
             // Extract and validate file extension
             $extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-            if (!in_array($extension, $config['allowed_extensions'])) {
+            if (!in_array($extension, $config['allowed_extensions'], true)) {
                 return [
                     'success' => false,
                     'message' => 'File type not allowed'
                 ];
             }
 
+            // Validate file was uploaded through HTTP POST
+            if (!is_uploaded_file($file['tmp_name'])) {
+                return [
+                    'success' => false,
+                    'message' => 'Invalid upload source'
+                ];
+            }
+
+            // Validate MIME type when configured (extension checks alone are insufficient)
+            if (!empty($config['allowed_mime_types']) && function_exists('finfo_open')) {
+                $finfo = finfo_open(FILEINFO_MIME_TYPE);
+                $mimeType = $finfo ? finfo_file($finfo, $file['tmp_name']) : false;
+
+                if ($finfo) {
+                    finfo_close($finfo);
+                }
+
+                if ($mimeType === false || !in_array($mimeType, $config['allowed_mime_types'], true)) {
+                    return [
+                        'success' => false,
+                        'message' => 'File MIME type not allowed'
+                    ];
+                }
+            }
+
             // Ensure upload directory exists
-            if (!is_dir($config['upload_path'])) {
+            $uploadPath = rtrim($config['upload_path'], DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+
+            if (!is_dir($uploadPath)) {
                 // Create directory with appropriate permissions
-                mkdir($config['upload_path'], 0755, true);
+                if (!mkdir($uploadPath, 0755, true) && !is_dir($uploadPath)) {
+                    return [
+                        'success' => false,
+                        'message' => 'Failed to create upload directory'
+                    ];
+                }
             }
 
             // Generate unique filename with optional prepend
-            $prepend = $_POST['prepend'] ?? '';
-            $fileName = $prepend ? $prepend . '_' . uniqid() . '_' . basename($file['name']) : uniqid() . '_' . basename($file['name']);
-            $filePath = $config['upload_path'] . $fileName;
+            $prepend = $this->sanitizeInput((string) ($_POST['prepend'] ?? ''));
+            $originalName = preg_replace('/[^a-zA-Z0-9._-]/', '', basename((string) $file['name']));
+            $randomName = bin2hex(random_bytes(16));
+            $fileName = $prepend !== '' ? "{$prepend}_{$randomName}_{$originalName}" : "{$randomName}_{$originalName}";
+            $filePath = $uploadPath . $fileName;
 
             // Attempt to move uploaded file to final destination
             if (move_uploaded_file($file['tmp_name'], $filePath)) {
