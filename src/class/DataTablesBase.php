@@ -176,6 +176,14 @@ if (! class_exists('KPT\DataTablesBase', false)) {
         protected array $fileUploadConfig = [
             'upload_path' => 'uploads/',
             'allowed_extensions' => ['jpg', 'jpeg', 'png', 'gif', 'pdf', 'doc', 'docx'],
+            'allowed_mime_types' => [
+                'image/jpeg',
+                'image/png',
+                'image/gif',
+                'application/pdf',
+                'application/msword',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            ],
             'max_file_size' => 10485760    // 10MB in bytes
         ];
 
