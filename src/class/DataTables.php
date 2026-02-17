@@ -400,6 +400,10 @@ if (! class_exists('KPT\DataTables', false)) {
                                 $this->tableSchema[$schemaKey]['select2_max_results'] = $config['max_results'];
                             }
                         }
+                        // date formatter
+                        if (isset($config['formatter'])) {
+                            $this->tableSchema[$schemaKey]['formatter'] = $config['formatter'];
+                        }
 
                         // ONLY copy if qualified name is different
                         if ($column !== $schemaKey) {
@@ -994,7 +998,6 @@ if (! class_exists('KPT\DataTables', false)) {
             if ($useMinified) {
                 // Include main DataTables JS
                 $html .= "<script src=\"/vendor/kevinpirnie/kpt-datatables/src/assets/js/dist/kpt-datatables.min.js\" defer></script>\n";
-                $html .= "<script src=\"/vendor/kevinpirnie/kpt-datatables/src/assets/js/dist/select2.min.js\" defer></script>\n";
 
                 // otherwise
             } else {

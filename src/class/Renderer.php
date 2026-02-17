@@ -560,9 +560,7 @@ if (! class_exists('KPT\Renderer', false)) {
             $html .= "<form class=\"{$formStackedClass} {$formClass}\" id=\"add-form\" onsubmit=\"return DataTables.submitAddForm(event)\">\n";
 
             // Render each configured form field
-            foreach ($formFields as $field => $config) {
-                $html .= $this->renderFormField($field, $config, 'add');
-            }
+            $html .= $this->renderTabbedFormFields($formFields, 'add');
 
             // Form action buttons (Cancel and Submit)
             $marginTopClass = $tm->getClass('margin.top');
@@ -641,9 +639,7 @@ if (! class_exists('KPT\Renderer', false)) {
             $html .= "<input type=\"hidden\" name=\"{$unqualifiedPK}\" id=\"edit-{$unqualifiedPK}\">\n";
 
             // Render each configured form field
-            foreach ($formFields as $field => $config) {
-                $html .= $this->renderFormField($field, $config, 'edit');
-            }
+            $html .= $this->renderTabbedFormFields($formFields, 'edit');
 
             // Form action buttons (Cancel and Submit)
             $marginTopClass = $tm->getClass('margin.top');
@@ -932,6 +928,25 @@ if (! class_exists('KPT\Renderer', false)) {
                     $html .= "<small class=\"" . $tm->getClass('text.muted') . "\">Upload an image file or enter URL above</small>\n</div>\n";
                     break;
 
+                case 'datepicker':
+                    $formatter = $config['formatter'] ?? 'YYYY-MM-DD';
+                    $html .= "<label class=\"{$formLabelClass}\" for=\"{$fieldId}\">{$label}"
+                        . ($required ? " <span class=\"{$dangerClass}\">*</span>" : "") . "</label>\n";
+                    $html .= "<div class=\"kp-dt-datepicker-wrap\">\n";
+                    $html .= "<input type=\"text\" class=\"{$inputClass} kp-dt-datepicker\" "
+                        . "id=\"{$fieldId}\" "
+                        . "placeholder=\"" . ($placeholder ?: $formatter) . "\" value=\"{$value}\" "
+                        . "data-formatter=\"" . htmlspecialchars($formatter, ENT_QUOTES) . "\" "
+                        . "{$attrString} "
+                        . ($required ? "required " : "")
+                        . ($disabled ? "disabled " : "")
+                        . ">\n";
+                    $html .= "<input type=\"date\" class=\"kp-dt-datepicker-native\" name=\"{$fieldName}\" "                        . "data-target=\"{$fieldId}\" "
+                        . "data-formatter=\"" . htmlspecialchars($formatter, ENT_QUOTES) . "\" "
+                        . "onchange=\"KPDataTablesDatepicker.applyDate(this)\">\n";
+                    $html .= "</div>\n";
+                    break;
+
                 default:
                     // Standard text/email input
                     $html .= "<label class=\"{$formLabelClass}\" for=\"{$fieldId}\">{$label}" . ($required ? " <span class=\"{$dangerClass}\">*</span>" : "") . "</label>\n";
@@ -1206,10 +1221,137 @@ if (! class_exists('KPT\Renderer', false)) {
             $html .= "        defaultSortDirection: '{$defaultSortDirection}',\n";
             $html .= "        theme: '{$this->theme}',\n";
             $html .= "        footerAggregations: " . json_encode($this->getFooterAggregations()) . "\n";
-
+            $datepickerFormatters = [];
+            foreach ($this->getTableSchema() as $colName => $info) {
+                $type = $info['override_type'] ?? $info['type'] ?? 'text';
+                if ($type === 'datepicker' && isset($info['formatter'])) {
+                    $datepickerFormatters[$colName] = $info['formatter'];
+                }
+            }
+            if (!empty($datepickerFormatters)) {
+                $html .= "        datepickerFormatters: " . json_encode($datepickerFormatters) . ",\n";
+            }
             $html .= "    });\n";
             $html .= "});\n";
             $html .= "</script>\n";
+
+            return $html;
+        }
+
+        protected function groupFieldsByTab(array $fields): array
+        {
+            $tabs = [];
+            $hasAnyTab = false;
+            foreach ($fields as $field => $config) {
+                $tabName = $config['tab'] ?? '__default__';
+                if ($tabName !== '__default__') {
+                    $hasAnyTab = true;
+                }
+                if (!isset($tabs[$tabName])) {
+                    $tabs[$tabName] = [];
+                }
+                $tabs[$tabName][$field] = $config;
+            }
+            return ['tabs' => $tabs, 'hasTabs' => $hasAnyTab];
+        }
+
+        protected function renderTabbedFormFields(array $fields, string $prefix = 'add'): string
+        {
+            $grouped = $this->groupFieldsByTab($fields);
+            if (!$grouped['hasTabs']) {
+                $html = '';
+                foreach ($fields as $field => $config) {
+                    $html .= $this->renderFormField($field, $config, $prefix);
+                }
+                return $html;
+            }
+
+            $tabs = $grouped['tabs'];
+            $tabId = "{$prefix}-tabs-" . uniqid();
+            $orderedTabs = [];
+            if (isset($tabs['__default__'])) {
+                $orderedTabs['General'] = $tabs['__default__'];
+                unset($tabs['__default__']);
+            }
+            foreach ($tabs as $tabName => $tabFields) {
+                $orderedTabs[$tabName] = $tabFields;
+            }
+            return $this->renderTabsHtml($orderedTabs, $prefix, $tabId);
+        }
+
+        protected function renderTabsHtml(array $orderedTabs, string $prefix, string $tabId): string
+        {
+            $tm = $this->getThemeManager();
+            $tabNames = array_keys($orderedTabs);
+            $html = '';
+
+            if ($this->theme === 'uikit') {
+                $html .= "<ul uk-tab id=\"{$tabId}\">\n";
+                foreach ($tabNames as $name) {
+                    $html .= "<li><a href=\"#\">{$name}</a></li>\n";
+                }
+                $html .= "</ul>\n<ul class=\"uk-switcher uk-margin\">\n";
+                foreach ($orderedTabs as $name => $fields) {
+                    $html .= "<li>\n";
+                    foreach ($fields as $field => $config) {
+                        $html .= $this->renderFormField($field, $config, $prefix);
+                    }
+                    $html .= "</li>\n";
+                }
+                $html .= "</ul>\n";
+            } elseif ($this->theme === 'bootstrap') {
+                $html .= "<ul class=\"nav nav-tabs mb-3\" id=\"{$tabId}\" role=\"tablist\">\n";
+                $first = true;
+                foreach ($tabNames as $name) {
+                    $slug = $prefix . '-tab-' . preg_replace('/[^a-z0-9]/', '-', strtolower($name));
+                    $active = $first ? ' active' : '';
+                    $selected = $first ? 'true' : 'false';
+                    $html .= "<li class=\"nav-item\" role=\"presentation\">"
+                        . "<button class=\"nav-link{$active}\" id=\"{$slug}-btn\" "
+                        . "data-bs-toggle=\"tab\" data-bs-target=\"#{$slug}\" "
+                        . "type=\"button\" role=\"tab\" aria-controls=\"{$slug}\" "
+                        . "aria-selected=\"{$selected}\">{$name}</button></li>\n";
+                    $first = false;
+                }
+                $html .= "</ul>\n<div class=\"tab-content\" id=\"{$tabId}-content\">\n";
+                $first = true;
+                foreach ($orderedTabs as $name => $fields) {
+                    $slug = $prefix . '-tab-' . preg_replace('/[^a-z0-9]/', '-', strtolower($name));
+                    $active = $first ? ' show active' : '';
+                    $html .= "<div class=\"tab-pane fade{$active}\" id=\"{$slug}\" role=\"tabpanel\">\n";
+                    foreach ($fields as $field => $config) {
+                        $html .= $this->renderFormField($field, $config, $prefix);
+                    }
+                    $html .= "</div>\n";
+                    $first = false;
+                }
+                $html .= "</div>\n";
+            } else {
+                $s = ($this->theme === 'tailwind') ? '-tailwind' : '';
+                $html .= "<div class=\"kp-dt-tabs{$s}\" id=\"{$tabId}\">\n<div class=\"kp-dt-tab-nav{$s}\">\n";
+                $first = true;
+                foreach ($tabNames as $name) {
+                    $slug = $prefix . '-tab-' . preg_replace('/[^a-z0-9]/', '-', strtolower($name));
+                    $active = $first ? " kp-dt-tab-active{$s}" : '';
+                    $html .= "<button type=\"button\" class=\"kp-dt-tab-btn{$s}{$active}\" "
+                        . "data-tab-target=\"{$slug}\" "
+                        . "onclick=\"KPDataTablesPlain.switchTab(this, '{$slug}')\">{$name}</button>\n";
+                    $first = false;
+                }
+                $html .= "</div>\n";
+                $first = true;
+                foreach ($orderedTabs as $name => $fields) {
+                    $slug = $prefix . '-tab-' . preg_replace('/[^a-z0-9]/', '-', strtolower($name));
+                    $display = $first ? '' : ' style="display:none;"';
+                    $html .= "<div class=\"kp-dt-tab-panel{$s}\" id=\"{$slug}\"{$display}>\n";
+                    foreach ($fields as $field => $config) {
+                        $html .= $this->renderFormField($field, $config, $prefix);
+                    }
+                    $html .= "</div>\n";
+                    $first = false;
+                }
+                $html .= "</div>\n";
+            }
 
             return $html;
         }

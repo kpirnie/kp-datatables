@@ -12,6 +12,7 @@
 
 class DataTablesJS {
     constructor(config = {}) {
+
         // Configuration
         this.tableName = config.tableName || '';
         this.primaryKey = config.primaryKey || 'id';
@@ -24,6 +25,7 @@ class DataTablesJS {
         this.cssClasses = config.cssClasses || {};
         this.theme = config.theme || 'uikit';
         this.footerAggregations = config.footerAggregations || {};
+        this.datepickerFormatters = config.datepickerFormatters || {};
 
         // State
         this.currentPage = 1;
@@ -1210,6 +1212,22 @@ class DataTablesJS {
                         element.innerHTML = `<option value="${value}" selected>${value}</option>`;
                     }
                     element.value = value;
+
+                    // Sync datepicker display input
+                    if (element.classList.contains('kp-dt-datepicker-native')) {
+                        var wrap = element.closest('.kp-dt-datepicker-wrap');
+                        if (wrap) {
+                            var display = wrap.querySelector('.kp-dt-datepicker');
+                            if (display) {
+                                if (typeof KPDataTablesDatepicker !== 'undefined') {
+                                    var formatter = display.getAttribute('data-formatter') || 'YYYY-MM-DD';
+                                    display.value = KPDataTablesDatepicker.format(value, formatter);
+                                } else {
+                                    display.value = value;
+                                }
+                            }
+                        }
+                    }
                 }
             } else {
                 // Clear field if no value found
@@ -1694,6 +1712,42 @@ class DataTablesJS {
                 urlInput.focus();
                 return; // Exit early since we handle everything custom
 
+            case 'datepicker':
+                const dpFormatter = this.datepickerFormatters[field] || 'YYYY-MM-DD';
+                const dpWrap = document.createElement('div');
+                dpWrap.className = 'kp-dt-datepicker-wrap';
+
+                const dpDisplay = document.createElement('input');
+                dpDisplay.type = 'text';
+                dpDisplay.className = inputClass + ' kp-dt-datepicker';
+                dpDisplay.value = currentValue;
+                dpDisplay.readOnly = true;
+                dpDisplay.setAttribute('data-formatter', dpFormatter);
+
+                const dpNative = document.createElement('input');
+                dpNative.type = 'date';
+                dpNative.className = 'kp-dt-datepicker-native';
+                dpNative.setAttribute('data-formatter', dpFormatter);
+
+                // Try to parse current value back to YYYY-MM-DD for the native picker
+                const parsed = KPDataTablesDatepicker.parseToISO(currentValue, dpFormatter);
+                if (parsed) {
+                    dpNative.value = parsed;
+                }
+
+                dpNative.addEventListener('change', () => {
+                    const formatted = KPDataTablesDatepicker.format(dpNative.value, dpFormatter);
+                    dpDisplay.value = formatted;
+                    this.saveInlineEdit(id, field, formatted, element);
+                });
+
+                dpWrap.appendChild(dpDisplay);
+                dpWrap.appendChild(dpNative);
+                element.textContent = '';
+                element.appendChild(dpWrap);
+                dpNative.showPicker ? dpNative.showPicker() : dpNative.click();
+                return;
+
             default: // text, email, etc.
                 inputElement = document.createElement('input');
                 inputElement.type = fieldType === 'email' ? 'email' : 'text';
@@ -1878,6 +1932,22 @@ class DataTablesJS {
         return baseClass ? `${baseClass}-${rowId}` : '';
     }
 }
+
+document.addEventListener('click', function (e) {
+    var wrap = e.target.closest('.kp-dt-datepicker-wrap');
+    if (!wrap) return;
+    var dp = wrap.querySelector('.kp-dt-datepicker');
+    var native = wrap.querySelector('.kp-dt-datepicker-native');
+    if (!dp || !native) return;
+    native.style.display = 'block';
+    native.style.position = 'static';
+    native.style.opacity = '1';
+    native.style.width = '100%';
+    native.style.height = 'auto';
+    dp.style.display = 'none';
+    native.focus();
+    try { native.showPicker(); } catch (err) { }
+});
 
 // Make DataTables available globally
 window.DataTablesJS = DataTablesJS;

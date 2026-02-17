@@ -323,6 +323,40 @@
     .kp-select2-display-tailwind:not(.kp-select2-has-value) {
         @apply text-gray-400;
     }
+
+    /* Tabs */
+    .kp-dt-tabs-tailwind {
+        @apply mb-5;
+    }
+
+    .kp-dt-tab-nav-tailwind {
+        @apply flex border-b border-gray-200 mb-5 gap-0;
+    }
+
+    .kp-dt-tab-btn-tailwind {
+        @apply px-5 py-2.5 bg-transparent border-0 border-b-2 border-transparent cursor-pointer text-sm text-gray-400 transition-colors duration-100;
+    }
+
+    .kp-dt-tab-btn-tailwind:hover {
+        @apply text-gray-600;
+    }
+
+    .kp-dt-tab-btn-tailwind.kp-dt-tab-active-tailwind {
+        @apply text-gray-800 border-blue-500;
+    }
+
+    /* Datepicker */
+    .kp-dt-datepicker-wrap {
+        @apply relative inline-block w-full;
+    }
+
+    .kp-dt-datepicker-wrap .kp-dt-datepicker {
+        @apply cursor-pointer;
+    }
+
+    .kp-dt-datepicker-wrap .kp-dt-datepicker-native {
+        @apply hidden;
+    }
 }
 
 @keyframes kp-dt-fade-in-tailwind {

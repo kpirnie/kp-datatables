@@ -233,3 +233,18 @@
 .kp-select2-display-uikit:not(.kp-select2-has-value) {
     color: #999;
 }
+
+/* === DATEPICKER === */
+.kp-dt-datepicker-wrap {
+    position: relative;
+    display: inline-block;
+    width: 100%;
+}
+
+.kp-dt-datepicker-wrap .kp-dt-datepicker {
+    cursor: pointer;
+}
+
+.kp-dt-datepicker-wrap .kp-dt-datepicker-native {
+    display: none;
+}

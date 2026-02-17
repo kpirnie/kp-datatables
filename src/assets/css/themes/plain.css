@@ -669,3 +669,55 @@
 .kp-select2-display:not(.kp-select2-has-value) {
     color: #999;
 }
+
+/* === TABS === */
+.kp-dt-tabs {
+    margin-bottom: 20px;
+}
+
+.kp-dt-tab-nav {
+    display: flex;
+    border-bottom: 1px solid var(--kp-dt-border);
+    margin-bottom: 20px;
+    gap: 0;
+}
+
+.kp-dt-tab-btn {
+    padding: 10px 20px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--kp-dt-muted);
+    transition: color var(--kp-dt-transition), border-color var(--kp-dt-transition);
+}
+
+.kp-dt-tab-btn:hover {
+    color: var(--kp-dt-text);
+}
+
+.kp-dt-tab-btn.kp-dt-tab-active {
+    color: var(--kp-dt-text-emphasis);
+    border-bottom-color: var(--kp-dt-primary);
+}
+
+.kp-dt-tab-panel {
+    /* panels are toggled via JS display */
+}
+
+/* === DATEPICKER === */
+.kp-dt-datepicker-wrap {
+    position: relative;
+    display: inline-block;
+    width: 100%;
+}
+
+.kp-dt-datepicker-wrap .kp-dt-datepicker {
+    cursor: pointer;
+}
+
+.kp-dt-datepicker-wrap .kp-dt-datepicker-native {
+    display: none;
+}
