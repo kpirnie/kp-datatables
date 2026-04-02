@@ -31,7 +31,9 @@ if (! class_exists('KPT\Renderer', false)) {
          *
          * @param DataTables|null $dataTable Optional DataTables instance
          */
-        public function __construct(?DataTables $dataTable = null) {}
+        public function __construct(?DataTables $dataTable = null)
+        {
+        }
 
         /**
          * Render the complete DataTable HTML output
@@ -326,7 +328,6 @@ if (! class_exists('KPT\Renderer', false)) {
 
             // Render each configured filter field
             foreach ($filterConfig as $field => $config) {
-
                 // Normalize shorthand (field => operator) to full config array
                 $config = $this->normalizeFilterConfig($config);
 
@@ -1106,11 +1107,11 @@ if (! class_exists('KPT\Renderer', false)) {
                     $html .= ">\n";
 
                     // Add option if value is set
-                    if (!empty($value)) {
-                        $html .= "<option value=\"{$value}\" selected>{$value}</option>\n";
-                    } else {
-                        $html .= "<option value=\"\">{$placeholder}</option>\n";
-                    }
+                if (!empty($value)) {
+                    $html .= "<option value=\"{$value}\" selected>{$value}</option>\n";
+                } else {
+                    $html .= "<option value=\"\">{$placeholder}</option>\n";
+                }
 
                     $html .= "</select>\n";
                     break;
@@ -1329,7 +1330,8 @@ if (! class_exists('KPT\Renderer', false)) {
             $leadingCols = max(1, $leadingCols);
 
             // Trailing columns use only the data column offset
-            $trailingColKeys = array_slice($colKeys, $dataLeading);;
+            $trailingColKeys = array_slice($colKeys, $dataLeading);
+            ;
 
             $html = '';
 
