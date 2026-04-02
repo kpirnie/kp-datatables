@@ -1,7 +1,7 @@
 # KPT DataTables
 
 [![GitHub Issues](https://img.shields.io/github/issues/kpirnie/kp-datatables?style=for-the-badge&logo=github&color=006400&logoColor=white&labelColor=000)](https://github.com/kpirnie/kp-datatables/issues)
-[![Last Commit](https://img.shields.io/github/last-commit/kpirnie/kptv-filter-app)](https://github.com/kpirnie/kptv-filter-app/commits/main)
+[![Last Commit](https://img.shields.io/github/last-commit/kpirnie/kptv-filter-app?style=for-the-badge)](https://github.com/kpirnie/kptv-filter-app/commits/main)
 [![License: MIT](https://img.shields.io/badge/License-MIT-orange.svg?style=for-the-badge&logo=opensourceinitiative&logoColor=white&labelColor=000)](LICENSE)
 
 [![PHP](https://img.shields.io/badge/Up%20To-php8.4-777BB4?logo=php&logoColor=white&style=for-the-badge&labelColor=000)](https://php.net)
