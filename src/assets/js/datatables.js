@@ -1251,7 +1251,7 @@ class DataTablesJS {
             });
     }
 
-    populateEditForm(recordData) {
+    populateEditForm(recordData, fieldOverrides = {}) {
         // Get unqualified primary key name
         let unqualifiedPK = this.primaryKey;
         if (this.primaryKey.includes('.')) {
