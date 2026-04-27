@@ -1320,6 +1320,14 @@ class DataTablesJS {
             }
         });
 
+        // Populate static display fields from record data
+        editForm.querySelectorAll('.datatables-static-field').forEach(el => {
+            const fieldName = el.getAttribute('data-display-field');
+            if (fieldName && recordData[fieldName] !== undefined && recordData[fieldName] !== null) {
+                el.textContent = recordData[fieldName];
+            }
+        });
+
         // Update Select2 fields with record data for query parameter substitution
         const select2Fields = editForm.querySelectorAll('select[data-select2]');
         if (select2Fields.length > 0) {

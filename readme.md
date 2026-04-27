@@ -863,6 +863,7 @@ All field configurations share common keys:
 | `file` | `<input type="file">` | |
 | `image` | URL input + file upload + preview | |
 | `datepicker` | Styled date picker with format support | |
+| `static` | Read-only `<p>` element | Not submitted; renders `content` key or DB value |
 
 **select2 field extra keys:**
 
@@ -909,6 +910,20 @@ All field configurations share common keys:
 ```
 
 Values are stored internally as `YYYY-MM-DD` regardless of display format.
+
+**static field extra keys:**
+
+| Key | Type | Description |
+|---|---|---|
+| `content` | string | Hardcoded text to display; omit to auto-populate from the DB record |
+
+```php
+'created_by' => [
+    'type'    => 'static',
+    'label'   => 'Created By',
+    'content' => '', // empty = populated from DB on edit
+]
+```
 
 ---
 
