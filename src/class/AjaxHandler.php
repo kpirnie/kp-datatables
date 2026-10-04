@@ -206,6 +206,9 @@ if (! class_exists('KPT\AjaxHandler', false)) {
             $file = $_FILES['file'];
             $uploadResult = $this->uploadFile($file);
 
+            // Never expose the server path to the client
+            unset($uploadResult['file_path']);
+
             // Send JSON response with upload result
             header('Content-Type: application/json');
             echo json_encode($uploadResult);
