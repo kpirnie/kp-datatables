@@ -88,11 +88,29 @@ if (! class_exists('KPT\DataTables', false)) {
             try {
                 Logger::debug("Loading table schema", ['table' => $this->tableName]);
 
-                // Get table structure using DESCRIBE with the fluent interface
-                $schema = $this->db->query("DESCRIBE `{$this->tableName}`")->fetch();
+                // Try the APCu cache first (keyed by connection + table)
+                $schema = null;
+                $useApcu = function_exists('apcu_fetch') && apcu_enabled();
+                $cacheKey = 'kpt_dt_schema_' . md5(json_encode($this->dbConfig) . '|' . $this->tableName);
+                if ($useApcu) {
+                    $cached = apcu_fetch($cacheKey, $hit);
+                    if ($hit && is_array($cached)) {
+                        $schema = $cached;
+                    }
+                }
 
-                if (!$schema || empty($schema)) {
-                    throw new RuntimeException("Table '{$this->tableName}' does not exist or is not accessible");
+                // Fall back to DESCRIBE and cache the result
+                if ($schema === null) {
+                    $rows = $this->db->query("DESCRIBE `{$this->tableName}`")->fetch();
+
+                    if (!$rows || empty($rows)) {
+                        throw new RuntimeException("Table '{$this->tableName}' does not exist or is not accessible");
+                    }
+
+                    $schema = array_map(fn($column) => (array) $column, $rows);
+                    if ($useApcu) {
+                        apcu_store($cacheKey, $schema, 300);
+                    }
                 }
 
                 Logger::debug("Schema query returned", ['column_count' => count($schema)]);
@@ -100,17 +118,17 @@ if (! class_exists('KPT\DataTables', false)) {
                 $this->tableSchema = [];
 
                 foreach ($schema as $column) {
-                    $this->tableSchema[$column->Field] = [
-                        'type' => $this->parseColumnType($column->Type),
-                        'null' => $column->Null === 'YES',
-                        'key' => $column->Key,
-                        'default' => $column->Default,
-                        'extra' => $column->Extra
+                    $this->tableSchema[$column['Field']] = [
+                        'type' => $this->parseColumnType($column['Type']),
+                        'null' => $column['Null'] === 'YES',
+                        'key' => $column['Key'],
+                        'default' => $column['Default'],
+                        'extra' => $column['Extra']
                     ];
 
                     // Auto-detect primary key
-                    if ($column->Key === 'PRI') {
-                        $this->primaryKey = $column->Field;
+                    if ($column['Key'] === 'PRI') {
+                        $this->primaryKey = $column['Field'];
                     }
                 }
 
