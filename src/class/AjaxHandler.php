@@ -489,8 +489,17 @@ if (! class_exists('KPT\AjaxHandler', false)) {
         private function handleFetchData(): void
         {
             // Extract and validate pagination parameters with bounds checking
-            $page = $this->validateInteger($_GET['page'] ?? 1, 1);
-            $perPage = $this->validateInteger($_GET['per_page'] ?? $this->dataTable->getRecordsPerPage(), 0, 1000);
+            $defaultPerPage = $this->dataTable->getRecordsPerPage();
+            $perPage = filter_var($_GET['per_page'] ?? $defaultPerPage, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0, 'max_range' => 1000]]);
+
+            // Invalid values fall back to the default; 0 (all) only when the All option is enabled
+            if ($perPage === false || ($perPage === 0 && !$this->dataTable->getIncludeAllOption())) {
+                $perPage = $defaultPerPage;
+            }
+
+            // Cap the page so the offset stays bounded
+            $maxPage = $perPage > 0 ? max(1, intdiv(1000000, $perPage)) : 1;
+            $page = $this->validateInteger($_GET['page'] ?? 1, 1, $maxPage);
 
             // Sanitize search inputs with proper escaping
             $search = $this->sanitizeSearchInput($_GET['search'] ?? '');
@@ -1876,6 +1885,7 @@ if (! class_exists('KPT\AjaxHandler', false)) {
          *
          * @param  string $jsonIds JSON string of IDs
          * @return array  Validated array of integer IDs
+         * @throws InvalidArgumentException If more than 1000 IDs are submitted
          */
         private function validateIdArray(string $jsonIds): array
         {
@@ -1884,9 +1894,14 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                 return [];
             }
 
-            return array_filter(array_map('intval', $ids), function ($id) {
+            // Cap the number of IDs per request
+            if (count($ids) > 1000) {
+                throw new InvalidArgumentException('Too many records selected (maximum 1000)');
+            }
+
+            return array_values(array_unique(array_filter(array_map('intval', $ids), function ($id) {
                 return $id > 0;
-            });
+            })));
         }
 
         /**
