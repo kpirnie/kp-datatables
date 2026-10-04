@@ -503,6 +503,9 @@ if (! class_exists('KPT\AjaxHandler', false)) {
 
             // Sanitize search inputs with proper escaping
             $search = $this->sanitizeSearchInput($_GET['search'] ?? '');
+            if (mb_strlen(trim((string) ($_GET['search'] ?? ''))) < $this->dataTable->getMinSearchLength()) {
+                $search = '';
+            }
             $searchColumn = $this->validateSearchColumn($_GET['search_column'] ?? '');
 
             // Sanitize and validate sort inputs
@@ -622,6 +625,9 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                     $params[] = "%{$search}%";
                 } else {
                     foreach ($this->dataTable->getColumns() as $column => $label) {
+                        if (!$this->isSearchableColumn((string) $column)) {
+                            continue;
+                        }
                         // For aliased columns, use only the expression part (before AS) in WHERE clause
                         $searchColumn = $column;
                         if (stripos($column, ' AS ') !== false) {
@@ -791,6 +797,9 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                     $params[] = "%{$search}%";
                 } else {
                     foreach ($columns as $column) {
+                        if (!$this->isSearchableColumn((string) $column)) {
+                            continue;
+                        }
                         // For aliased columns, use only the expression part (before AS) in WHERE clause
                         $searchColumn = $column;
                         if (stripos($column, ' AS ') !== false) {
@@ -1501,6 +1510,9 @@ if (! class_exists('KPT\AjaxHandler', false)) {
         private function handleFetchAggregations(): void
         {
             $search = $this->sanitizeSearchInput($_GET['search'] ?? '');
+            if (mb_strlen(trim((string) ($_GET['search'] ?? ''))) < $this->dataTable->getMinSearchLength()) {
+                $search = '';
+            }
             $searchColumn = $this->sanitizeColumnName($_GET['search_column'] ?? '');
             $filtersJson = $this->sanitizeJsonInput($_GET['filters'] ?? '[]');
 
@@ -1555,6 +1567,9 @@ if (! class_exists('KPT\AjaxHandler', false)) {
             if (!empty($search)) {
                 $searchConditions = [];
                 foreach ($this->dataTable->getColumns() as $col => $label) {
+                    if (!$this->isSearchableColumn((string) $col)) {
+                        continue;
+                    }
                     $sc = $col;
                     if (stripos($col, ' AS ') !== false) {
                         $parts = explode(' AS ', $col);
@@ -1790,6 +1805,30 @@ if (! class_exists('KPT\AjaxHandler', false)) {
             }
 
             return '';
+        }
+
+        /**
+         * Check whether a configured column is included in global search
+         *
+         * @param  string $column Column key (may be "expr AS alias")
+         * @return bool True if searchable
+         */
+        private function isSearchableColumn(string $column): bool
+        {
+            $searchable = $this->dataTable->getSearchableColumns();
+            if (empty($searchable)) {
+                return true;
+            }
+
+            // Match the full key or its alias name
+            if (in_array($column, $searchable, true)) {
+                return true;
+            }
+            if (preg_match('/\s+AS\s+(.+)$/i', $column, $matches)) {
+                return in_array(trim($matches[1], '`\'" '), $searchable, true);
+            }
+
+            return false;
         }
 
         /**

@@ -571,13 +571,17 @@ if (! class_exists('KPT\DataTables', false)) {
          * Controls whether the search input and column selector are displayed.
          * When enabled, provides both global and column-specific searching.
          *
-         * @param  bool $enabled Whether search functionality should be enabled
+         * @param  bool  $enabled   Whether to enable search
+         * @param  array $columns   Columns (keys or alias names) included in global search; empty for all
+         * @param  int   $minLength Minimum search term length before searching
          * @return self Returns self for method chaining
          */
-        public function search(bool $enabled = true): self
+        public function search(bool $enabled = true, array $columns = [], int $minLength = 0): self
         {
             $this->searchEnabled = $enabled;
-            Logger::debug("DataTables search configured", ['enabled' => $enabled]);
+            $this->searchableColumns = array_values(array_map('strval', $columns));
+            $this->minSearchLength = max(0, $minLength);
+            Logger::debug("DataTables search configured", ['enabled' => $enabled, 'columns' => $this->searchableColumns, 'min_length' => $this->minSearchLength]);
             return $this;
         }
 

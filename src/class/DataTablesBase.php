@@ -126,6 +126,20 @@ if (! class_exists('KPT\DataTablesBase', false)) {
         protected bool $searchEnabled = true;
 
         /**
+         * Columns included in global search (empty = all configured columns)
+         *
+         * @var array
+         */
+        protected array $searchableColumns = [];
+
+        /**
+         * Minimum search term length before a search is applied
+         *
+         * @var int
+         */
+        protected int $minSearchLength = 0;
+
+        /**
          * Configuration for action buttons (edit, delete, custom)
          *
          * @var array
@@ -429,6 +443,26 @@ if (! class_exists('KPT\DataTablesBase', false)) {
         public function isSearchEnabled(): bool
         {
             return $this->searchEnabled;
+        }
+
+        /**
+         * Get the columns included in global search
+         *
+         * @return array Column keys or alias names (empty = all)
+         */
+        public function getSearchableColumns(): array
+        {
+            return $this->searchableColumns;
+        }
+
+        /**
+         * Get the minimum search term length
+         *
+         * @return int Minimum length
+         */
+        public function getMinSearchLength(): int
+        {
+            return $this->minSearchLength;
         }
 
         /**
