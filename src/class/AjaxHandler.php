@@ -494,7 +494,7 @@ if (! class_exists('KPT\AjaxHandler', false)) {
 
             // Sanitize search inputs with proper escaping
             $search = $this->sanitizeSearchInput($_GET['search'] ?? '');
-            $searchColumn = $this->sanitizeColumnName($_GET['search_column'] ?? '');
+            $searchColumn = $this->validateSearchColumn($_GET['search_column'] ?? '');
 
             // Sanitize and validate sort inputs
             $sortColumn = $this->sanitizeColumnName($_GET['sort_column'] ?? '');
@@ -1748,6 +1748,29 @@ if (! class_exists('KPT\AjaxHandler', false)) {
         }
 
         /**
+         * Validate a search column against the configured columns
+         *
+         * Only plain (non-aliased) configured column keys are searchable by name.
+         *
+         * @param  mixed $column Raw column name
+         * @return string Configured column name, or empty string for global search
+         */
+        private function validateSearchColumn(mixed $column): string
+        {
+            if (!is_string($column) || $column === '' || $column === 'all') {
+                return '';
+            }
+
+            foreach (array_keys($this->dataTable->getColumns()) as $configured) {
+                if (stripos((string) $configured, ' AS ') === false && $configured === $column) {
+                    return $column;
+                }
+            }
+
+            return '';
+        }
+
+        /**
          * Sanitize sort direction input
          *
          * @param  string $direction Raw sort direction
@@ -1792,6 +1815,12 @@ if (! class_exists('KPT\AjaxHandler', false)) {
             $allowedOperators = ['=', '!=', '>', '>=', '<', '<=', 'LIKE', 'NOT LIKE', 'IN', 'NOT IN', 'BETWEEN', 'REGEXP'];
             $sanitized = [];
 
+            // Only configured filter fields, each with its configured operator
+            $configuredOperators = [];
+            foreach ($this->dataTable->getFilterConfig() as $configField => $config) {
+                $configuredOperators[(string) $configField] = strtoupper(trim(is_string($config) ? $config : (string) ($config['operator'] ?? '=')));
+            }
+
             foreach ($decoded as $filter) {
                 // Must be an array with required keys
                 if (!is_array($filter) || !isset($filter['field'], $filter['operator'])) {
@@ -1804,9 +1833,9 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                     continue;
                 }
 
-                // Operator must be whitelisted
+                // Operator must be whitelisted and match the field's configured operator
                 $operator = strtoupper(trim($filter['operator']));
-                if (!in_array($operator, $allowedOperators, true)) {
+                if (!in_array($operator, $allowedOperators, true) || !isset($configuredOperators[$field]) || $configuredOperators[$field] !== $operator) {
                     continue;
                 }
 
