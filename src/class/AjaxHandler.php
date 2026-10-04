@@ -1282,6 +1282,12 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                 throw new InvalidArgumentException("Unknown bulk action: {$bulkAction}");
             }
 
+            // Drop any IDs outside the where() scope
+            $selectedIds = array_keys($this->fetchScopedRows($selectedIds));
+            if (empty($selectedIds)) {
+                throw new InvalidArgumentException('No valid records selected');
+            }
+
             $result = false;
             $message = '';
 
@@ -1420,7 +1426,6 @@ if (! class_exists('KPT\AjaxHandler', false)) {
         {
             $actionName = $this->sanitizeInput($_POST['action_name'] ?? '');
             $rowId = $this->validateInteger($_POST['row_id'] ?? null);
-            $rowData = json_decode($_POST['row_data'] ?? '{}', true);
 
             if (empty($actionName) || !$rowId) {
                 throw new InvalidArgumentException('Valid action and row ID are required');
@@ -1447,6 +1452,13 @@ if (! class_exists('KPT\AjaxHandler', false)) {
             if (!$callback) {
                 throw new InvalidArgumentException("No callback found for action: {$actionName}");
             }
+
+            // Re-fetch the row server-side within the where() scope
+            $rows = $this->fetchScopedRows([$rowId]);
+            if (!isset($rows[$rowId])) {
+                throw new InvalidArgumentException('Record not found');
+            }
+            $rowData = $rows[$rowId];
 
             // Execute the callback with row ID and full row data
             $result = call_user_func(
@@ -2003,6 +2015,69 @@ if (! class_exists('KPT\AjaxHandler', false)) {
             }
 
             return $scoped;
+        }
+        /**
+         * Fetch rows by primary key within the configured where() scope
+         *
+         * Uses the same select list, joins, where() conditions and group by as the
+         * table query, limited to the given IDs. IDs outside the scope are dropped.
+         *
+         * @param  array $ids Primary key values
+         * @return array Rows as associative arrays keyed by primary key
+         */
+        private function fetchScopedRows(array $ids): array
+        {
+            $ids = array_values(array_unique(array_map('intval', $ids)));
+            if (empty($ids)) {
+                return [];
+            }
+
+            // Resolve the primary key expression
+            $primaryKey = $this->dataTable->getPrimaryKey();
+            $tableName = $this->dataTable->getTableName();
+            $tableParts = preg_split('/\s+/', trim($tableName));
+            if (strpos($primaryKey, '.') !== false) {
+                $pkExpr = $primaryKey;
+            } elseif (isset($tableParts[1])) {
+                $pkExpr = "{$tableParts[1]}.`{$primaryKey}`";
+            } else {
+                $pkExpr = "`{$primaryKey}`";
+            }
+
+            // Same select list as the table, plus a fixed PK alias for mapping
+            $selectFields = $this->getSelectFields();
+            $selectFields[] = "{$pkExpr} AS `__kpt_pk`";
+
+            $sql = "SELECT " . implode(', ', $selectFields) . " FROM " . (strpos($tableName, ' ') !== false ? $tableName : "`{$tableName}`");
+
+            foreach ($this->dataTable->getJoins() as $join) {
+                $sql .= " {$join['type']} JOIN {$join['table']} ON {$join['condition']}";
+            }
+
+            // where() scope plus the requested IDs
+            $params = [];
+            $whereClause = $this->buildWhereClause($this->dataTable->getWhereConditions(), $params);
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $sql .= (!empty($whereClause) ? $whereClause . ' AND ' : ' WHERE ') . "{$pkExpr} IN ({$placeholders})";
+            $params = array_merge($params, $ids);
+
+            $groupBy = $this->dataTable->getGroupBy();
+            if (!empty($groupBy)) {
+                $sql .= strpos($groupBy, '.') !== false ? " GROUP BY {$groupBy}" : " GROUP BY `{$groupBy}`";
+            }
+
+            $rows = $this->dataTable->getDatabase()->query($sql)->bind($params)->fetch();
+
+            // Key by primary key and drop the helper alias
+            $mapped = [];
+            foreach ($rows ?: [] as $row) {
+                $rowArray = (array) $row;
+                $key = (int) $rowArray['__kpt_pk'];
+                unset($rowArray['__kpt_pk']);
+                $mapped[$key] = $rowArray;
+            }
+
+            return $mapped;
         }
 
         /**
