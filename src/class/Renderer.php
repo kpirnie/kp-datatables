@@ -87,7 +87,7 @@ if (! class_exists('KPT\Renderer', false)) {
             $containerClass = "datatables-container-{$tableName}";
             $themeContainerClass = $tm->getClasses('container');
 
-            $html = "<div class=\"{$containerClass} datatables-container {$themeContainerClass}\" data-table=\"{$tableName}\">\n";
+            $html = "<div class=\"{$containerClass} datatables-container {$themeContainerClass}\" data-table=\"{$tableName}\" data-csrf=\"" . $this->esc($this->getCsrfToken()) . "\">\n";
             $html .= $this->renderTable();
             $html .= "</div>\n";
 

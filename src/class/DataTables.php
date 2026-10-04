@@ -887,6 +887,9 @@ if (! class_exists('KPT\DataTables', false)) {
          */
         public function handleAjax(): void
         {
+            // actions that change data require POST and a valid CSRF token
+            $mutatingActions = ['add_record', 'edit_record', 'delete_record', 'bulk_action', 'inline_edit', 'upload_file', 'action_callback'];
+
             try {
                 // Extract and sanitize the action from POST or GET parameters
                 $action = $this->sanitizeInput($_POST['action'] ?? $_GET['action'] ?? '');
@@ -896,6 +899,20 @@ if (! class_exists('KPT\DataTables', false)) {
                 }
 
                 Logger::debug("DataTables handling AJAX request", ['action' => $action]);
+
+                // Enforce POST + CSRF on mutating actions
+                if (in_array($action, $mutatingActions, true)) {
+                    $isPost = ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['action']);
+                    $submitted = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? $_POST['_token'] ?? '';
+
+                    if (!$isPost || !is_string($submitted) || $submitted === '' || !hash_equals($this->getCsrfToken(), $submitted)) {
+                        Logger::error("DataTables CSRF check failed", ['action' => $action]);
+                        http_response_code(403);
+                        header('Content-Type: application/json');
+                        echo json_encode(['success' => false, 'message' => 'Invalid or missing security token']);
+                        exit;
+                    }
+                }
 
                 // Delegate to the AJAX handler
                 $handler = new AjaxHandler($this);

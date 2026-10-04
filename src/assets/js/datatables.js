@@ -24,7 +24,8 @@ class DataTablesJS {
     this.cssClasses = config.cssClasses || {};
     this.theme = config.theme || "uikit";
     this.footerAggregations = config.footerAggregations || {};
-    this.datepickerFormatters = config.datepickerFormatters || {};
+    this.csrfToken =
+      document.querySelector(".datatables-container")?.dataset.csrf || "";
 
     // State
     this.currentPage = 1;
@@ -1304,6 +1305,7 @@ class DataTablesJS {
 
     fetch(window.location.href, {
       method: "POST",
+      headers: { "X-CSRF-Token": this.csrfToken },
       body: formData,
     })
       .then((response) => response.json())
@@ -1452,6 +1454,7 @@ class DataTablesJS {
 
     fetch(window.location.href, {
       method: "POST",
+      headers: { "X-CSRF-Token": this.csrfToken },
       body: formData,
     })
       .then((response) => response.json())
@@ -1698,6 +1701,7 @@ class DataTablesJS {
 
     fetch(window.location.href, {
       method: "POST",
+      headers: { "X-CSRF-Token": this.csrfToken },
       body: formData,
     })
       .then((response) => response.json())
@@ -1730,6 +1734,7 @@ class DataTablesJS {
 
     fetch(window.location.href, {
       method: "POST",
+      headers: { "X-CSRF-Token": this.csrfToken },
       body: formData,
     })
       .then((response) => response.json())
@@ -2069,6 +2074,7 @@ class DataTablesJS {
 
             fetch(window.location.href, {
               method: "POST",
+              headers: { "X-CSRF-Token": this.csrfToken },
               body: formData,
             })
               .then((response) => response.json())
@@ -2236,6 +2242,7 @@ class DataTablesJS {
 
     fetch(window.location.href, {
       method: "POST",
+      headers: { "X-CSRF-Token": this.csrfToken },
       body: formData,
     })
       .then((response) => response.json())
