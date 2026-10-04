@@ -1419,7 +1419,7 @@ if (! class_exists('KPT\Renderer', false)) {
             $leadingCols = max(1, $leadingCols);
 
             // Trailing columns use only the data column offset
-            $trailingColKeys = array_slice($colKeys, $dataLeading);;
+            $trailingColKeys = array_slice($colKeys, $dataLeading);
 
             $html = '';
 

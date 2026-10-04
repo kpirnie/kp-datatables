@@ -468,6 +468,11 @@ class DataTablesJS {
           this.loadData();
         });
       });
+
+    // Grid drag and drop ordering
+    if (this.gridMode) {
+      this.bindGridDnD();
+    }
   }
 
   // === DATA LOADING ===
@@ -936,6 +941,116 @@ class DataTablesJS {
 
     this.bindTableEvents();
     this.updateBulkActionButtons();
+  }
+  bindGridDnD() {
+    const grid = document.querySelector(".datatables-grid");
+    if (!grid) {
+      return;
+    }
+
+    let dragSource = null;
+    const isPinnedCell = (cell) =>
+      cell.querySelector(".datatables-card-pinned") !== null;
+    const clearDragOver = () =>
+      grid
+        .querySelectorAll(".drag-over")
+        .forEach((el) => el.classList.remove("drag-over"));
+
+    grid.addEventListener("dragstart", (e) => {
+      const cell = e.target.closest(".datatables-card-cell");
+      if (!cell) {
+        return;
+      }
+      dragSource = cell;
+      cell.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", cell.getAttribute("data-id"));
+    });
+
+    grid.addEventListener("dragover", (e) => {
+      if (!dragSource) {
+        return;
+      }
+      e.preventDefault();
+      clearDragOver();
+
+      // Only allow drops within the same block (pinned or not)
+      const target = e.target.closest(".datatables-card-cell");
+      if (
+        target &&
+        target !== dragSource &&
+        isPinnedCell(target) === isPinnedCell(dragSource)
+      ) {
+        target.classList.add("drag-over");
+      }
+    });
+
+    grid.addEventListener("drop", (e) => {
+      if (!dragSource) {
+        return;
+      }
+      e.preventDefault();
+      clearDragOver();
+
+      const target = e.target.closest(".datatables-card-cell");
+      if (
+        !target ||
+        target === dragSource ||
+        isPinnedCell(target) !== isPinnedCell(dragSource)
+      ) {
+        return;
+      }
+
+      // Before or after the target, split diagonally so it works for single and multi column layouts
+      const rect = target.getBoundingClientRect();
+      const after =
+        (e.clientX - rect.left) / rect.width +
+          (e.clientY - rect.top) / rect.height >
+        1;
+      target.parentNode.insertBefore(
+        dragSource,
+        after ? target.nextSibling : target,
+      );
+
+      this.saveGridOrder(isPinnedCell(dragSource));
+    });
+
+    grid.addEventListener("dragend", () => {
+      clearDragOver();
+      if (dragSource) {
+        dragSource.classList.remove("dragging");
+      }
+      dragSource = null;
+    });
+  }
+
+  saveGridOrder(pinned) {
+    const grid = document.querySelector(".datatables-grid");
+    if (!grid) {
+      return;
+    }
+
+    // This page's IDs for the dragged block, in their new DOM order
+    const pageIds = Array.from(grid.querySelectorAll(".datatables-card-cell"))
+      .filter(
+        (cell) =>
+          (cell.querySelector(".datatables-card-pinned") !== null) === pinned,
+      )
+      .map((cell) => cell.getAttribute("data-id"));
+
+    // Re-insert them as a block where the earliest one was stored, keeping other pages' order
+    const type = pinned ? "pins" : "order";
+    const stored = this.getGridIds(type);
+    const firstIndex = stored.findIndex((id) => pageIds.includes(id));
+    const merged = stored.filter((id) => !pageIds.includes(id));
+    merged.splice(
+      firstIndex === -1 ? merged.length : firstIndex,
+      0,
+      ...pageIds,
+    );
+
+    this.setGridIds(type, merged);
+    this.loadData();
   }
 
   renderActionButtons(rowId, rowData = {}) {
