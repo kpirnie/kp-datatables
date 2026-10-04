@@ -1132,7 +1132,33 @@ if (! class_exists('KPT\AjaxHandler', false)) {
             $primaryKey    = $this->dataTable->getPrimaryKey();
             $idColumn      = strpos($primaryKey, '.') !== false ? $unqualifiedPK : $primaryKey;
 
-            $sql    = "SELECT * FROM `{$this->dataTable->getBaseTableName()}`";
+            // Columns the client may see: PK, edit form fields, and select2 {placeholder} fields
+            $schema      = $this->dataTable->getTableSchema();
+            $editFields  = $this->dataTable->getEditFormConfig()['fields'] ?? [];
+            $visible     = [$unqualifiedPK => true];
+            $serverOnly  = [];
+            foreach ($editFields as $fieldName => $fieldConfig) {
+                $visible[$this->getUnqualifiedFieldName((string) $fieldName)] = true;
+                if (($fieldConfig['type'] ?? '') === 'select2' && !empty($fieldConfig['query'])) {
+                    preg_match_all('/\{([a-zA-Z0-9_]+)\}/', (string) $fieldConfig['query'], $placeholderMatches);
+                    foreach ($placeholderMatches[1] as $placeholderField) {
+                        $visible[$placeholderField] = true;
+                    }
+                }
+                // allow_on compare fields are needed server-side only
+                if (!empty($fieldConfig['allow_on']['field'])) {
+                    $serverOnly[(string) $fieldConfig['allow_on']['field']] = true;
+                }
+            }
+
+            // Only select columns that exist on the base table
+            $selectColumns = array_filter(
+                array_keys($visible + $serverOnly),
+                fn($column) => isset($schema[$column]) || $column === $unqualifiedPK
+            );
+            $selectList = implode(', ', array_map(fn($column) => "`{$column}`", $selectColumns));
+
+            $sql    = "SELECT {$selectList} FROM `{$this->dataTable->getBaseTableName()}`";
             $params = [$id];
 
             $whereConditions  = $this->dataTable->getWhereConditions();
@@ -1190,11 +1216,14 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                 }
             }
 
+            // Strip server-only columns before sending
+            $data = $result ? array_intersect_key((array) $result, $visible) : null;
+
             header('Content-Type: application/json');
             echo json_encode([
                 'success'        => $success,
                 'message'        => $success ? 'Record fetched successfully' : 'Record not found',
-                'data'           => $result ?: null,
+                'data'           => $data,
                 'field_overrides' => $fieldOverrides,
             ]);
             exit;
