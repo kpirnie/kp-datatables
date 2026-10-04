@@ -222,13 +222,23 @@ if (! class_exists('KPT\ThemeManager', false)) {
          */
         public static function getJsIncludes(string $theme = 'uikit', bool $includeCdn = true, bool $useMinified = false): string
         {
-            $tm = new ThemeManager($theme);
             $assetBase = htmlspecialchars(ThemeManager::getAssetBase(), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
             $html = "<!-- DataTables JavaScript -->\n";
 
             // Include framework JS from CDN if enabled
             if ($includeCdn) {
-                $html .= $tm->getJsIncludes($theme, true, $useMinified);
+                switch ($theme) {
+                    case self::THEME_UIKIT:
+                        $js = ($useMinified) ? self::CDN_UIKIT_MINJS : self::CDN_UIKIT_JS;
+                        $jsIcons = ($useMinified) ? self::CDN_UIKIT_MINICONS : self::CDN_UIKIT_ICONS;
+                        $html .= "<script src=\"" . $js . "\" defer></script>\n";
+                        $html .= "<script src=\"" . $jsIcons . "\" defer></script>\n";
+                        break;
+                    case self::THEME_BOOTSTRAP:
+                        $js = ($useMinified) ? self::CDN_BOOTSTRAP_MINJS : self::CDN_BOOTSTRAP_JS;
+                        $html .= "<script src=\"" . $js . "\" defer></script>\n";
+                        break;
+                }
             }
 
             // if we are minifying
