@@ -119,7 +119,7 @@ if (! class_exists('KPT\DataTables', false)) {
 
                 foreach ($schema as $column) {
                     $this->tableSchema[$column['Field']] = [
-                        'type' => $this->parseColumnType($column['Type']),
+                        'type' => $this->parseColumnType($column['Type'], $column['Field']),
                         'null' => $column['Null'] === 'YES',
                         'key' => $column['Key'],
                         'default' => $column['Default'],
@@ -158,9 +158,10 @@ if (! class_exists('KPT\DataTables', false)) {
          * Parse MySQL column type to appropriate form field type with enhanced detection
          *
          * @param  string $columnType MySQL column type from DESCRIBE
+         * @param  string $field      Column name, used for name-based type detection
          * @return string HTML form field type
          */
-        private function parseColumnType(string $columnType): string
+        private function parseColumnType(string $columnType, string $field = ''): string
         {
             $type = strtolower($columnType);
 
@@ -196,7 +197,7 @@ if (! class_exists('KPT\DataTables', false)) {
             }
 
             // Handle select2 fields (before enum/select check)
-            if (isset($field) && strpos(strtolower($field), 'select2') !== false) {
+            if ($field !== '' && strpos(strtolower($field), 'select2') !== false) {
                 return 'select2';
             }
 
@@ -208,10 +209,10 @@ if (! class_exists('KPT\DataTables', false)) {
             // Handle image fields (VARCHAR fields with 'image' in name or specific pattern)
             if (
                 strpos($type, 'varchar') !== false && (
-                    strpos(strtolower($field ?? ''), 'image') !== false ||
-                    strpos(strtolower($field ?? ''), 'photo') !== false ||
-                    strpos(strtolower($field ?? ''), 'avatar') !== false ||
-                    strpos(strtolower($field ?? ''), 'picture') !== false
+                    strpos(strtolower($field), 'image') !== false ||
+                    strpos(strtolower($field), 'photo') !== false ||
+                    strpos(strtolower($field), 'avatar') !== false ||
+                    strpos(strtolower($field), 'picture') !== false
                 )
             ) {
                 return 'image';
@@ -1051,7 +1052,7 @@ if (! class_exists('KPT\DataTables', false)) {
 
             // Include framework JS from CDN if enabled
             if ($includeCdn) {
-                $html .= $tm->getJsIncludes(true, $useMinified);
+                $html .= $tm->getJsIncludes($theme, true, $useMinified);
             }
 
             // if we are minifying
