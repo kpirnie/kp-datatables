@@ -1096,30 +1096,6 @@ if (! class_exists('KPT\Renderer', false)) {
 
                     $html .= "</select>\n";
                     break;
-                    $html .= "<label class=\"{$formLabelClass}\" for=\"{$fieldId}\">{$label}" . ($required ? " <span class=\"{$dangerClass}\">*</span>" : "") . "</label>\n";
-
-                    // Render as native select with data attributes for JavaScript enhancement
-                    $html .= "<select class=\"{$selectClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" ";
-                    $html .= "data-select2=\"true\" ";
-                    $html .= "data-query=\"" . htmlspecialchars($select2Query, ENT_QUOTES) . "\" ";
-                    $html .= "data-placeholder=\"{$placeholder}\" ";
-                    $html .= "data-min-search-chars=\"{$select2MinChars}\" ";
-                    $html .= "data-max-results=\"{$select2MaxResults}\" ";
-                    $html .= "data-theme=\"{$this->theme}\" ";
-                    $html .= $attrString . " ";
-                    $html .= ($required ? "required " : "");
-                    $html .= ($disabled ? "disabled " : "");
-                    $html .= ">\n";
-
-                    // Add option if value is set
-                    if (!empty($value)) {
-                        $html .= "<option value=\"{$value}\" selected>{$value}</option>\n";
-                    } else {
-                        $html .= "<option value=\"\">{$placeholder}</option>\n";
-                    }
-
-                    $html .= "</select>\n";
-                    break;
 
                 case 'file':
                     // File upload input
@@ -1196,40 +1172,6 @@ if (! class_exists('KPT\Renderer', false)) {
                 $attrParts[] = "{$name}=\"{$value}\"";
             }
             return implode(' ', $attrParts);
-        }
-
-        /**
-         * Render JavaScript to initialize Select2 fields with record data
-         *
-         * Generates script to pass current record data to Select2 fields for
-         * parameter substitution in queries when editing records.
-         *
-         * @param  string $formId Form ID ('add-form' or 'edit-form')
-         * @param  array  $recordData Current record data for parameter substitution
-         * @return string JavaScript code to initialize Select2 with record data
-         * @since  1.2.0
-         */
-        protected function renderSelect2RecordDataScript(string $formId, array $recordData = []): string
-        {
-            if (empty($recordData)) {
-                return '';
-            }
-
-            $recordDataJson = json_encode($recordData);
-
-            $html = "<script>\n";
-            $html .= "document.addEventListener('DOMContentLoaded', function() {\n";
-            $html .= "    const form = document.getElementById('{$formId}');\n";
-            $html .= "    if (form) {\n";
-            $html .= "        const select2Fields = form.querySelectorAll('select[data-select2]');\n";
-            $html .= "        select2Fields.forEach(field => {\n";
-            $html .= "            field.setAttribute('data-record-data', '{$recordDataJson}');\n";
-            $html .= "        });\n";
-            $html .= "    }\n";
-            $html .= "});\n";
-            $html .= "</script>\n";
-
-            return $html;
         }
 
         /**
