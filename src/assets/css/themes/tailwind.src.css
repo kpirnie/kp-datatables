@@ -424,12 +424,24 @@
         @apply p-4;
     }
 
+    .kp-dt-card-footer-tailwind {
+        @apply px-4 py-2.5 border-t border-gray-200;
+    }
+
+    .datatables-card {
+        @apply flex flex-col;
+    }
+
+    .datatables-card-body {
+        @apply flex-1;
+    }
+
     .datatables-card-header {
         @apply flex items-center gap-2.5;
     }
 
-    .datatables-card-actions {
-        @apply ml-auto;
+    .datatables-card-footer {
+        @apply text-right;
     }
 
     .datatables-drag-handle {
@@ -454,10 +466,6 @@
 
     .datatables-card-field {
         @apply mb-2;
-    }
-
-    .datatables-card-label {
-        @apply block text-sm;
     }
 
     .datatables-card-cell.dragging {

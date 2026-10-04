@@ -835,14 +835,28 @@
     padding: 15px;
 }
 
+.kp-dt-card-footer {
+    padding: 10px 15px;
+    border-top: 1px solid var(--kp-dt-border);
+}
+
+.datatables-card {
+    display: flex;
+    flex-direction: column;
+}
+
+.datatables-card-body {
+    flex: 1;
+}
+
 .datatables-card-header {
     display: flex;
     align-items: center;
     gap: 10px;
 }
 
-.datatables-card-actions {
-    margin-left: auto;
+.datatables-card-footer {
+    text-align: right;
 }
 
 .datatables-drag-handle {
@@ -872,11 +886,6 @@
 
 .datatables-card-field {
     margin-bottom: 8px;
-}
-
-.datatables-card-label {
-    display: block;
-    font-size: 0.875em;
 }
 
 .datatables-card-cell.dragging {

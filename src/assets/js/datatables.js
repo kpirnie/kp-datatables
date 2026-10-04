@@ -89,6 +89,7 @@ class DataTablesJS {
           card: "uk-card uk-card-default uk-card-small",
           header: "uk-card-header",
           body: "uk-card-body",
+          footer: "uk-card-footer",
           label: "uk-text-muted",
           full: "uk-width-1-1",
         },
@@ -118,6 +119,7 @@ class DataTablesJS {
           card: "card h-100",
           header: "card-header",
           body: "card-body",
+          footer: "card-footer",
           label: "text-muted",
           full: "w-100",
         },
@@ -159,6 +161,7 @@ class DataTablesJS {
           card: "kp-dt-card",
           header: "kp-dt-card-header",
           body: "kp-dt-card-body",
+          footer: "kp-dt-card-footer",
           label: "kp-dt-text-muted",
           full: "kp-dt-grid-full",
         },
@@ -201,6 +204,7 @@ class DataTablesJS {
           card: "kp-dt-card-tailwind",
           header: "kp-dt-card-header-tailwind",
           body: "kp-dt-card-body-tailwind",
+          footer: "kp-dt-card-footer-tailwind",
           label: "text-gray-500",
           full: "col-span-full",
         },
@@ -866,6 +870,7 @@ class DataTablesJS {
     const cardClass = this.getThemeClass("card.card");
     const headerClass = this.getThemeClass("card.header");
     const bodyClass = this.getThemeClass("card.body");
+    const footerClass = this.getThemeClass("card.footer");
     const labelClass = this.getThemeClass("card.label");
     const fullClass = this.getThemeClass("card.full");
 
@@ -900,14 +905,13 @@ class DataTablesJS {
       html += `<div class="datatables-card-cell${cellClass ? ` ${cellClass}` : ""}" data-id="${safeRowId}" draggable="true">`;
       html += `<div class="datatables-card row-select ${cardClass}${isPinned ? " datatables-card-pinned" : ""}${rowClass ? ` ${this.escapeAttr(rowClass)}` : ""}" data-id="${safeRowId}">`;
 
-      // Card header: drag handle, pin, bulk checkbox, actions
+      // Card header: drag handle, pin, bulk checkbox
       html += `<div class="datatables-card-header ${headerClass}">`;
       html += `<span class="datatables-drag-handle" title="Drag to reorder">${this.renderIcon("move")}</span>`;
       html += `<button type="button" class="datatables-pin-btn ${iconLinkClass}" data-pin-id="${safeRowId}" aria-pressed="${isPinned ? "true" : "false"}" title="${isPinned ? "Unpin" : "Pin"}">${this.renderIcon("star")}</button>`;
       if (this.bulkActionsEnabled) {
         html += `<label class="row-check"><input type="checkbox" class="${checkboxClass} row-checkbox" value="${safeRowId}" onchange="DataTables.toggleRowSelection(this)"></label>`;
       }
-      html += `<div class="datatables-card-actions row-action">${this.renderActionButtons(rowId, row)}</div>`;
       html += "</div>";
 
       // Card body: label/value pairs for each configured column
@@ -918,12 +922,25 @@ class DataTablesJS {
           label && typeof label === "object" ? label.label || column : label;
         const isEditable = this.inlineEditableColumns.includes(column);
 
-        html += `<div class="datatables-card-field${isEditable ? " cell-edit" : ""}">`;
+        // Check for CSS classes using both full column key and alias name
+        let columnClass = this.cssClasses?.columns?.[column] || "";
+        if (!columnClass && column.toLowerCase().includes(" as ")) {
+          const parts = column.split(/\s+as\s+/i);
+          if (parts.length === 2) {
+            const aliasName = parts[1].replace(/[`'"]/g, "");
+            columnClass = this.cssClasses?.columns?.[aliasName] || "";
+          }
+        }
+
+        html += `<div class="datatables-card-field${isEditable ? " cell-edit" : ""}${columnClass ? ` ${this.escapeAttr(columnClass)}` : ""}">`;
         html += `<span class="datatables-card-label ${labelClass}">${this.escapeHtml(displayLabel)}</span> `;
         html += `<span class="datatables-card-value">${this.renderCellContent(row, column, rowId, tableSchema)}</span>`;
         html += "</div>";
       });
       html += "</div>";
+
+      // Card footer: row actions
+      html += `<div class="datatables-card-footer datatables-card-actions row-action ${footerClass}">${this.renderActionButtons(rowId, row)}</div>`;
 
       html += "</div></div>";
     });
