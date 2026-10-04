@@ -1418,7 +1418,7 @@ if (! class_exists('KPT\Renderer', false)) {
             $html .= "        defaultSortColumn: " . $this->jsonSafe($defaultSortColumn) . ",\n";
             $html .= "        defaultSortDirection: " . $this->jsonSafe($defaultSortDirection) . ",\n";
             $html .= "        theme: " . $this->jsonSafe($this->theme) . ",\n";
-            $html .= "        footerAggregations: " . $this->jsonSafe($this->getFooterAggregations()) . "\n";
+            $html .= "        footerAggregations: " . $this->jsonSafe($this->getFooterAggregations()) . ",\n";
             $datepickerFormatters = [];
             foreach ($this->getTableSchema() as $colName => $info) {
                 $type = $info['override_type'] ?? $info['type'] ?? 'text';
