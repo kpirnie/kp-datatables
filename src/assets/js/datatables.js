@@ -181,41 +181,45 @@ class DataTablesJS {
     return result || "";
   }
 
+  // === ESCAPING HELPERS ===
+  escapeHtml(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  // Attribute values use the same entity set
+  escapeAttr(value) {
+    return this.escapeHtml(value);
+  }
+
+  // Only allow http(s) or relative URLs
+  safeUrl(url) {
+    const str = String(url ?? "").trim();
+    if (str === "" || str === "#") {
+      return str;
+    }
+    try {
+      const parsed = new URL(str, window.location.href);
+      return ["http:", "https:"].includes(parsed.protocol) ? str : "";
+    } catch (e) {
+      return "";
+    }
+  }
+
+  // Escape a value for use inside a JS string literal (or bare) in an inline handler
+  escapeJs(value) {
+    return String(value ?? "").replace(
+      /[^A-Za-z0-9_]/g,
+      (c) => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0"),
+    );
+  }
+
   // Theme-aware notification
   showNotification(message, status = "success") {
-    // === ESCAPING HELPERS ===
-    escapeHtml(value) {
-        return String(value ?? '')
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
-    }
-
-    // Attribute values use the same entity set
-    escapeAttr(value) {
-        return this.escapeHtml(value);
-    }
-
-    // Only allow http(s) or relative URLs
-    safeUrl(url) {
-        const str = String(url ?? '').trim();
-        if (str === '' || str === '#') {
-            return str;
-        }
-        try {
-            const parsed = new URL(str, window.location.href);
-            return ['http:', 'https:'].includes(parsed.protocol) ? str : '';
-        } catch (e) {
-            return '';
-        }
-    }
-
-    // Escape a value for use inside a JS string literal (or bare) in an inline handler
-    escapeJs(value) {
-        return String(value ?? '').replace(/[^A-Za-z0-9_]/g, c => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0'));
-    }
     if (this.theme === "uikit" && typeof UIkit !== "undefined") {
       UIkit.notification(this.escapeHtml(message), { status: status });
     } else if (
@@ -545,356 +549,468 @@ class DataTablesJS {
   }
 
   // === TABLE RENDERING ===
-      renderTable(data) {
-        const tbody = document.querySelector('.datatables-tbody');
-        if (!tbody) { return; }
-
-        const columnCount = this.getColumnCount();
-        const shrinkClass = this.getThemeClass('table.shrink');
-        const centerClass = this.getThemeClass('table.center');
-        const mutedClass = this.getThemeClass('table.muted');
-        const checkboxClass = this.getThemeClass('checkbox');
-
-        if (!data || data.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="${columnCount}" class="${centerClass} ${mutedClass}">No records found</td></tr>`;
-            return;
-        }
-
-        // Get table schema for field type information
-        const tableElement = document.querySelector('.datatables-table');
-        const tableSchema = tableElement ? JSON.parse(tableElement.dataset.columns || '{}') : {};
-
-        let html = '';
-        data.forEach(
-            row => {
-
-                // Find the ID value regardless of key format
-                const rowId = row['s.id'] || row['id'] || row[this.primaryKey] || Object.values(row)[0];
-                const safeRowId = this.escapeAttr(rowId);
-                const rowClass = this.getRowClass(rowId);
-                html += `<tr${rowClass ? ` class="${this.escapeAttr(rowClass)} row-select"` : ''} data-id="${safeRowId}">`;
-
-                // Bulk selection checkbox
-                if (this.bulkActionsEnabled) {
-                    html += `<td class="${shrinkClass} row-check">`;
-                    html += `<label><input type="checkbox" class="${checkboxClass} row-checkbox" value="${safeRowId}" onchange="DataTables.toggleRowSelection(this)"></label>`;
-                    html += '</td>';
-                }
-
-                // Action column at start
-                if (this.actionConfig.position === 'start') {
-                    html += `<td class="${shrinkClass} row-action">`;
-                    html += this.renderActionButtons(rowId, row);
-                    html += '</td>';
-                }
-
-                // Regular columns - simplified structure where key=column, value=label
-                Object.keys(this.columns).forEach(
-                    column => {
-                        // Check for CSS classes using both full column key and alias name
-                        let columnClass = this.cssClasses?.columns?.[column] || '';
-                        if (!columnClass && column.toLowerCase().includes(' as ')) {
-                            const parts = column.split(/\s+as\s+/i);
-                            if (parts.length === 2) {
-                                const aliasName = parts[1].replace(/[`'"]/g, '');
-                                columnClass = this.cssClasses?.columns?.[aliasName] || '';
-                            }
-                        }
-                        const isEditable = this.inlineEditableColumns.includes(column);
-                        const safeColumn = this.escapeAttr(column);
-
-                        // Handle aliases - if column contains " AS ", use the alias name to access row data
-                        let dataKey = column;
-                        if (column.toLowerCase().includes(' as ')) {
-                            const parts = column.split(/\s+as\s+/i);
-                            if (parts.length === 2) {
-                                dataKey = parts[1].replace(/[`'"]/g, ''); // Remove any quotes/backticks
-                            }
-                        }
-
-                        let cellContent = row[dataKey] ?? '';
-                        const tdClass = isEditable ? ' cell-edit' : '';
-
-                        // Get field type from schema
-                        const fieldType = tableSchema[column]?.override_type || tableSchema[column]?.type || 'text';
-                        const safeFieldType = this.escapeAttr(fieldType);
-
-                        // Handle boolean display with icons
-                        if (fieldType === 'boolean') {
-                            const isActive = cellContent == '1' || cellContent === 'true' || cellContent === true;
-                            const iconName = isActive ? 'check' : 'close';
-                            const iconClass = isActive ? this.getThemeClass('icon.success') : this.getThemeClass('icon.danger');
-
-                            // Store the raw value for form population
-                            const rawValue = this.escapeAttr(cellContent); // Keep original value
-
-                            if (isEditable) {
-                                cellContent = `<span class="inline-editable boolean-toggle" data-field="${safeColumn}" data-id="${safeRowId}" data-type="boolean" data-value="${rawValue}" style="cursor: pointer;">`;
-                                cellContent += this.renderIcon(iconName, iconClass);
-                                cellContent += '</span>';
-                            } else {
-                                cellContent = `<span data-value="${rawValue}">${this.renderIcon(iconName, iconClass)}</span>`;
-                            }
-
-                            // Handle select display with labels
-                        } else if (fieldType === 'select') {
-                            const selectOptions = tableSchema[column]?.form_options || {};
-                            // Convert cellContent to string to ensure proper key lookup
-                            const cellContentStr = String(cellContent);
-                            // Use nullish coalescing or check if key exists to handle '0' value correctly
-                            const displayLabel = cellContentStr in selectOptions ? selectOptions[cellContentStr] : cellContent;
-
-                            if (isEditable) {
-                                cellContent = `<span class="inline-editable" data-field="${safeColumn}" data-id="${safeRowId}" data-type="${safeFieldType}" data-value="${this.escapeAttr(cellContent)}" style="cursor: pointer;">${this.escapeHtml(displayLabel)}</span>`;
-                            } else {
-                                cellContent = this.escapeHtml(displayLabel);
-                            }
-
-                            // Handle select2 display with fetched labels
-                        } else if (fieldType === 'select2') {
-                            const labelKey = dataKey + '_label';
-                            const displayValue = row[labelKey] || cellContent;
-
-                            if (isEditable) {
-                                cellContent = `<span class="inline-editable" data-field="${safeColumn}" data-id="${safeRowId}" data-type="${safeFieldType}" data-value="${this.escapeAttr(cellContent)}" style="cursor: pointer;">${this.escapeHtml(displayValue)}</span>`;
-                            } else {
-                                cellContent = this.escapeHtml(displayValue);
-                            }
-
-                            // Handle image display with thumbnails
-                        } else if (fieldType === 'image') {
-                            const roundedClass = this.getThemeClass('border.rounded');
-                            const imageValue = String(cellContent);
-                            if (imageValue.trim()) {
-                                const imageSrc = this.escapeAttr(this.safeUrl(imageValue.startsWith('http') ? imageValue : `/uploads/${imageValue}`));
-
-                                if (isEditable) {
-                                    cellContent = `<span class="inline-editable" data-field="${safeColumn}" data-id="${safeRowId}" data-type="${safeFieldType}" data-value="${this.escapeAttr(imageValue)}" style="cursor: pointer;">`;
-                                    cellContent += `<img src="${imageSrc}" alt="Image" style="max-width: 50px; max-height: 50px; object-fit: cover;" class="${roundedClass}">`;
-                                    cellContent += '</span>';
-                                } else {
-                                    cellContent = `<img src="${imageSrc}" alt="Image" style="max-width: 50px; max-height: 50px; object-fit: cover;" class="${roundedClass}">`;
-                                }
-                            } else {
-                                cellContent = isEditable ?
-                                    `<span class="inline-editable" data-field="${safeColumn}" data-id="${safeRowId}" data-type="${safeFieldType}" data-value="" style="cursor: pointer;">No image</span>` :
-                                    'No image';
-                            }
-
-                        } else if (isEditable) {
-
-                            // Add inline-editable class and attributes for non-boolean editable fields
-                            cellContent = `<span class="inline-editable" data-field="${safeColumn}" data-id="${safeRowId}" data-type="${safeFieldType}" style="cursor: pointer;">${this.escapeHtml(cellContent)}</span>`;
-                        } else {
-                            cellContent = this.escapeHtml(cellContent);
-                        }
-
-                        const classNames = [columnClass, tdClass].filter(c => c).join(' ');
-                        html += `<td${classNames ? ` class="${this.escapeAttr(classNames)}"` : ''}>${cellContent}</td>`;
-                    }
-                );
-
-                // Action column at end
-                if (this.actionConfig.position === 'end') {
-                    html += `<td class="${shrinkClass} row-action">`;
-                    html += this.renderActionButtons(rowId, row);
-                    html += '</td>';
-                }
-
-                html += '</tr>';
-            }
-        );
-
-        tbody.innerHTML = html;
-        this.bindTableEvents();
-        this.updateBulkActionButtons();
-        this.calculatePageAggregations(data);
+  renderTable(data) {
+    const tbody = document.querySelector(".datatables-tbody");
+    if (!tbody) {
+      return;
     }
 
-    renderActionButtons(rowId, rowData = {}) {
-        let html = '';
-        const iconLinkClass = this.getThemeClass('icon.link');
-        const marginSmallRightClass = this.getThemeClass('margin.smallRight');
+    const columnCount = this.getColumnCount();
+    const shrinkClass = this.getThemeClass("table.shrink");
+    const centerClass = this.getThemeClass("table.center");
+    const mutedClass = this.getThemeClass("table.muted");
+    const checkboxClass = this.getThemeClass("checkbox");
 
-        // Store row data for callback use
-        if (!window.DataTablesRowData) {
-            window.DataTablesRowData = {};
+    if (!data || data.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="${columnCount}" class="${centerClass} ${mutedClass}">No records found</td></tr>`;
+      return;
+    }
+
+    // Get table schema for field type information
+    const tableElement = document.querySelector(".datatables-table");
+    const tableSchema = tableElement
+      ? JSON.parse(tableElement.dataset.columns || "{}")
+      : {};
+
+    let html = "";
+    data.forEach((row) => {
+      // Find the ID value regardless of key format
+      const rowId =
+        row["s.id"] ||
+        row["id"] ||
+        row[this.primaryKey] ||
+        Object.values(row)[0];
+      const safeRowId = this.escapeAttr(rowId);
+      const rowClass = this.getRowClass(rowId);
+      html += `<tr${rowClass ? ` class="${this.escapeAttr(rowClass)} row-select"` : ""} data-id="${safeRowId}">`;
+
+      // Bulk selection checkbox
+      if (this.bulkActionsEnabled) {
+        html += `<td class="${shrinkClass} row-check">`;
+        html += `<label><input type="checkbox" class="${checkboxClass} row-checkbox" value="${safeRowId}" onchange="DataTables.toggleRowSelection(this)"></label>`;
+        html += "</td>";
+      }
+
+      // Action column at start
+      if (this.actionConfig.position === "start") {
+        html += `<td class="${shrinkClass} row-action">`;
+        html += this.renderActionButtons(rowId, row);
+        html += "</td>";
+      }
+
+      // Regular columns - simplified structure where key=column, value=label
+      Object.keys(this.columns).forEach((column) => {
+        // Check for CSS classes using both full column key and alias name
+        let columnClass = this.cssClasses?.columns?.[column] || "";
+        if (!columnClass && column.toLowerCase().includes(" as ")) {
+          const parts = column.split(/\s+as\s+/i);
+          if (parts.length === 2) {
+            const aliasName = parts[1].replace(/[`'"]/g, "");
+            columnClass = this.cssClasses?.columns?.[aliasName] || "";
+          }
         }
-        window.DataTablesRowData[rowId] = rowData;
+        const isEditable = this.inlineEditableColumns.includes(column);
+        const safeColumn = this.escapeAttr(column);
 
-        // Helper function to replace all placeholders in a string, encoding each value for its context
-        const replacePlaceholders = (str, encode = v => String(v ?? '')) => {
-            if (typeof str !== 'string') return str;
+        // Handle aliases - if column contains " AS ", use the alias name to access row data
+        let dataKey = column;
+        if (column.toLowerCase().includes(" as ")) {
+          const parts = column.split(/\s+as\s+/i);
+          if (parts.length === 2) {
+            dataKey = parts[1].replace(/[`'"]/g, ""); // Remove any quotes/backticks
+          }
+        }
 
-            return str.replace(/\{([^}]+)\}/g, (match, key) => {
-                if (key === 'id') {
-                    return encode(rowId);
-                }
-                return Object.prototype.hasOwnProperty.call(rowData, key) ? encode(rowData[key] ?? '') : match;
-            });
-        };
+        let cellContent = row[dataKey] ?? "";
+        const tdClass = isEditable ? " cell-edit" : "";
 
-        // Context-specific placeholder renderers
-        const htmlContent = (str) => replacePlaceholders(str, v => this.escapeHtml(v));
-        const attrValue = (str) => this.escapeAttr(replacePlaceholders(str));
-        const hrefValue = (str) => this.escapeAttr(this.safeUrl(replacePlaceholders(str)));
-        const onclickValue = (str) => this.escapeAttr(replacePlaceholders(str, v => this.escapeJs(v)));
-        const jsArg = (value) => this.escapeAttr(JSON.stringify(String(value ?? '')));
+        // Get field type from schema
+        const fieldType =
+          tableSchema[column]?.override_type ||
+          tableSchema[column]?.type ||
+          "text";
+        const safeFieldType = this.escapeAttr(fieldType);
 
-        // Check if we have action groups configured
-        if (this.actionConfig.groups && this.actionConfig.groups.length > 0) {
+        // Handle boolean display with icons
+        if (fieldType === "boolean") {
+          const isActive =
+            cellContent == "1" ||
+            cellContent === "true" ||
+            cellContent === true;
+          const iconName = isActive ? "check" : "close";
+          const iconClass = isActive
+            ? this.getThemeClass("icon.success")
+            : this.getThemeClass("icon.danger");
 
-            this.actionConfig.groups.forEach(group => {
+          // Store the raw value for form population
+          const rawValue = this.escapeAttr(cellContent); // Keep original value
 
-                if (Array.isArray(group)) {
-                    // Array of built-in actions like ['edit', 'delete']
-                    group.forEach(actionItem => {
-                        switch (actionItem) {
-                            case 'edit':
-                                if (this.theme === 'uikit') {
-                                    html += '<a href="#" class="uk-icon-link btn-edit uk-margin-tiny-full" uk-icon="pencil" title="Edit Record" uk-tooltip="Edit Record"></a>';
-                                } else {
-                                    html += `<a href="#" class="${iconLinkClass} btn-edit" title="Edit Record">${this.renderIcon('pencil')}</a>`;
-                                }
-                                break;
-                            case 'delete':
-                                if (this.theme === 'uikit') {
-                                    html += '<a href="#" class="uk-icon-link btn-delete uk-margin-tiny-full" uk-icon="trash" title="Delete Record" uk-tooltip="Delete Record"></a>';
-                                } else {
-                                    html += `<a href="#" class="${iconLinkClass} btn-delete" title="Delete Record">${this.renderIcon('trash')}</a>`;
-                                }
-                                break;
-                        }
-                    });
-                } else if (typeof group === 'object' && group !== null) {
+          if (isEditable) {
+            cellContent = `<span class="inline-editable boolean-toggle" data-field="${safeColumn}" data-id="${safeRowId}" data-type="boolean" data-value="${rawValue}" style="cursor: pointer;">`;
+            cellContent += this.renderIcon(iconName, iconClass);
+            cellContent += "</span>";
+          } else {
+            cellContent = `<span data-value="${rawValue}">${this.renderIcon(iconName, iconClass)}</span>`;
+          }
 
-                    // Handle all html* keys with location 'before' first
-                    Object.keys(group).filter(key => key.startsWith('html')).forEach(htmlKey => {
-                        const htmlConfig = group[htmlKey];
-                        if (typeof htmlConfig === 'object' && htmlConfig.location && htmlConfig.content) {
-                            if (htmlConfig.location === 'before' || htmlConfig.location === 'both') {
-                                html += htmlContent(htmlConfig.content);
-                            }
-                        } else if (typeof htmlConfig === 'string') {
-                            html += htmlContent(htmlConfig);
-                        }
-                    });
+          // Handle select display with labels
+        } else if (fieldType === "select") {
+          const selectOptions = tableSchema[column]?.form_options || {};
+          // Convert cellContent to string to ensure proper key lookup
+          const cellContentStr = String(cellContent);
+          // Use nullish coalescing or check if key exists to handle '0' value correctly
+          const displayLabel =
+            cellContentStr in selectOptions
+              ? selectOptions[cellContentStr]
+              : cellContent;
 
-                    // Get action keys (excluding 'html')
-                    const actionKeys = Object.keys(group).filter(key => !key.startsWith('html'));
+          if (isEditable) {
+            cellContent = `<span class="inline-editable" data-field="${safeColumn}" data-id="${safeRowId}" data-type="${safeFieldType}" data-value="${this.escapeAttr(cellContent)}" style="cursor: pointer;">${this.escapeHtml(displayLabel)}</span>`;
+          } else {
+            cellContent = this.escapeHtml(displayLabel);
+          }
 
-                    actionKeys.forEach(actionKey => {
-                        const actionConfig = group[actionKey];
+          // Handle select2 display with fetched labels
+        } else if (fieldType === "select2") {
+          const labelKey = dataKey + "_label";
+          const displayValue = row[labelKey] || cellContent;
 
-                        if (!actionConfig || typeof actionConfig !== 'object') return;
+          if (isEditable) {
+            cellContent = `<span class="inline-editable" data-field="${safeColumn}" data-id="${safeRowId}" data-type="${safeFieldType}" data-value="${this.escapeAttr(cellContent)}" style="cursor: pointer;">${this.escapeHtml(displayValue)}</span>`;
+          } else {
+            cellContent = this.escapeHtml(displayValue);
+          }
 
-                        // Check for action-level html before
-                        if (actionConfig.html) {
-                            if (typeof actionConfig.html === 'object' && actionConfig.html.location && actionConfig.html.content) {
-                                if (actionConfig.html.location === 'before' || actionConfig.html.location === 'both') {
-                                    html += htmlContent(actionConfig.html.content);
-                                }
-                            } else if (typeof actionConfig.html === 'string' && !actionConfig.hasCallback && actionConfig.href === undefined && actionConfig.icon === undefined) {
-                                // Only skip if this is PURELY an html entry with no action
-                                html += htmlContent(actionConfig.html);
-                                return;
-                            }
-                        }
+          // Handle image display with thumbnails
+        } else if (fieldType === "image") {
+          const roundedClass = this.getThemeClass("border.rounded");
+          const imageValue = String(cellContent);
+          if (imageValue.trim()) {
+            const imageSrc = this.escapeAttr(
+              this.safeUrl(
+                imageValue.startsWith("http")
+                  ? imageValue
+                  : `/uploads/${imageValue}`,
+              ),
+            );
 
-                        if (actionConfig.hasCallback) {
-                            // Handle callback action (callback was stripped but hasCallback flag remains)
-                            const icon = this.escapeAttr(actionConfig.icon || 'link');
-                            const title = this.escapeAttr(actionConfig.title || '');
-                            const className = this.escapeAttr(actionConfig.class || 'btn-custom');
-                            const confirm = this.escapeAttr(actionConfig.confirm || '');
-
-                            if (this.theme === 'uikit') {
-                                html += '<a href="#" class="uk-icon-link ' + className + '" uk-icon="' + icon + '" title="' + title + '" uk-tooltip="' + title + '"';
-                            } else {
-                                html += '<a href="#" class="' + iconLinkClass + ' ' + className + '" title="' + title + '"';
-                            }
-                            html += ' data-action="' + this.escapeAttr(actionKey) + '"';
-                            html += ' data-id="' + this.escapeAttr(rowId) + '"';
-                            html += ' data-confirm="' + confirm + '"';
-                            html += ' onclick="DataTables.executeActionCallback(' + jsArg(actionKey) + ', ' + jsArg(rowId) + ', event)"';
-                            html += '>';
-                            if (this.theme !== 'uikit') {
-                                html += this.renderIcon(actionConfig.icon || 'link');
-                            }
-                            html += '</a>';
-                        } else if (actionConfig.href !== undefined || actionConfig.icon !== undefined) {
-                            // Handle link-based action
-                            const rawIcon = replacePlaceholders(actionConfig.icon || 'link');
-                            const icon = this.escapeAttr(rawIcon);
-                            const title = attrValue(actionConfig.title || '');
-                            const className = attrValue(actionConfig.class || 'btn-custom');
-                            const href = hrefValue(actionConfig.href || '#');
-                            const onclick = onclickValue(actionConfig.onclick || '');
-                            const attributes = actionConfig.attributes || {};
-
-                            if (this.theme === 'uikit') {
-                                html += '<a href="' + href + '" class="uk-icon-link ' + className + '" uk-icon="' + icon + '" title="' + title + '" uk-tooltip="' + title + '"';
-                            } else {
-                                html += '<a href="' + href + '" class="' + iconLinkClass + ' ' + className + '" title="' + title + '"';
-                            }
-                            if (onclick) {
-                                html += ' onclick="' + onclick + '"';
-                            }
-
-                            // Add custom attributes (valid names only)
-                            for (const [attrName, attrVal] of Object.entries(attributes)) {
-                                if (!/^[A-Za-z_:][-A-Za-z0-9_:.]*$/.test(attrName)) {
-                                    continue;
-                                }
-                                html += ' ' + attrName + '="' + attrValue(String(attrVal)) + '"';
-                            }
-
-                            html += '>';
-                            if (this.theme !== 'uikit') {
-                                html += this.renderIcon(rawIcon);
-                            }
-                            html += '</a>';
-                        }
-
-                        // Check for action-level html after
-                        if (actionConfig.html && typeof actionConfig.html === 'object' && actionConfig.html.location && actionConfig.html.content) {
-                            if (actionConfig.html.location === 'after' || actionConfig.html.location === 'both') {
-                                html += htmlContent(actionConfig.html.content);
-                            }
-                        }
-                    });
-
-                    // Handle all html* keys with location 'after' last
-                    Object.keys(group).filter(key => key.startsWith('html')).forEach(htmlKey => {
-                        const htmlConfig = group[htmlKey];
-                        if (typeof htmlConfig === 'object' && htmlConfig.location && htmlConfig.content) {
-                            if (htmlConfig.location === 'after' || htmlConfig.location === 'both') {
-                                html += htmlContent(htmlConfig.content);
-                            }
-                        }
-                    });
-                }
-            });
+            if (isEditable) {
+              cellContent = `<span class="inline-editable" data-field="${safeColumn}" data-id="${safeRowId}" data-type="${safeFieldType}" data-value="${this.escapeAttr(imageValue)}" style="cursor: pointer;">`;
+              cellContent += `<img src="${imageSrc}" alt="Image" style="max-width: 50px; max-height: 50px; object-fit: cover;" class="${roundedClass}">`;
+              cellContent += "</span>";
+            } else {
+              cellContent = `<img src="${imageSrc}" alt="Image" style="max-width: 50px; max-height: 50px; object-fit: cover;" class="${roundedClass}">`;
+            }
+          } else {
+            cellContent = isEditable
+              ? `<span class="inline-editable" data-field="${safeColumn}" data-id="${safeRowId}" data-type="${safeFieldType}" data-value="" style="cursor: pointer;">No image</span>`
+              : "No image";
+          }
+        } else if (isEditable) {
+          // Add inline-editable class and attributes for non-boolean editable fields
+          cellContent = `<span class="inline-editable" data-field="${safeColumn}" data-id="${safeRowId}" data-type="${safeFieldType}" style="cursor: pointer;">${this.escapeHtml(cellContent)}</span>`;
         } else {
-            // Fallback to default buttons if no groups configured
-            if (this.actionConfig.show_edit !== false) {
-                if (this.theme === 'uikit') {
-                    html += '<a href="#" class="uk-icon-link btn-edit uk-margin-tiny-full" uk-icon="pencil" title="Edit Record" uk-tooltip="Edit Record"></a>';
-                } else {
-                    html += `<a href="#" class="${iconLinkClass} btn-edit" title="Edit Record">${this.renderIcon('pencil')}</a>`;
-                }
-            }
-            if (this.actionConfig.show_delete !== false) {
-                if (this.theme === 'uikit') {
-                    html += '<a href="#" class="uk-icon-link btn-delete uk-margin-tiny-full" uk-icon="trash" title="Delete Record" uk-tooltip="Delete Record"></a>';
-                } else {
-                    html += `<a href="#" class="${iconLinkClass} btn-delete" title="Delete Record">${this.renderIcon('trash')}</a>`;
-                }
-            }
+          cellContent = this.escapeHtml(cellContent);
         }
 
-        return html;
+        const classNames = [columnClass, tdClass].filter((c) => c).join(" ");
+        html += `<td${classNames ? ` class="${this.escapeAttr(classNames)}"` : ""}>${cellContent}</td>`;
+      });
+
+      // Action column at end
+      if (this.actionConfig.position === "end") {
+        html += `<td class="${shrinkClass} row-action">`;
+        html += this.renderActionButtons(rowId, row);
+        html += "</td>";
+      }
+
+      html += "</tr>";
+    });
+
+    tbody.innerHTML = html;
+    this.bindTableEvents();
+    this.updateBulkActionButtons();
+    this.calculatePageAggregations(data);
+  }
+
+  renderActionButtons(rowId, rowData = {}) {
+    let html = "";
+    const iconLinkClass = this.getThemeClass("icon.link");
+    const marginSmallRightClass = this.getThemeClass("margin.smallRight");
+
+    // Store row data for callback use
+    if (!window.DataTablesRowData) {
+      window.DataTablesRowData = {};
     }
+    window.DataTablesRowData[rowId] = rowData;
+
+    // Helper function to replace all placeholders in a string, encoding each value for its context
+    const replacePlaceholders = (str, encode = (v) => String(v ?? "")) => {
+      if (typeof str !== "string") return str;
+
+      return str.replace(/\{([^}]+)\}/g, (match, key) => {
+        if (key === "id") {
+          return encode(rowId);
+        }
+        return Object.prototype.hasOwnProperty.call(rowData, key)
+          ? encode(rowData[key] ?? "")
+          : match;
+      });
+    };
+
+    // Context-specific placeholder renderers
+    const htmlContent = (str) =>
+      replacePlaceholders(str, (v) => this.escapeHtml(v));
+    const attrValue = (str) => this.escapeAttr(replacePlaceholders(str));
+    const hrefValue = (str) =>
+      this.escapeAttr(this.safeUrl(replacePlaceholders(str)));
+    const onclickValue = (str) =>
+      this.escapeAttr(replacePlaceholders(str, (v) => this.escapeJs(v)));
+    const jsArg = (value) =>
+      this.escapeAttr(JSON.stringify(String(value ?? "")));
+
+    // Check if we have action groups configured
+    if (this.actionConfig.groups && this.actionConfig.groups.length > 0) {
+      this.actionConfig.groups.forEach((group) => {
+        if (Array.isArray(group)) {
+          // Array of built-in actions like ['edit', 'delete']
+          group.forEach((actionItem) => {
+            switch (actionItem) {
+              case "edit":
+                if (this.theme === "uikit") {
+                  html +=
+                    '<a href="#" class="uk-icon-link btn-edit uk-margin-tiny-full" uk-icon="pencil" title="Edit Record" uk-tooltip="Edit Record"></a>';
+                } else {
+                  html += `<a href="#" class="${iconLinkClass} btn-edit" title="Edit Record">${this.renderIcon("pencil")}</a>`;
+                }
+                break;
+              case "delete":
+                if (this.theme === "uikit") {
+                  html +=
+                    '<a href="#" class="uk-icon-link btn-delete uk-margin-tiny-full" uk-icon="trash" title="Delete Record" uk-tooltip="Delete Record"></a>';
+                } else {
+                  html += `<a href="#" class="${iconLinkClass} btn-delete" title="Delete Record">${this.renderIcon("trash")}</a>`;
+                }
+                break;
+            }
+          });
+        } else if (typeof group === "object" && group !== null) {
+          // Handle all html* keys with location 'before' first
+          Object.keys(group)
+            .filter((key) => key.startsWith("html"))
+            .forEach((htmlKey) => {
+              const htmlConfig = group[htmlKey];
+              if (
+                typeof htmlConfig === "object" &&
+                htmlConfig.location &&
+                htmlConfig.content
+              ) {
+                if (
+                  htmlConfig.location === "before" ||
+                  htmlConfig.location === "both"
+                ) {
+                  html += htmlContent(htmlConfig.content);
+                }
+              } else if (typeof htmlConfig === "string") {
+                html += htmlContent(htmlConfig);
+              }
+            });
+
+          // Get action keys (excluding 'html')
+          const actionKeys = Object.keys(group).filter(
+            (key) => !key.startsWith("html"),
+          );
+
+          actionKeys.forEach((actionKey) => {
+            const actionConfig = group[actionKey];
+
+            if (!actionConfig || typeof actionConfig !== "object") return;
+
+            // Check for action-level html before
+            if (actionConfig.html) {
+              if (
+                typeof actionConfig.html === "object" &&
+                actionConfig.html.location &&
+                actionConfig.html.content
+              ) {
+                if (
+                  actionConfig.html.location === "before" ||
+                  actionConfig.html.location === "both"
+                ) {
+                  html += htmlContent(actionConfig.html.content);
+                }
+              } else if (
+                typeof actionConfig.html === "string" &&
+                !actionConfig.hasCallback &&
+                actionConfig.href === undefined &&
+                actionConfig.icon === undefined
+              ) {
+                // Only skip if this is PURELY an html entry with no action
+                html += htmlContent(actionConfig.html);
+                return;
+              }
+            }
+
+            if (actionConfig.hasCallback) {
+              // Handle callback action (callback was stripped but hasCallback flag remains)
+              const icon = this.escapeAttr(actionConfig.icon || "link");
+              const title = this.escapeAttr(actionConfig.title || "");
+              const className = this.escapeAttr(
+                actionConfig.class || "btn-custom",
+              );
+              const confirm = this.escapeAttr(actionConfig.confirm || "");
+
+              if (this.theme === "uikit") {
+                html +=
+                  '<a href="#" class="uk-icon-link ' +
+                  className +
+                  '" uk-icon="' +
+                  icon +
+                  '" title="' +
+                  title +
+                  '" uk-tooltip="' +
+                  title +
+                  '"';
+              } else {
+                html +=
+                  '<a href="#" class="' +
+                  iconLinkClass +
+                  " " +
+                  className +
+                  '" title="' +
+                  title +
+                  '"';
+              }
+              html += ' data-action="' + this.escapeAttr(actionKey) + '"';
+              html += ' data-id="' + this.escapeAttr(rowId) + '"';
+              html += ' data-confirm="' + confirm + '"';
+              html +=
+                ' onclick="DataTables.executeActionCallback(' +
+                jsArg(actionKey) +
+                ", " +
+                jsArg(rowId) +
+                ', event)"';
+              html += ">";
+              if (this.theme !== "uikit") {
+                html += this.renderIcon(actionConfig.icon || "link");
+              }
+              html += "</a>";
+            } else if (
+              actionConfig.href !== undefined ||
+              actionConfig.icon !== undefined
+            ) {
+              // Handle link-based action
+              const rawIcon = replacePlaceholders(actionConfig.icon || "link");
+              const icon = this.escapeAttr(rawIcon);
+              const title = attrValue(actionConfig.title || "");
+              const className = attrValue(actionConfig.class || "btn-custom");
+              const href = hrefValue(actionConfig.href || "#");
+              const onclick = onclickValue(actionConfig.onclick || "");
+              const attributes = actionConfig.attributes || {};
+
+              if (this.theme === "uikit") {
+                html +=
+                  '<a href="' +
+                  href +
+                  '" class="uk-icon-link ' +
+                  className +
+                  '" uk-icon="' +
+                  icon +
+                  '" title="' +
+                  title +
+                  '" uk-tooltip="' +
+                  title +
+                  '"';
+              } else {
+                html +=
+                  '<a href="' +
+                  href +
+                  '" class="' +
+                  iconLinkClass +
+                  " " +
+                  className +
+                  '" title="' +
+                  title +
+                  '"';
+              }
+              if (onclick) {
+                html += ' onclick="' + onclick + '"';
+              }
+
+              // Add custom attributes (valid names only)
+              for (const [attrName, attrVal] of Object.entries(attributes)) {
+                if (!/^[A-Za-z_:][-A-Za-z0-9_:.]*$/.test(attrName)) {
+                  continue;
+                }
+                html +=
+                  " " + attrName + '="' + attrValue(String(attrVal)) + '"';
+              }
+
+              html += ">";
+              if (this.theme !== "uikit") {
+                html += this.renderIcon(rawIcon);
+              }
+              html += "</a>";
+            }
+
+            // Check for action-level html after
+            if (
+              actionConfig.html &&
+              typeof actionConfig.html === "object" &&
+              actionConfig.html.location &&
+              actionConfig.html.content
+            ) {
+              if (
+                actionConfig.html.location === "after" ||
+                actionConfig.html.location === "both"
+              ) {
+                html += htmlContent(actionConfig.html.content);
+              }
+            }
+          });
+
+          // Handle all html* keys with location 'after' last
+          Object.keys(group)
+            .filter((key) => key.startsWith("html"))
+            .forEach((htmlKey) => {
+              const htmlConfig = group[htmlKey];
+              if (
+                typeof htmlConfig === "object" &&
+                htmlConfig.location &&
+                htmlConfig.content
+              ) {
+                if (
+                  htmlConfig.location === "after" ||
+                  htmlConfig.location === "both"
+                ) {
+                  html += htmlContent(htmlConfig.content);
+                }
+              }
+            });
+        }
+      });
+    } else {
+      // Fallback to default buttons if no groups configured
+      if (this.actionConfig.show_edit !== false) {
+        if (this.theme === "uikit") {
+          html +=
+            '<a href="#" class="uk-icon-link btn-edit uk-margin-tiny-full" uk-icon="pencil" title="Edit Record" uk-tooltip="Edit Record"></a>';
+        } else {
+          html += `<a href="#" class="${iconLinkClass} btn-edit" title="Edit Record">${this.renderIcon("pencil")}</a>`;
+        }
+      }
+      if (this.actionConfig.show_delete !== false) {
+        if (this.theme === "uikit") {
+          html +=
+            '<a href="#" class="uk-icon-link btn-delete uk-margin-tiny-full" uk-icon="trash" title="Delete Record" uk-tooltip="Delete Record"></a>';
+        } else {
+          html += `<a href="#" class="${iconLinkClass} btn-delete" title="Delete Record">${this.renderIcon("trash")}</a>`;
+        }
+      }
+    }
+
+    return html;
+  }
 
   // === PAGINATION ===
   renderInfo(data) {
@@ -1458,7 +1574,9 @@ class DataTablesJS {
         } else {
           // For select2 fields, add the option before setting value
           if (element.hasAttribute("data-select2")) {
-            element.replaceChildren(new Option(String(value), String(value), true, true));
+            element.replaceChildren(
+              new Option(String(value), String(value), true, true),
+            );
           }
           element.value = value;
 
@@ -1774,7 +1892,9 @@ class DataTablesJS {
         selectEl.setAttribute("data-min-search-chars", minChars);
         selectEl.setAttribute("data-max-results", maxResults);
         selectEl.setAttribute("data-theme", this.theme);
-        selectEl.replaceChildren(new Option('Loading...', String(currentValue), true, true));
+        selectEl.replaceChildren(
+          new Option("Loading...", String(currentValue), true, true),
+        );
         selectEl.value = currentValue;
 
         element.innerHTML = "";
@@ -1976,7 +2096,13 @@ class DataTablesJS {
 
         const cancelImageEdit = () => {
           if (currentValue && currentValue.trim()) {
-            const imageSrc = this.escapeAttr(this.safeUrl(currentValue.startsWith('http') ? currentValue : `/uploads/${currentValue}`));
+            const imageSrc = this.escapeAttr(
+              this.safeUrl(
+                currentValue.startsWith("http")
+                  ? currentValue
+                  : `/uploads/${currentValue}`,
+              ),
+            );
             element.innerHTML = `<img src="${imageSrc}" alt="Image" style="max-width: 50px; max-height: 50px; object-fit: cover;" class="${roundedClass}">`;
           } else {
             element.innerHTML = "No image";
@@ -2121,7 +2247,11 @@ class DataTablesJS {
           // Handle image fields differently
           if (element.getAttribute("data-type") === "image") {
             if (value && value.trim()) {
-              const imageSrc = this.escapeAttr(this.safeUrl(value.startsWith('http') ? value : `/uploads/${value}`));
+              const imageSrc = this.escapeAttr(
+                this.safeUrl(
+                  value.startsWith("http") ? value : `/uploads/${value}`,
+                ),
+              );
               element.innerHTML = `<img src="${imageSrc}" alt="Image" style="max-width: 50px; max-height: 50px; object-fit: cover;" class="${roundedClass}">`;
               element.setAttribute("data-value", value);
             } else {
