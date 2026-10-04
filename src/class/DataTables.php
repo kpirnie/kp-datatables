@@ -541,6 +541,23 @@ if (! class_exists('KPT\DataTables', false)) {
         }
 
         /**
+         * Render the data as a card grid instead of a table
+         *
+         * Each record renders as a card showing all configured columns.
+         * Cards per page still come from perPage() and the page size selector.
+         *
+         * @param  int $perRow Number of cards per row (1-6)
+         * @return self Returns self for method chaining
+         */
+        public function showAsGrid(int $perRow = 3): self
+        {
+            $this->gridMode = true;
+            $this->gridPerRow = max(1, min(6, $perRow));
+            Logger::debug("DataTables grid mode enabled", ['per_row' => $this->gridPerRow]);
+            return $this;
+        }
+
+        /**
          * Configure available page size options
          *
          * Sets the options available in the page size selector dropdown.
