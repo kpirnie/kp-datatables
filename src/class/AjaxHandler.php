@@ -402,7 +402,7 @@ if (! class_exists('KPT\AjaxHandler', false)) {
             // Add WHERE clause for search functionality
             $searchConditions = [];
             foreach ($this->dataTable->getColumns() as $column => $label) {
-                $searchConditions[] = "`{$column}` LIKE ?";
+                $searchConditions[] = "`{$column}` LIKE ? ESCAPE '!'";
                 $params[] = "%{$search}%";
             }
 
@@ -464,7 +464,7 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                 // Global search across all columns
                 $searchConditions = [];
                 foreach ($columns as $column) {
-                    $searchConditions[] = "`{$column}` LIKE ?";
+                    $searchConditions[] = "`{$column}` LIKE ? ESCAPE '!'";
                     $params[] = "%{$search}%";
                 }
 
@@ -615,9 +615,9 @@ if (! class_exists('KPT\AjaxHandler', false)) {
 
                 if (!empty($searchColumn) && $searchColumn !== 'all') {
                     if (strpos($searchColumn, '.') !== false) {
-                        $searchConditions[] = "{$searchColumn} LIKE ?";
+                        $searchConditions[] = "{$searchColumn} LIKE ? ESCAPE '!'";
                     } else {
-                        $searchConditions[] = "`{$searchColumn}` LIKE ?";
+                        $searchConditions[] = "`{$searchColumn}` LIKE ? ESCAPE '!'";
                     }
                     $params[] = "%{$search}%";
                 } else {
@@ -630,9 +630,9 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                         }
 
                         if (strpos($searchColumn, '.') !== false) {
-                            $searchConditions[] = "{$searchColumn} LIKE ?";
+                            $searchConditions[] = "{$searchColumn} LIKE ? ESCAPE '!'";
                         } else {
-                            $searchConditions[] = "`{$searchColumn}` LIKE ?";
+                            $searchConditions[] = "`{$searchColumn}` LIKE ? ESCAPE '!'";
                         }
                         $params[] = "%{$search}%";
                     }
@@ -784,9 +784,9 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                 $searchConditions = [];
                 if (!empty($searchColumn) && $searchColumn !== 'all') {
                     if (strpos($searchColumn, '.') !== false) {
-                        $searchConditions[] = "{$searchColumn} LIKE ?";
+                        $searchConditions[] = "{$searchColumn} LIKE ? ESCAPE '!'";
                     } else {
-                        $searchConditions[] = "`{$searchColumn}` LIKE ?";
+                        $searchConditions[] = "`{$searchColumn}` LIKE ? ESCAPE '!'";
                     }
                     $params[] = "%{$search}%";
                 } else {
@@ -799,9 +799,9 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                         }
 
                         if (strpos($searchColumn, '.') !== false) {
-                            $searchConditions[] = "{$searchColumn} LIKE ?";
+                            $searchConditions[] = "{$searchColumn} LIKE ? ESCAPE '!'";
                         } else {
-                            $searchConditions[] = "`{$searchColumn}` LIKE ?";
+                            $searchConditions[] = "`{$searchColumn}` LIKE ? ESCAPE '!'";
                         }
                         $params[] = "%{$search}%";
                     }
@@ -1561,9 +1561,9 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                         $sc = trim($parts[0]);
                     }
                     if (strpos($sc, '.') !== false) {
-                        $searchConditions[] = "{$sc} LIKE ?";
+                        $searchConditions[] = "{$sc} LIKE ? ESCAPE '!'";
                     } else {
-                        $searchConditions[] = "`{$sc}` LIKE ?";
+                        $searchConditions[] = "`{$sc}` LIKE ? ESCAPE '!'";
                     }
                     $params[] = "%{$search}%";
                 }
@@ -1618,9 +1618,9 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                             $sc = trim($parts[0]);
                         }
                         if (strpos($sc, '.') !== false) {
-                            $innerSearchConditions[] = "{$sc} LIKE ?";
+                            $innerSearchConditions[] = "{$sc} LIKE ? ESCAPE '!'";
                         } else {
-                            $innerSearchConditions[] = "`{$sc}` LIKE ?";
+                            $innerSearchConditions[] = "`{$sc}` LIKE ? ESCAPE '!'";
                         }
                         $innerParams[] = "%{$search}%";
                     }
@@ -1742,7 +1742,20 @@ if (! class_exists('KPT\AjaxHandler', false)) {
          */
         private function sanitizeSearchInput(string $input): string
         {
-            return trim(htmlspecialchars($input, ENT_QUOTES, 'UTF-8'));
+            return $this->escapeLike(trim($input));
+        }
+
+        /**
+         * Escape LIKE wildcards using '!' as the escape character
+         *
+         * Pair with `LIKE ? ESCAPE '!'` in SQL.
+         *
+         * @param  string $value Raw value
+         * @return string Value with !, % and _ escaped
+         */
+        private function escapeLike(string $value): string
+        {
+            return str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $value);
         }
 
         /**
@@ -2297,8 +2310,8 @@ if (! class_exists('KPT\AjaxHandler', false)) {
 
                     case 'LIKE':
                     case 'NOT LIKE':
-                        $parts[]  = "{$fieldSql} {$operator} ?";
-                        $params[] = '%' . $value . '%';
+                        $parts[]  = "{$fieldSql} {$operator} ? ESCAPE '!'";
+                        $params[] = '%' . $this->escapeLike($value) . '%';
                         break;
 
                     case 'IN':
@@ -2411,7 +2424,7 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                     $labelColumn = 'Label';
                 }
 
-                $whereClauses[] = "{$labelColumn} LIKE ?";
+                $whereClauses[] = "{$labelColumn} LIKE ? ESCAPE '!'";
                 $params[] = "%{$search}%";
             }
 
