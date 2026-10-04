@@ -573,6 +573,9 @@ class DataTablesJS {
       ? JSON.parse(tableElement.dataset.columns || "{}")
       : {};
 
+    // Reset stored row data for this render
+    window.DataTablesRowData = {};
+
     let html = "";
     data.forEach((row) => {
       // Find the ID value regardless of key format
