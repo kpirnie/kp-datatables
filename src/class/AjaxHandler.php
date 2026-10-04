@@ -940,6 +940,14 @@ if (! class_exists('KPT\AjaxHandler', false)) {
 
             $validatedData = $this->processFileUploads($validatedData, 'add');
 
+            // Only allow configured add form fields
+            $validatedData = array_intersect_key($validatedData, $this->getFormFieldWhitelist('add'));
+
+            // Force where() scope values on insert
+            foreach ($this->getScopeEqualityValues() as $scopeField => $scopeValue) {
+                $validatedData[$scopeField] = $scopeValue;
+            }
+
             if (empty($validatedData)) {
                 throw new InvalidArgumentException('No valid data to insert');
             }
@@ -1005,6 +1013,10 @@ if (! class_exists('KPT\AjaxHandler', false)) {
             }
 
             $validatedData = $this->processFileUploads($validatedData, 'edit');
+
+            // Only allow configured edit form fields, never the where() scope columns
+            $validatedData = array_intersect_key($validatedData, $this->getFormFieldWhitelist('edit'));
+            $validatedData = array_diff_key($validatedData, $this->getScopeEqualityValues());
 
             if (empty($validatedData)) {
                 throw new InvalidArgumentException('No valid data to update');
@@ -1321,8 +1333,9 @@ if (! class_exists('KPT\AjaxHandler', false)) {
             $columnName = strpos($field, '.') !== false ? explode('.', $field)[1] : $field;
             $inlineEditableColumns = $this->dataTable->getInlineEditableColumns();
 
-            if (!in_array($field, $inlineEditableColumns) && !in_array($columnName, $inlineEditableColumns)) {
-                throw new InvalidArgumentException("Field '{$field}' is not inline editable. Configured fields: " . implode(', ', $inlineEditableColumns));
+            // Never allow the where() scope columns to change
+            if (array_key_exists($columnName, $this->getScopeEqualityValues())) {
+                throw new InvalidArgumentException('Field is not editable');
             }
 
             $schema = $this->dataTable->getTableSchema();
@@ -1873,6 +1886,94 @@ if (! class_exists('KPT\AjaxHandler', false)) {
         {
             $d = \DateTime::createFromFormat($format, $date);
             return $d && $d->format($format) === $date;
+        }
+        /**
+         * Get the allowed field names for a form
+         *
+         * Returns the unqualified field names configured in the add or edit
+         * form (excluding display-only static fields), keyed for intersection.
+         *
+         * @param  string $form Form name ('add' or 'edit')
+         * @return array Allowed field names as keys
+         */
+        private function getFormFieldWhitelist(string $form): array
+        {
+            $formConfig = $form === 'edit' ? $this->dataTable->getEditFormConfig() : $this->dataTable->getAddFormConfig();
+            $allowed = [];
+
+            foreach ($formConfig['fields'] ?? [] as $field => $config) {
+                // static fields are display-only
+                if (($config['type'] ?? '') === 'static') {
+                    continue;
+                }
+                $allowed[$this->getUnqualifiedFieldName((string) $field)] = true;
+            }
+
+            return $allowed;
+        }
+
+        /**
+         * Get base table columns pinned by where() equality conditions
+         *
+         * Collects `=` conditions with scalar values from the plain condition list
+         * or AND groups (OR groups can't pin a value) that target the base table.
+         *
+         * @return array Unqualified column => required value
+         */
+        private function getScopeEqualityValues(): array
+        {
+            $conditions = $this->dataTable->getWhereConditions();
+            if (empty($conditions)) {
+                return [];
+            }
+
+            // Figure out the base table alias for qualified field names
+            $tableParts = preg_split('/\s+/', trim($this->dataTable->getTableName()));
+            $baseAlias = $tableParts[1] ?? $tableParts[0];
+            $baseTable = $this->dataTable->getBaseTableName();
+            $schema = $this->dataTable->getTableSchema();
+
+            // Normalize to a list of AND groups
+            if (isset($conditions[0]) && is_array($conditions[0])) {
+                $groups = [$conditions];
+            } else {
+                $groups = [];
+                foreach ($conditions as $operator => $group) {
+                    if (is_array($group) && strtoupper((string) $operator) !== 'OR') {
+                        $groups[] = isset($group['field']) ? [$group] : $group;
+                    }
+                }
+            }
+
+            $scoped = [];
+            foreach ($groups as $group) {
+                foreach ($group as $condition) {
+                    if (!is_array($condition) || !isset($condition['field'], $condition['comparison']) || !array_key_exists('value', $condition)) {
+                        continue;
+                    }
+
+                    // Only plain equality with a scalar value pins a column
+                    if (trim((string) $condition['comparison']) !== '=' || !is_scalar($condition['value'])) {
+                        continue;
+                    }
+
+                    // Qualified fields must belong to the base table
+                    $field = (string) $condition['field'];
+                    if (strpos($field, '.') !== false) {
+                        $prefix = explode('.', $field)[0];
+                        if ($prefix !== $baseAlias && $prefix !== $baseTable) {
+                            continue;
+                        }
+                    }
+
+                    $column = $this->getUnqualifiedFieldName($field);
+                    if (isset($schema[$column])) {
+                        $scoped[$column] = $condition['value'];
+                    }
+                }
+            }
+
+            return $scoped;
         }
 
         /**
