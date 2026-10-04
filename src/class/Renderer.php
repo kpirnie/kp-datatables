@@ -31,9 +31,7 @@ if (! class_exists('KPT\Renderer', false)) {
          *
          * @param DataTables|null $dataTable Optional DataTables instance
          */
-        public function __construct(?DataTables $dataTable = null)
-        {
-        }
+        public function __construct(?DataTables $dataTable = null) {}
 
         /**
          * Render the complete DataTable HTML output
@@ -673,8 +671,14 @@ if (! class_exists('KPT\Renderer', false)) {
             // Overflow wrapper for responsive horizontal scrolling
             $html = "<div class=\"{$overflowClass}\">\n";
 
+            // Keep select2 SQL server-side only
+            $clientSchema = array_map(
+                fn($info) => is_array($info) ? array_diff_key($info, ['select2_query' => true]) : $info,
+                $tableSchema
+            );
+
             // Table element with schema data attribute for JS field type detection
-            $html .= "<table class=\"{$tableClass} {$themeTableClass} datatables-table\" data-columns='" . json_encode($tableSchema) . "'>\n";
+            $html .= "<table class=\"{$tableClass} {$themeTableClass} datatables-table\" data-columns='" . json_encode($clientSchema) . "'>\n";
 
             // Table header
             $html .= "<thead" . (!empty($theadClass) ? " class=\"{$theadClass}\"" : "") . ">\n";
@@ -1072,7 +1076,8 @@ if (! class_exists('KPT\Renderer', false)) {
                     // Render as native select with data attributes for JavaScript enhancement
                     $html .= "<select class=\"{$selectClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" ";
                     $html .= "data-select2=\"true\" ";
-                    $html .= "data-query=\"" . htmlspecialchars($select2Query, ENT_QUOTES) . "\" ";
+                    $html .= "data-field=\"" . htmlspecialchars($fieldName, ENT_QUOTES) . "\" ";
+                    $html .= "data-form=\"" . htmlspecialchars($prefix, ENT_QUOTES) . "\" ";
                     $html .= "data-placeholder=\"{$placeholder}\" ";
                     $html .= "data-min-search-chars=\"{$select2MinChars}\" ";
                     $html .= "data-max-results=\"{$select2MaxResults}\" ";
@@ -1107,11 +1112,11 @@ if (! class_exists('KPT\Renderer', false)) {
                     $html .= ">\n";
 
                     // Add option if value is set
-                if (!empty($value)) {
-                    $html .= "<option value=\"{$value}\" selected>{$value}</option>\n";
-                } else {
-                    $html .= "<option value=\"\">{$placeholder}</option>\n";
-                }
+                    if (!empty($value)) {
+                        $html .= "<option value=\"{$value}\" selected>{$value}</option>\n";
+                    } else {
+                        $html .= "<option value=\"\">{$placeholder}</option>\n";
+                    }
 
                     $html .= "</select>\n";
                     break;
@@ -1339,8 +1344,7 @@ if (! class_exists('KPT\Renderer', false)) {
             $leadingCols = max(1, $leadingCols);
 
             // Trailing columns use only the data column offset
-            $trailingColKeys = array_slice($colKeys, $dataLeading);
-            ;
+            $trailingColKeys = array_slice($colKeys, $dataLeading);;
 
             $html = '';
 

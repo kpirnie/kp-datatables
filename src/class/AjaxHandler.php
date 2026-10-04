@@ -2002,7 +2002,9 @@ if (! class_exists('KPT\AjaxHandler', false)) {
         private function handleFetchSelect2Options(): void
         {
 
-            $query = $_POST['query'] ?? '';
+            $field = $_POST['field'] ?? '';
+            $form = $_POST['form'] ?? '';
+            $query = $this->getSelect2Query($field, $form);
             $search = $this->sanitizeSearchInput($_POST['search'] ?? '');
             $maxResults = $this->validateInteger($_POST['max_results'] ?? 50, 0);
             $valueFilter = $_POST['value_filter'] ?? '';
@@ -2015,7 +2017,7 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                 'recordData' => $recordDataJson
             ]);
             if (empty($query)) {
-                throw new InvalidArgumentException('Query is required for Select2 options');
+                throw new InvalidArgumentException('Invalid Select2 field');
             }
 
             // Parse record data for parameter substitution
@@ -2024,12 +2026,11 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                 $recordData = [];
             }
 
-            // Substitute {field_name} placeholders with record data values
-            $processedQuery = $this->substituteQueryParameters($query, $recordData);
+            // Swap {field_name} placeholders for bound params from record data
+            [$processedQuery, $params] = $this->substituteQueryParameters($query, $recordData);
 
             // Build WHERE clause for search and value filter
             $whereClauses = [];
-            $params = [];
 
             // Add value filter if present (for loading initial selected value)
             if (!empty($valueFilter)) {
@@ -2157,49 +2158,65 @@ if (! class_exists('KPT\AjaxHandler', false)) {
         /**
          * Substitute query parameters from record data
          *
-         * Replaces {field_name} placeholders in the query with actual values
-         * from the provided record data array. Parameters are properly escaped
-         * for SQL injection prevention.
+         * Replaces {field_name} placeholders in the query with bound `?`
+         * parameters, collecting their values from the provided record data
+         * in placeholder order. Missing or non-scalar values bind as NULL.
          *
          * @param  string $query      SQL query with {field_name} placeholders
          * @param  array  $recordData Associative array of field => value pairs
-         * @return string Processed query with substituted values
+         * @return array  [processed query, ordered bind params]
          * @since  1.2.0
          */
-        private function substituteQueryParameters(string $query, array $recordData): string
+        private function substituteQueryParameters(string $query, array $recordData): array
         {
-            // Find all {field_name} placeholders
-            preg_match_all('/\{([a-zA-Z0-9_]+)\}/', $query, $matches);
+            $params = [];
 
-            if (empty($matches[0])) {
-                return $query;
+            // Replace each placeholder occurrence with a bound param
+            $processedQuery = preg_replace_callback('/\{([a-zA-Z0-9_]+)\}/', function (array $matches) use ($recordData, &$params): string {
+                $value = $recordData[$matches[1]] ?? null;
+                $params[] = is_scalar($value) ? $value : null;
+                return '?';
+            }, $query);
+
+            return [$processedQuery, $params];
+        }
+
+        /**
+         * Resolve the configured Select2 query for a field
+         *
+         * Looks the query up server-side from the add/edit form field config,
+         * falling back to the table schema, so the client never supplies SQL.
+         *
+         * @param  string $field Field name (may be qualified, e.g. 's.u_id')
+         * @param  string $form  Form the field belongs to ('add', 'edit', or empty for inline)
+         * @return string Configured query, or empty string if the field isn't a select2
+         * @since  1.2.0
+         */
+        private function getSelect2Query(string $field, string $form): string
+        {
+            // Field names are identifiers only
+            if (!preg_match('/^[A-Za-z0-9_.]+$/', $field)) {
+                return '';
             }
 
-            $processedQuery = $query;
-
-            // Replace each placeholder with its value from record data
-            foreach ($matches[1] as $index => $fieldName) {
-                $placeholder = $matches[0][$index];
-
-                if (isset($recordData[$fieldName])) {
-                    $value = $recordData[$fieldName];
-
-                    // Escape value for SQL safety
-                    if (is_numeric($value)) {
-                        $escapedValue = $value;
-                    } else {
-                        // Use database escape method if available, otherwise basic escaping
-                        $escapedValue = "'" . addslashes($value) . "'";
-                    }
-
-                    $processedQuery = str_replace($placeholder, $escapedValue, $processedQuery);
-                } else {
-                    // Replace with NULL if field not found in record data
-                    $processedQuery = str_replace($placeholder, 'NULL', $processedQuery);
-                }
+            // Check the matching form config first
+            $formConfig = match ($form) {
+                'add' => $this->dataTable->getAddFormConfig(),
+                'edit' => $this->dataTable->getEditFormConfig(),
+                default => [],
+            };
+            $fieldConfig = $formConfig['fields'][$field] ?? [];
+            if (($fieldConfig['type'] ?? '') === 'select2' && !empty($fieldConfig['query'])) {
+                return $fieldConfig['query'];
             }
 
-            return $processedQuery;
+            // Fall back to the table schema
+            $schemaInfo = $this->dataTable->getTableSchema()[$this->getUnqualifiedFieldName($field)] ?? [];
+            if (($schemaInfo['override_type'] ?? '') === 'select2' && !empty($schemaInfo['select2_query'])) {
+                return $schemaInfo['select2_query'];
+            }
+
+            return '';
         }
     }
 }
