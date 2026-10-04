@@ -1538,7 +1538,7 @@ if (! class_exists('KPT\AjaxHandler', false)) {
             if (mb_strlen(trim((string) ($_GET['search'] ?? ''))) < $this->dataTable->getMinSearchLength()) {
                 $search = '';
             }
-            $searchColumn = $this->sanitizeColumnName($_GET['search_column'] ?? '');
+            $searchColumn = $this->validateSearchColumn($_GET['search_column'] ?? '');
             $filtersJson = $this->sanitizeJsonInput($_GET['filters'] ?? '[]');
 
             $aggregations = $this->dataTable->getFooterAggregations();
@@ -1592,7 +1592,8 @@ if (! class_exists('KPT\AjaxHandler', false)) {
             if (!empty($search)) {
                 $searchConditions = [];
                 foreach ($this->dataTable->getColumns() as $col => $label) {
-                    if (!$this->isSearchableColumn((string) $col)) {
+                    // A specific search column narrows to just that column
+                    if ($searchColumn !== '' ? $col !== $searchColumn : !$this->isSearchableColumn((string) $col)) {
                         continue;
                     }
                     $sc = $col;
@@ -1652,6 +1653,10 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                 if (!empty($search)) {
                     $innerSearchConditions = [];
                     foreach ($this->dataTable->getColumns() as $col => $label) {
+                        // A specific search column narrows to just that column
+                        if ($searchColumn !== '' ? $col !== $searchColumn : !$this->isSearchableColumn((string) $col)) {
+                            continue;
+                        }
                         $sc = $col;
                         if (stripos($col, ' AS ') !== false) {
                             $parts = explode(' AS ', $col);
