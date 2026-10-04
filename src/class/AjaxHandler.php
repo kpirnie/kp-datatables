@@ -153,22 +153,37 @@ if (! class_exists('KPT\AjaxHandler', false)) {
          * Process file uploads in form data
          *
          * Scans $_FILES for uploaded files and processes them, updating the form data
-         * with the file paths. Used during add/edit record operations.
+         * with the file paths. Only fields that exist in the schema and are configured
+         * as file/image fields are accepted. Used during add/edit record operations.
          *
-         * @param  array $data Form data to process
+         * @param  array  $data Form data to process
+         * @param  string $form Form the upload belongs to ('add' or 'edit')
          * @return array Updated form data with file paths
          */
-        private function processFileUploads(array $data): array
+        private function processFileUploads(array $data, string $form): array
         {
+            $schema = $this->dataTable->getTableSchema();
+            $formConfig = $form === 'edit' ? $this->dataTable->getEditFormConfig() : $this->dataTable->getAddFormConfig();
+            $formFields = $formConfig['fields'] ?? [];
+            $unqualifiedPK = $this->getUnqualifiedPrimaryKey();
+
             // Loop through all uploaded files
             foreach ($_FILES as $fieldName => $file) {
                 // Handle image field uploads (remove -file suffix)
-                $actualFieldName = $fieldName;
-                if (strpos($fieldName, '-file') !== false) {
-                    $actualFieldName = str_replace('-file', '', $fieldName);
+                $actualFieldName = str_ends_with((string) $fieldName, '-file') ? substr((string) $fieldName, 0, -5) : (string) $fieldName;
+
+                // Field names are identifiers only, must exist in the schema, and can't be the PK
+                if (!preg_match('/^[A-Za-z0-9_]+$/', $actualFieldName) || !isset($schema[$actualFieldName]) || $actualFieldName === $unqualifiedPK) {
+                    continue;
                 }
 
-                if ($file['error'] === UPLOAD_ERR_OK) {
+                // Only accept fields configured as file or image
+                $type = $formFields[$actualFieldName]['type'] ?? $schema[$actualFieldName]['override_type'] ?? $schema[$actualFieldName]['type'] ?? '';
+                if (!in_array($type, ['file', 'image'], true)) {
+                    continue;
+                }
+
+                if (is_array($file) && ($file['error'] ?? null) === UPLOAD_ERR_OK) {
                     $uploadResult = $this->uploadFile($file);
 
                     if ($uploadResult['success']) {
@@ -824,7 +839,7 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                 }
             }
 
-            $validatedData = $this->processFileUploads($validatedData);
+            $validatedData = $this->processFileUploads($validatedData, 'add');
 
             if (empty($validatedData)) {
                 throw new InvalidArgumentException('No valid data to insert');
@@ -890,7 +905,7 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                 }
             }
 
-            $validatedData = $this->processFileUploads($validatedData);
+            $validatedData = $this->processFileUploads($validatedData, 'edit');
 
             if (empty($validatedData)) {
                 throw new InvalidArgumentException('No valid data to update');
