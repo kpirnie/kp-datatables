@@ -2572,7 +2572,7 @@ if (! class_exists('KPT\AjaxHandler', false)) {
 
             // Build query to fetch labels for all IDs
             $placeholders = implode(',', array_fill(0, count($ids), '?'));
-            $fetchQuery = "{$query} WHERE ID IN ({$placeholders})";
+            $fetchQuery = $query . (stripos($query, 'WHERE') !== false ? ' AND ' : ' WHERE ') . "ID IN ({$placeholders})";
 
             try {
                 $results = $this->dataTable->getDatabase()
