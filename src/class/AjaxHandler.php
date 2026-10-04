@@ -1396,6 +1396,18 @@ if (! class_exists('KPT\AjaxHandler', false)) {
             $columnName = strpos($field, '.') !== false ? explode('.', $field)[1] : $field;
             $inlineEditableColumns = $this->dataTable->getInlineEditableColumns();
 
+            // Only configured inline editable columns, matched by full or unqualified name
+            $isEditable = false;
+            foreach ($inlineEditableColumns as $editableColumn) {
+                if ($editableColumn === $field || $this->getUnqualifiedFieldName($editableColumn) === $columnName) {
+                    $isEditable = true;
+                    break;
+                }
+            }
+            if (!$isEditable || !preg_match('/^[A-Za-z0-9_]+$/', $columnName)) {
+                throw new InvalidArgumentException('Field is not editable');
+            }
+
             // Never allow the where() scope columns to change
             if (array_key_exists($columnName, $this->getScopeEqualityValues())) {
                 throw new InvalidArgumentException('Field is not editable');
