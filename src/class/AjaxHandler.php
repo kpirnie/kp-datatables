@@ -126,6 +126,7 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                 'action_callback',
                 'fetch_aggregations',
                 'fetch_select2_options',
+                'grid_order',
             ];
 
             if (!in_array($action, $allowedActions)) {
@@ -177,6 +178,10 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                 case 'fetch_select2_options':
                     // Handle Select2 options fetch
                     $this->handleFetchSelect2Options();
+                    break;
+                case 'grid_order':
+                    // Handle saving dragged grid card order
+                    $this->handleGridOrder();
                     break;
             }
         }
@@ -414,6 +419,11 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                 }
             }
 
+            // Grid order column is the default sort
+            if (empty($sortColumn) && $this->dataTable->isGridMode()) {
+                $sortColumn = $this->dataTable->getGridOrderColumn();
+            }
+
             // Sanitize and validate raw filter JSON from request
             $filtersJson = $this->sanitizeJsonInput($_GET['filters'] ?? '[]');
 
@@ -422,7 +432,9 @@ if (! class_exists('KPT\AjaxHandler', false)) {
             $orderIds = [];
             if ($this->dataTable->isGridMode()) {
                 $pinnedIds = $this->validateIdArray(is_string($_GET['pinned_ids'] ?? null) ? $_GET['pinned_ids'] : '[]');
-                $orderIds = $this->validateIdArray(is_string($_GET['order_ids'] ?? null) ? $_GET['order_ids'] : '[]');
+                if ($this->dataTable->getGridOrderColumn() === '') {
+                    $orderIds = $this->validateIdArray(is_string($_GET['order_ids'] ?? null) ? $_GET['order_ids'] : '[]');
+                }
             }
 
             // Execute data query using fluent interface
@@ -1281,6 +1293,80 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                 'success' => $result !== false,
                 'message' => $message,
                 'affected_count' => $affectedCount
+            ]);
+            exit;
+        }
+
+        /**
+         * Save dragged grid card order to the order column
+         *
+         * Reassigns the dragged cards' existing order values in their new order,
+         * renumbering from the lowest value when any are NULL or duplicated.
+         * Only rows within the where() scope are updated.
+         *
+         * @return void (outputs JSON and exits)
+         * @throws InvalidArgumentException If no order column is configured or no records are given
+         */
+        private function handleGridOrder(): void
+        {
+            $orderColumn = $this->dataTable->getGridOrderColumn();
+            if ($orderColumn === '') {
+                throw new InvalidArgumentException('Grid order column is not configured');
+            }
+
+            $ids = $this->validateIdArray(is_string($_POST['ids'] ?? null) ? $_POST['ids'] : '[]');
+            $direction = $this->sanitizeSortDirection($_POST['sort_direction'] ?? 'ASC');
+
+            $columnName = strpos($orderColumn, '.') !== false ? explode('.', $orderColumn)[1] : $orderColumn;
+            $baseTable = $this->dataTable->getBaseTableName();
+            $unqualifiedPK = $this->getUnqualifiedPrimaryKey();
+            $db = $this->dataTable->getDatabase();
+
+            // where() scope for both the lookup and the updates
+            $scopeParams = [];
+            $whereClause = $this->buildWhereClause($this->dataTable->getWhereConditions(), $scopeParams, true);
+            $wherePrefix = !empty($whereClause) ? $whereClause . ' AND ' : ' WHERE ';
+
+            // Current order values for the in-scope rows
+            $current = [];
+            if (!empty($ids)) {
+                $placeholders = implode(',', array_fill(0, count($ids), '?'));
+                $sql = "SELECT `{$unqualifiedPK}` AS `pk`, `{$columnName}` AS `val` FROM `{$baseTable}`{$wherePrefix}`{$unqualifiedPK}` IN ({$placeholders})";
+                foreach ($db->query($sql)->bind(array_merge($scopeParams, $ids))->fetch() ?: [] as $row) {
+                    $row = (array) $row;
+                    $current[(int) $row['pk']] = $row['val'];
+                }
+            }
+
+            // Keep the dragged order, dropping out-of-scope IDs
+            $ids = array_values(array_filter($ids, fn(int $id): bool => array_key_exists($id, $current)));
+            if (empty($ids)) {
+                throw new InvalidArgumentException('No records to order');
+            }
+
+            // Reuse the existing values unless any are NULL or duplicated
+            $values = array_values(array_map('intval', array_filter($current, fn($v): bool => $v !== null)));
+            sort($values);
+            if (count($values) !== count($ids) || count(array_unique($values)) !== count($values)) {
+                $start = empty($values) ? 1 : $values[0];
+                $values = range($start, $start + count($ids) - 1);
+            }
+            if ($direction === 'DESC') {
+                $values = array_reverse($values);
+            }
+
+            // Write each card's new position
+            $success = true;
+            $sql = "UPDATE `{$baseTable}` SET `{$columnName}` = ?{$wherePrefix}`{$unqualifiedPK}` = ?";
+            foreach ($ids as $i => $id) {
+                $result = $db->query($sql)->bind(array_merge([$values[$i]], $scopeParams, [$id]))->execute();
+                $success = $success && $result !== false;
+            }
+
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => $success,
+                'message' => $success ? 'Order saved' : 'Failed to save order'
             ]);
             exit;
         }
