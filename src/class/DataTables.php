@@ -918,10 +918,15 @@ if (! class_exists('KPT\DataTables', false)) {
                 $handler = new AjaxHandler($this);
                 $handler->handle($action);
             } catch (Exception $e) {
-                // Log the error and return error response
+                // Log the full error, but only expose validation messages to the client
                 Logger::error("DataTables AJAX error", ['message' => $e->getMessage()]);
-                http_response_code(400);
-                echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+                $isValidation = $e instanceof InvalidArgumentException;
+                http_response_code($isValidation ? 400 : 500);
+                header('Content-Type: application/json');
+                echo json_encode([
+                    'success' => false,
+                    'message' => $isValidation ? $e->getMessage() : 'An error occurred processing the request',
+                ]);
                 exit;
             }
         }
