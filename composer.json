@@ -34,7 +34,8 @@
         }
     ],
     "require": {
-        "php": ">=8.2",
+        "php": ">=8.4",
+        "ext-fileinfo": "*",
         "kevinpirnie/kpt-database": "^1.0",
         "kevinpirnie/kpt-logger": "^1.0"
     },

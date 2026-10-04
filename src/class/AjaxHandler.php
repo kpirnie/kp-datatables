@@ -33,6 +33,64 @@ if (! class_exists('KPT\AjaxHandler', false)) {
         private DataTables $dataTable;
 
         /**
+         * Allowed MIME types per file extension for upload sniffing
+         *
+         * @var array
+         */
+        private const UPLOAD_MIME_MAP = [
+            'jpg' => ['image/jpeg'],
+            'jpeg' => ['image/jpeg'],
+            'png' => ['image/png'],
+            'gif' => ['image/gif'],
+            'webp' => ['image/webp'],
+            'bmp' => ['image/bmp', 'image/x-ms-bmp'],
+            'ico' => ['image/vnd.microsoft.icon', 'image/x-icon'],
+            'svg' => ['image/svg+xml'],
+            'pdf' => ['application/pdf'],
+            'doc' => ['application/msword', 'application/vnd.ms-office', 'application/octet-stream'],
+            'docx' => ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/zip', 'application/octet-stream'],
+            'xls' => ['application/vnd.ms-excel', 'application/vnd.ms-office', 'application/octet-stream'],
+            'xlsx' => ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/zip', 'application/octet-stream'],
+            'ppt' => ['application/vnd.ms-powerpoint', 'application/vnd.ms-office', 'application/octet-stream'],
+            'pptx' => ['application/vnd.openxmlformats-officedocument.presentationml.presentation', 'application/zip', 'application/octet-stream'],
+            'csv' => ['text/csv', 'text/plain', 'application/csv'],
+            'txt' => ['text/plain'],
+            'zip' => ['application/zip', 'application/x-zip-compressed'],
+            'mp3' => ['audio/mpeg'],
+            'mp4' => ['video/mp4'],
+            'html' => ['text/html'],
+            'htm' => ['text/html'],
+        ];
+
+        /**
+         * Extensions that are never accepted, regardless of configuration
+         *
+         * @var array
+         */
+        private const UPLOAD_BLOCKED_EXTENSIONS = [
+            'php',
+            'php3',
+            'php4',
+            'php5',
+            'php7',
+            'php8',
+            'phps',
+            'pht',
+            'phtml',
+            'phar',
+            'cgi',
+            'pl',
+            'py',
+            'sh',
+            'asp',
+            'aspx',
+            'jsp',
+            'exe',
+            'htaccess',
+            'htpasswd',
+        ];
+
+        /**
          * Constructor - Initialize the AJAX handler
          *
          * @param DataTables $dataTable The DataTables instance with configuration
@@ -135,7 +193,7 @@ if (! class_exists('KPT\AjaxHandler', false)) {
         private function handleFileUpload(): void
         {
             // Check if file was uploaded
-            if (!isset($_FILES['file'])) {
+            if (!isset($_FILES['file']) || !is_array($_FILES['file']) || ($_FILES['file']['error'] ?? null) !== UPLOAD_ERR_OK) {
                 throw new InvalidArgumentException('No file uploaded');
             }
 
@@ -198,8 +256,9 @@ if (! class_exists('KPT\AjaxHandler', false)) {
         /**
          * Upload a single file with enhanced validation
          *
-         * Handles the complete file upload process including validation of file size,
-         * extension, directory creation, and file movement with security checks.
+         * Handles the complete file upload process including validation of upload status,
+         * file size, extension, sniffed MIME type, directory creation, and file movement
+         * with security checks. Files are stored under a random name.
          *
          * @param  array $file File array from $_FILES
          * @return array Upload result with success status, file path, and message
@@ -209,6 +268,14 @@ if (! class_exists('KPT\AjaxHandler', false)) {
             // Get upload configuration
             $config = $this->dataTable->getFileUploadConfig();
 
+            // Validate upload status
+            if (($file['error'] ?? null) !== UPLOAD_ERR_OK || !is_uploaded_file($file['tmp_name'] ?? '')) {
+                return [
+                    'success' => false,
+                    'message' => 'File upload failed'
+                ];
+            }
+
             // Validate file size
             if ($file['size'] > $config['max_file_size']) {
                 return [
@@ -217,25 +284,57 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                 ];
             }
 
-            // Extract and validate file extension
-            $extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-            if (!in_array($extension, $config['allowed_extensions'])) {
+            // Extract and validate file extension, never allowing executable types
+            $extension = strtolower(pathinfo((string) $file['name'], PATHINFO_EXTENSION));
+            $allowed = array_map('strtolower', $config['allowed_extensions']);
+            if ($extension === '' || in_array($extension, self::UPLOAD_BLOCKED_EXTENSIONS, true) || !in_array($extension, $allowed, true)) {
                 return [
                     'success' => false,
                     'message' => 'File type not allowed'
                 ];
             }
 
-            // Ensure upload directory exists
-            if (!is_dir($config['upload_path'])) {
-                // Create directory with appropriate permissions
-                mkdir($config['upload_path'], 0755, true);
+            // Sniff the real MIME type and make sure it matches the extension
+            if (isset(self::UPLOAD_MIME_MAP[$extension])) {
+                $mime = (new \finfo(FILEINFO_MIME_TYPE))->file($file['tmp_name']);
+                if ($mime === false || !in_array($mime, self::UPLOAD_MIME_MAP[$extension], true)) {
+                    return [
+                        'success' => false,
+                        'message' => 'File type not allowed'
+                    ];
+                }
             }
 
-            // Generate unique filename with optional prepend
-            $prepend = $_POST['prepend'] ?? '';
-            $fileName = $prepend ? $prepend . '_' . uniqid() . '_' . basename($file['name']) : uniqid() . '_' . basename($file['name']);
-            $filePath = $config['upload_path'] . $fileName;
+            // Ensure upload directory exists
+            if (!is_dir($config['upload_path'])) {
+                // Create directory with restricted permissions
+                mkdir($config['upload_path'], 0750, true);
+            }
+
+            // Resolve the real upload directory
+            $uploadDir = realpath($config['upload_path']);
+            if ($uploadDir === false) {
+                return [
+                    'success' => false,
+                    'message' => 'Upload directory unavailable'
+                ];
+            }
+
+            // Generate random filename with optional restricted prepend
+            $prepend = (string) ($_POST['prepend'] ?? '');
+            if ($prepend !== '' && !preg_match('/^[A-Za-z0-9_-]{1,32}$/', $prepend)) {
+                $prepend = '';
+            }
+            $fileName = ($prepend !== '' ? $prepend . '_' : '') . bin2hex(random_bytes(16)) . '.' . $extension;
+            $filePath = $uploadDir . DIRECTORY_SEPARATOR . $fileName;
+
+            // Make sure the final path stays inside the upload directory
+            if (dirname($filePath) !== $uploadDir) {
+                return [
+                    'success' => false,
+                    'message' => 'Invalid upload path'
+                ];
+            }
 
             // Attempt to move uploaded file to final destination
             if (move_uploaded_file($file['tmp_name'], $filePath)) {
