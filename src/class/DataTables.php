@@ -1064,32 +1064,7 @@ if (! class_exists('KPT\DataTables', false)) {
          */
         public static function getJsIncludes(string $theme = 'uikit', bool $includeCdn = true, bool $useMinified = false): string
         {
-            $tm = new ThemeManager($theme);
-            $html = "<!-- DataTables JavaScript -->\n";
-
-            // Include framework JS from CDN if enabled
-            if ($includeCdn) {
-                $html .= $tm->getJsIncludes($theme, true, $useMinified);
-            }
-
-            // if we are minifying
-            if ($useMinified) {
-                // Include main DataTables JS
-                $html .= "<script src=\"/vendor/kevinpirnie/kpt-datatables/src/assets/js/dist/kpt-datatables.min.js\" defer></script>\n";
-
-                // otherwise
-            } else {
-                // Include theme helper for plain/tailwind/bootstrap themes
-                if (in_array($theme, [ThemeManager::THEME_PLAIN, ThemeManager::THEME_TAILWIND, ThemeManager::THEME_BOOTSTRAP])) {
-                    $html .= "<script src=\"/vendor/kevinpirnie/kpt-datatables/src/assets/js/theme-helpers.js\" defer></script>\n";
-                }
-
-                // Include main DataTables JS
-                $html .= "<script src=\"/vendor/kevinpirnie/kpt-datatables/src/assets/js/datatables.js\" defer></script>\n";
-                $html .= "<script src=\"/vendor/kevinpirnie/kpt-datatables/src/assets/js/select2.js\" defer></script>\n";
-            }
-
-            return $html;
+            return ThemeManager::getJsIncludes($theme, $includeCdn, $useMinified);
         }
 
         /**
