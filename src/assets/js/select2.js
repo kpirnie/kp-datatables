@@ -292,7 +292,10 @@ class KPTSelect2 {
         if (data.success) {
           this.renderResults(data.results);
         } else {
-          this.resultsContainer.innerHTML = `<div class="${this.getErrorClass()}">${data.message || "Error loading results"}</div>`;
+          const errorEl = document.createElement("div");
+          errorEl.className = this.getErrorClass();
+          errorEl.textContent = data.message || "Error loading results";
+          this.resultsContainer.replaceChildren(errorEl);
         }
       })
       .catch((error) => {
@@ -333,7 +336,9 @@ class KPTSelect2 {
     this.selectedLabel = label;
 
     // Clear existing options and add the selected one
-    this.element.innerHTML = `<option value="${value}" selected>${label}</option>`;
+    this.element.replaceChildren(
+      new Option(String(label ?? ""), String(value ?? ""), true, true),
+    );
     this.element.value = value;
 
     // Remove required validation error
