@@ -943,7 +943,7 @@ if (! class_exists('KPT\DataTables', false)) {
                 // Enforce POST + CSRF on mutating actions
                 if (in_array($action, $mutatingActions, true)) {
                     $isPost = ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['action']);
-                    $submitted = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? $_POST['_token'] ?? '';
+                    $submitted = $_SERVER['HTTP_X_KPT_DATATABLES_TOKEN'] ?? $_POST['_token'] ?? '';
 
                     if (!$isPost || !is_string($submitted) || $submitted === '' || !hash_equals($this->getCsrfToken(), $submitted)) {
                         Logger::error("DataTables CSRF check failed", ['action' => $action]);

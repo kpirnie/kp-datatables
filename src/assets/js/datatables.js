@@ -1641,7 +1641,7 @@ class DataTablesJS {
 
     fetch(window.location.href, {
       method: "POST",
-      headers: { "X-CSRF-Token": this.csrfToken },
+      headers: { "X-KPT-DataTables-Token": this.csrfToken },
       body: formData,
     })
       .then((response) => response.json())
@@ -1790,7 +1790,7 @@ class DataTablesJS {
 
     fetch(window.location.href, {
       method: "POST",
-      headers: { "X-CSRF-Token": this.csrfToken },
+      headers: { "X-KPT-DataTables-Token": this.csrfToken },
       body: formData,
     })
       .then((response) => response.json())
@@ -2037,7 +2037,7 @@ class DataTablesJS {
 
     fetch(window.location.href, {
       method: "POST",
-      headers: { "X-CSRF-Token": this.csrfToken },
+      headers: { "X-KPT-DataTables-Token": this.csrfToken },
       body: formData,
     })
       .then((response) => response.json())
@@ -2070,7 +2070,7 @@ class DataTablesJS {
 
     fetch(window.location.href, {
       method: "POST",
-      headers: { "X-CSRF-Token": this.csrfToken },
+      headers: { "X-KPT-DataTables-Token": this.csrfToken },
       body: formData,
     })
       .then((response) => response.json())
@@ -2434,7 +2434,7 @@ class DataTablesJS {
 
             fetch(window.location.href, {
               method: "POST",
-              headers: { "X-CSRF-Token": this.csrfToken },
+              headers: { "X-KPT-DataTables-Token": this.csrfToken },
               body: formData,
             })
               .then((response) => response.json())
@@ -2602,7 +2602,7 @@ class DataTablesJS {
 
     fetch(window.location.href, {
       method: "POST",
-      headers: { "X-CSRF-Token": this.csrfToken },
+      headers: { "X-KPT-DataTables-Token": this.csrfToken },
       body: formData,
     })
       .then((response) => response.json())
