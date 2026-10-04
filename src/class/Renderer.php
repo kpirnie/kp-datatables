@@ -34,6 +34,28 @@ if (! class_exists('KPT\Renderer', false)) {
         public function __construct(?DataTables $dataTable = null) {}
 
         /**
+         * Escape a scalar value for HTML text or attribute output
+         *
+         * @param  mixed $value Value to escape
+         * @return string Escaped value
+         */
+        protected function esc(mixed $value): string
+        {
+            return htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        }
+
+        /**
+         * JSON-encode a value safely for use inside <script> blocks
+         *
+         * @param  mixed $value Value to encode
+         * @return string JSON with HTML-significant characters hex-escaped
+         */
+        protected function jsonSafe(mixed $value): string
+        {
+            return (string) json_encode($value, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
+        }
+
+        /**
          * Render the complete DataTable HTML output
          *
          * Generates the full HTML including the table container,
@@ -61,6 +83,7 @@ if (! class_exists('KPT\Renderer', false)) {
         {
             $tableName = $this->getTableName();
             $tm = $this->getThemeManager();
+            $tableName = $this->esc($tableName);
             $containerClass = "datatables-container-{$tableName}";
             $themeContainerClass = $tm->getClasses('container');
 
@@ -174,9 +197,12 @@ if (! class_exists('KPT\Renderer', false)) {
                     }
 
                     $actionCount++;
-                    $icon = $config['icon'] ?? 'link';
-                    $label = $config['label'] ?? ucfirst($action);
-                    $confirm = $config['confirm'] ?? '';
+                    $rawIcon = $config['icon'] ?? 'link';
+                    $icon = $this->esc($rawIcon);
+                    $label = $this->esc($config['label'] ?? ucfirst((string) $action));
+                    $confirm = $this->esc($config['confirm'] ?? '');
+                    $jsAction = $this->esc($this->jsonSafe((string) $action));
+                    $action = $this->esc($action);
 
                     // Render the bulk action icon button
                     $html .= "<div>\n";
@@ -185,10 +211,10 @@ if (! class_exists('KPT\Renderer', false)) {
                         $html .= "uk-icon=\"{$icon}\" ";
                     }
                     $html .= "data-action=\"{$action}\" data-confirm=\"{$confirm}\" ";
-                    $html .= "onclick=\"DataTables.executeBulkActionDirect('{$action}', event)\" ";
+                    $html .= "onclick=\"DataTables.executeBulkActionDirect({$jsAction}, event)\" ";
                     $html .= ($this->theme === 'uikit' ? "uk-tooltip=\"{$label}\"" : "title=\"{$label}\"") . " disabled>";
                     if ($this->theme !== 'uikit') {
-                        $html .= $tm->getIcon($icon);
+                        $html .= $tm->getIcon($rawIcon);
                     }
                     $html .= "</a>\n</div>\n";
 
@@ -345,7 +371,7 @@ if (! class_exists('KPT\Renderer', false)) {
                 $type         = $config['type'] ?? $detectedType;
 
                 $html .= "<div>\n";
-                $html .= "<label class=\"" . $tm->getClass('form.label') . "\">{$label}</label>\n";
+                $html .= "<label class=\"" . $tm->getClass('form.label') . "\">" . $this->esc($label) . "</label>\n";
                 $html .= $this->renderFilterInput($field, $operator, $type, $config, $placeholder, $schema);
                 $html .= "</div>\n";
             }
@@ -378,7 +404,8 @@ if (! class_exists('KPT\Renderer', false)) {
             $tm          = $this->getThemeManager();
             $inputClass  = $tm->getClasses('input')  . ' datatables-filter-input';
             $selectClass = $tm->getClasses('select') . ' datatables-filter-input';
-            $dataAttrs   = "data-filter-field=\"{$field}\" data-filter-operator=\"{$operator}\"";
+            $eField      = $this->esc($field);
+            $dataAttrs   = "data-filter-field=\"{$eField}\" data-filter-operator=\"" . $this->esc($operator) . "\"";
 
             // BETWEEN renders two inputs
             if ($operator === 'BETWEEN') {
@@ -386,11 +413,11 @@ if (! class_exists('KPT\Renderer', false)) {
                 $html  = "<div class=\"datatables-filter-between\">\n";
                 $html .= "<div class=\"datatables-filter-between-item\">\n";
                 $html .= "<label class=\"{$labelClass}\">From</label>\n";
-                $html .= "<input type=\"" . $this->filterInputType($type) . "\" class=\"{$inputClass} datatables-filter-input datatables-filter-between-from\" data-filter-field=\"{$field}\" data-filter-operator=\"BETWEEN\" placeholder=\"From\">\n";
+                $html .= "<input type=\"" . $this->filterInputType($type) . "\" class=\"{$inputClass} datatables-filter-input datatables-filter-between-from\" data-filter-field=\"{$eField}\" data-filter-operator=\"BETWEEN\" placeholder=\"From\">\n";
                 $html .= "</div>\n";
                 $html .= "<div class=\"datatables-filter-between-item\">\n";
                 $html .= "<label class=\"{$labelClass}\">To</label>\n";
-                $html .= "<input type=\"" . $this->filterInputType($type) . "\" class=\"{$inputClass} datatables-filter-input datatables-filter-between-to\" data-filter-field=\"{$field}\" data-filter-operator=\"BETWEEN\" placeholder=\"To\">\n";
+                $html .= "<input type=\"" . $this->filterInputType($type) . "\" class=\"{$inputClass} datatables-filter-input datatables-filter-between-to\" data-filter-field=\"{$eField}\" data-filter-operator=\"BETWEEN\" placeholder=\"To\">\n";
                 $html .= "</div>\n";
                 $html .= "</div>\n";
                 return $html;
@@ -413,7 +440,7 @@ if (! class_exists('KPT\Renderer', false)) {
                 $html = "<select class=\"{$selectClass}\" {$dataAttrs}>\n";
                 $html .= "<option value=\"\">-- All --</option>\n";
                 foreach ($config['options'] as $val => $lbl) {
-                    $html .= "<option value=\"{$val}\">{$lbl}</option>\n";
+                    $html .= "<option value=\"" . $this->esc($val) . "\">" . $this->esc($lbl) . "</option>\n";
                 }
                 $html .= "</select>\n";
                 return $html;
@@ -424,7 +451,7 @@ if (! class_exists('KPT\Renderer', false)) {
                 $placeholder = $placeholder ?: 'value1, value2, ...';
             }
 
-            return "<input type=\"" . $this->filterInputType($type) . "\" class=\"{$inputClass}\" {$dataAttrs} placeholder=\"{$placeholder}\">\n";
+            return "<input type=\"" . $this->filterInputType($type) . "\" class=\"{$inputClass}\" {$dataAttrs} placeholder=\"" . $this->esc($placeholder) . "\">\n";
         }
 
         /**
@@ -610,12 +637,12 @@ if (! class_exists('KPT\Renderer', false)) {
                 $thClass = $columnClass . ($sortable ? ' sortable' : '');
 
                 // Generate the data-sort attribute using alias name if applicable
-                $html .= "<th" . (!empty($thClass) ? " class=\"{$thClass}\"" : "") .
-                    ($sortable ? " data-sort=\"" . (stripos($column, ' AS ') !== false ? trim(explode(' AS ', $column)[1], '`\'" ') : $column) . "\"" : "") . ">";
+                $html .= "<th" . (!empty($thClass) ? " class=\"" . $this->esc($thClass) . "\"" : "") .
+                    ($sortable ? " data-sort=\"" . $this->esc(stripos($column, ' AS ') !== false ? trim(explode(' AS ', $column)[1], '`\'" ') : $column) . "\"" : "") . ">";
 
                 if ($sortable) {
                     // Sortable header with clickable span and sort direction icon
-                    $displayLabel = is_array($label) ? ($label['label'] ?? $column) : $label;
+                    $displayLabel = $this->esc(is_array($label) ? ($label['label'] ?? $column) : $label);
                     $sortableHeaderClass = $tm->getKpDtClass('sortable-header');
                     $html .= "<span class=\"sortable-header {$sortableHeaderClass}\">{$displayLabel} ";
                     if ($this->theme === 'uikit') {
@@ -626,7 +653,7 @@ if (! class_exists('KPT\Renderer', false)) {
                     $html .= "</span>";
                 } else {
                     // Non-sortable plain label
-                    $displayLabel = is_array($label) ? ($label['label'] ?? $column) : $label;
+                    $displayLabel = $this->esc(is_array($label) ? ($label['label'] ?? $column) : $label);
                     $html .= $displayLabel;
                 }
 
@@ -662,9 +689,9 @@ if (! class_exists('KPT\Renderer', false)) {
             $tableSchema = $this->getTableSchema();
 
             // Determine table and wrapper classes
-            $tableClass = $cssClasses['table'] ?? $tm->getClass('table.full');
-            $theadClass = $cssClasses['thead'] ?? '';
-            $tbodyClass = $cssClasses['tbody'] ?? '';
+            $tableClass = $this->esc($cssClasses['table'] ?? $tm->getClass('table.full'));
+            $theadClass = $this->esc($cssClasses['thead'] ?? '');
+            $tbodyClass = $this->esc($cssClasses['tbody'] ?? '');
             $themeTableClass = $tm->getKpDtClass('table');
             $overflowClass = $tm->getClasses('overflow.auto');
 
@@ -678,7 +705,7 @@ if (! class_exists('KPT\Renderer', false)) {
             );
 
             // Table element with schema data attribute for JS field type detection
-            $html .= "<table class=\"{$tableClass} {$themeTableClass} datatables-table\" data-columns='" . json_encode($clientSchema) . "'>\n";
+            $html .= "<table class=\"{$tableClass} {$themeTableClass} datatables-table\" data-columns=\"" . $this->esc($this->jsonSafe($clientSchema)) . "\">\n";
 
             // Table header
             $html .= "<thead" . (!empty($theadClass) ? " class=\"{$theadClass}\"" : "") . ">\n";
@@ -746,8 +773,8 @@ if (! class_exists('KPT\Renderer', false)) {
             $tm = $this->getThemeManager();
             $formConfig = $this->getAddFormConfig();
             $formFields = $formConfig['fields'];
-            $title = $formConfig['title'];
-            $formClass = $formConfig['class'] ?? '';
+            $title = $this->esc($formConfig['title']);
+            $formClass = $this->esc($formConfig['class'] ?? '');
 
             // Theme-specific modal structure
             if ($this->theme === 'bootstrap') {
@@ -818,12 +845,12 @@ if (! class_exists('KPT\Renderer', false)) {
             $tm = $this->getThemeManager();
             $formConfig = $this->getEditFormConfig();
             $formFields = $formConfig['fields'];
-            $title = $formConfig['title'];
+            $title = $this->esc($formConfig['title']);
             $primaryKey = $this->getPrimaryKey();
-            $formClass = $formConfig['class'] ?? '';
+            $formClass = $this->esc($formConfig['class'] ?? '');
 
             // Extract unqualified primary key for form field naming
-            $unqualifiedPK = strpos($primaryKey, '.') !== false ? explode('.', $primaryKey)[1] : $primaryKey;
+            $unqualifiedPK = $this->esc(strpos($primaryKey, '.') !== false ? explode('.', $primaryKey)[1] : $primaryKey);
 
             // Theme-specific modal structure
             if ($this->theme === 'bootstrap') {
@@ -954,11 +981,11 @@ if (! class_exists('KPT\Renderer', false)) {
 
             // Extract field configuration values
             $type = $config['type'];
-            $label = ($config['label']) ?? '';
+            $label = $this->esc($config['label'] ?? '');
             $required = $config['required'] ?? false;
             $placeholder = $config['placeholder'] ?? '';
             $options = $config['options'] ?? [];
-            $customClass = $config['class'] ?? '';
+            $customClass = $this->esc($config['class'] ?? '');
             $attributes = $config['attributes'] ?? [];
             $value = $config['value'] ?? '';
             $default = $config['default'] ?? '';
@@ -974,9 +1001,13 @@ if (! class_exists('KPT\Renderer', false)) {
                 $value = $default;
             }
 
+            // Escaped output versions of user-facing values
+            $eValue = $this->esc(is_bool($value) ? (int) $value : $value);
+            $ePlaceholder = $this->esc($placeholder);
+
             // Generate unique field ID and name
-            $fieldId = "{$prefix}-{$field}";
-            $fieldName = $field;
+            $fieldId = $this->esc("{$prefix}-{$field}");
+            $fieldName = $this->esc($field);
 
             // Get theme-specific form element classes
             $formControlsClass = $tm->getClass('form.controls');
@@ -990,7 +1021,7 @@ if (! class_exists('KPT\Renderer', false)) {
 
             // Hidden fields render without wrapper or label
             if ($type === 'hidden') {
-                return "<input type=\"hidden\" id=\"{$fieldId}\" name=\"{$fieldName}\" value=\"{$value}\">\n";
+                return "<input type=\"hidden\" id=\"{$fieldId}\" name=\"{$fieldName}\" value=\"{$eValue}\">\n";
             }
 
             // Form control wrapper
@@ -1025,12 +1056,14 @@ if (! class_exists('KPT\Renderer', false)) {
                     foreach ($options as $optValue => $optLabel) {
                         $checked = ($value == $optValue) ? ' checked' : '';
                         $disabledAttr = $disabled ? ' disabled' : '';
+                        $eOptValue = $this->esc($optValue);
+                        $eOptLabel = $this->esc($optLabel);
                         if ($this->theme === 'bootstrap') {
-                            $html .= "<div class=\"form-check\">\n<input type=\"radio\" class=\"form-check-input\" name=\"{$fieldName}\" id=\"{$fieldId}-{$optValue}\" value=\"{$optValue}\" {$attrString}{$checked}{$disabledAttr}" . ($required ? " required" : "") . ">\n";
-                            $html .= "<label class=\"form-check-label\" for=\"{$fieldId}-{$optValue}\">{$optLabel}</label>\n</div>\n";
+                            $html .= "<div class=\"form-check\">\n<input type=\"radio\" class=\"form-check-input\" name=\"{$fieldName}\" id=\"{$fieldId}-{$eOptValue}\" value=\"{$eOptValue}\" {$attrString}{$checked}{$disabledAttr}" . ($required ? " required" : "") . ">\n";
+                            $html .= "<label class=\"form-check-label\" for=\"{$fieldId}-{$eOptValue}\">{$eOptLabel}</label>\n</div>\n";
                         } else {
                             $marginClass = $tm->getClass('margin.small.right');
-                            $html .= "<label class=\"{$marginClass}\"><input type=\"radio\" class=\"{$radioClass}\" name=\"{$fieldName}\" value=\"{$optValue}\" {$attrString}{$checked}{$disabledAttr}" . ($required ? " required" : "") . "> {$optLabel}</label>\n";
+                            $html .= "<label class=\"{$marginClass}\"><input type=\"radio\" class=\"{$radioClass}\" name=\"{$fieldName}\" value=\"{$eOptValue}\" {$attrString}{$checked}{$disabledAttr}" . ($required ? " required" : "") . "> {$eOptLabel}</label>\n";
                         }
                     }
                     break;
@@ -1038,7 +1071,7 @@ if (! class_exists('KPT\Renderer', false)) {
                 case 'textarea':
                     // Multi-line text input
                     $html .= "<label class=\"{$formLabelClass}\" for=\"{$fieldId}\">{$label}" . ($required ? " <span class=\"{$dangerClass}\">*</span>" : "") . "</label>\n";
-                    $html .= "<textarea class=\"{$textareaClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" placeholder=\"{$placeholder}\" {$attrString} " . ($required ? "required" : "") . ($disabled ? " disabled" : "") . "></textarea>\n";
+                    $html .= "<textarea class=\"{$textareaClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" placeholder=\"{$ePlaceholder}\" {$attrString} " . ($required ? "required" : "") . ($disabled ? " disabled" : "") . "></textarea>\n";
                     break;
 
                 case 'select':
@@ -1050,7 +1083,7 @@ if (! class_exists('KPT\Renderer', false)) {
                     }
                     foreach ($options as $optValue => $optLabel) {
                         $selected = ($value == $optValue) ? ' selected' : '';
-                        $html .= "<option value=\"{$optValue}\"{$selected}>{$optLabel}</option>\n";
+                        $html .= "<option value=\"" . $this->esc($optValue) . "\"{$selected}>" . $this->esc($optLabel) . "</option>\n";
                     }
                     $html .= "</select>\n";
                     break;
@@ -1076,12 +1109,12 @@ if (! class_exists('KPT\Renderer', false)) {
                     // Render as native select with data attributes for JavaScript enhancement
                     $html .= "<select class=\"{$selectClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" ";
                     $html .= "data-select2=\"true\" ";
-                    $html .= "data-field=\"" . htmlspecialchars($fieldName, ENT_QUOTES) . "\" ";
-                    $html .= "data-form=\"" . htmlspecialchars($prefix, ENT_QUOTES) . "\" ";
-                    $html .= "data-placeholder=\"{$placeholder}\" ";
-                    $html .= "data-min-search-chars=\"{$select2MinChars}\" ";
-                    $html .= "data-max-results=\"{$select2MaxResults}\" ";
-                    $html .= "data-theme=\"{$this->theme}\" ";
+                    $html .= "data-field=\"{$fieldName}\" ";
+                    $html .= "data-form=\"" . $this->esc($prefix) . "\" ";
+                    $html .= "data-placeholder=\"{$ePlaceholder}\" ";
+                    $html .= "data-min-search-chars=\"" . (int) $select2MinChars . "\" ";
+                    $html .= "data-max-results=\"" . (int) $select2MaxResults . "\" ";
+                    $html .= "data-theme=\"" . $this->esc($this->theme) . "\" ";
                     $html .= $attrString . " ";
                     $html .= ($required ? "required " : "");
                     $html .= ($disabled ? "disabled " : "");
@@ -1089,9 +1122,9 @@ if (! class_exists('KPT\Renderer', false)) {
 
                     // Add option if value is set
                     if (!empty($value)) {
-                        $html .= "<option value=\"{$value}\" selected>{$value}</option>\n";
+                        $html .= "<option value=\"{$eValue}\" selected>{$eValue}</option>\n";
                     } else {
-                        $html .= "<option value=\"\">{$placeholder}</option>\n";
+                        $html .= "<option value=\"\">{$ePlaceholder}</option>\n";
                     }
 
                     $html .= "</select>\n";
@@ -1107,10 +1140,10 @@ if (! class_exists('KPT\Renderer', false)) {
                     // Image field with URL input, file upload, and optional preview
                     $html .= "<label class=\"{$formLabelClass}\" for=\"{$fieldId}\">{$label}" . ($required ? " <span class=\"{$dangerClass}\">*</span>" : "") . "</label>\n";
                     if (!empty($value)) {
-                        $imageSrc = (strpos($value, 'http') === 0) ? $value : "/uploads/{$value}";
-                        $html .= "<div class=\"mb-2\"><img src=\"{$imageSrc}\" alt=\"Current image\" style=\"max-width: 150px; max-height: 150px; object-fit: cover;\" class=\"rounded\"></div>\n";
+                        $imageSrc = preg_match('#^https?://#i', (string) $value) ? (string) $value : "/uploads/{$value}";
+                        $html .= "<div class=\"mb-2\"><img src=\"" . $this->esc($imageSrc) . "\" alt=\"Current image\" style=\"max-width: 150px; max-height: 150px; object-fit: cover;\" class=\"rounded\"></div>\n";
                     }
-                    $html .= "<input type=\"url\" class=\"{$inputClass} mb-2\" id=\"{$fieldId}\" name=\"{$fieldName}\" placeholder=\"Enter image URL or upload file below\" value=\"{$value}\" {$attrString} " . ($disabled ? " disabled" : "") . ">\n";
+                    $html .= "<input type=\"url\" class=\"{$inputClass} mb-2\" id=\"{$fieldId}\" name=\"{$fieldName}\" placeholder=\"Enter image URL or upload file below\" value=\"{$eValue}\" {$attrString} " . ($disabled ? " disabled" : "") . ">\n";
                     $html .= "<div class=\"mt-2\">\n<input type=\"file\" class=\"{$inputClass}\" id=\"{$fieldId}-file\" name=\"{$fieldName}-file\" accept=\"image/*\" {$attrString} " . ($disabled ? " disabled" : "") . ">\n";
                     $html .= "<small class=\"" . $tm->getClass('text.muted') . "\">Upload an image file or enter URL above</small>\n</div>\n";
                     break;
@@ -1122,14 +1155,14 @@ if (! class_exists('KPT\Renderer', false)) {
                     $html .= "<div class=\"kp-dt-datepicker-wrap\">\n";
                     $html .= "<input type=\"text\" class=\"{$inputClass} kp-dt-datepicker\" "
                         . "id=\"{$fieldId}\" "
-                        . "placeholder=\"" . ($placeholder ?: $formatter) . "\" value=\"{$value}\" "
-                        . "data-formatter=\"" . htmlspecialchars($formatter, ENT_QUOTES) . "\" "
+                        . "placeholder=\"" . $this->esc($placeholder ?: $formatter) . "\" value=\"{$eValue}\" "
+                        . "data-formatter=\"" . $this->esc($formatter) . "\" "
                         . "{$attrString} "
                         . ($required ? "required " : "")
                         . ($disabled ? "disabled " : "")
                         . ">\n";
                     $html .= "<input type=\"date\" class=\"kp-dt-datepicker-native\" name=\"{$fieldName}\" "                        . "data-target=\"{$fieldId}\" "
-                        . "data-formatter=\"" . htmlspecialchars($formatter, ENT_QUOTES) . "\" "
+                        . "data-formatter=\"" . $this->esc($formatter) . "\" "
                         . "onchange=\"KPDataTablesDatepicker.applyDate(this)\">\n";
                     $html .= "</div>\n";
                     break;
@@ -1147,7 +1180,7 @@ if (! class_exists('KPT\Renderer', false)) {
                     // Standard text/email input
                     $html .= "<label class=\"{$formLabelClass}\" for=\"{$fieldId}\">{$label}" . ($required ? " <span class=\"{$dangerClass}\">*</span>" : "") . "</label>\n";
                     $inputType = ($type === 'email') ? 'email' : 'text';
-                    $html .= "<input type=\"{$inputType}\" class=\"{$inputClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" placeholder=\"{$placeholder}\" value=\"{$value}\" {$attrString} " . ($required ? "required" : "") . ($disabled ? " disabled" : "") . ">\n";
+                    $html .= "<input type=\"{$inputType}\" class=\"{$inputClass}\" id=\"{$fieldId}\" name=\"{$fieldName}\" placeholder=\"{$ePlaceholder}\" value=\"{$eValue}\" {$attrString} " . ($required ? "required" : "") . ($disabled ? " disabled" : "") . ">\n";
                     break;
             }
 
@@ -1169,7 +1202,11 @@ if (! class_exists('KPT\Renderer', false)) {
         {
             $attrParts = [];
             foreach ($attributes as $name => $value) {
-                $attrParts[] = "{$name}=\"{$value}\"";
+                // Skip invalid attribute names
+                if (!preg_match('/^[A-Za-z_:][-A-Za-z0-9_:.]*$/', (string) $name)) {
+                    continue;
+                }
+                $attrParts[] = $name . '="' . $this->esc(is_bool($value) ? (int) $value : $value) . '"';
             }
             return implode(' ', $attrParts);
         }
@@ -1294,7 +1331,7 @@ if (! class_exists('KPT\Renderer', false)) {
                 $html .= "<tr class=\"datatables-agg-row\" data-agg-type=\"{$row['agg']}\" data-agg-scope=\"{$row['scope']}\">\n";
 
                 // Label cell with colspan
-                $html .= "<td colspan=\"{$leadingCols}\" style=\"{$boldStyle} text-align: right;\">{$row['label']}</td>\n";
+                $html .= "<td colspan=\"{$leadingCols}\" style=\"{$boldStyle} text-align: right;\">" . $this->esc($row['label']) . "</td>\n";
 
                 // Individual cells for remaining columns
                 foreach ($trailingColKeys as $colKey) {
@@ -1304,7 +1341,7 @@ if (! class_exists('KPT\Renderer', false)) {
                             && ($aggConfig['scope'] === $row['scope'] || $aggConfig['scope'] === 'both');
 
                         if ($showThis) {
-                            $html .= "<td class=\"datatables-agg-cell\" data-agg-column=\"{$colKey}\" "
+                            $html .= "<td class=\"datatables-agg-cell\" data-agg-column=\"" . $this->esc($colKey) . "\" "
                                 . "data-agg-type=\"{$row['agg']}\" data-agg-scope=\"{$row['scope']}\" "
                                 . ">—</td>\n";
                         } else {
@@ -1341,7 +1378,7 @@ if (! class_exists('KPT\Renderer', false)) {
             // Use unqualified primary key for JavaScript (no table prefix)
             $jsPrimaryKey = strpos($primaryKey, '.') !== false ? explode('.', $primaryKey)[1] : $primaryKey;
 
-            $inlineEditableColumns = json_encode($this->getInlineEditableColumns());
+            $inlineEditableColumns = $this->jsonSafe($this->getInlineEditableColumns());
             $bulkActions = $this->getBulkActions();
             $actionConfig = $this->getActionConfig();
             $columns = $this->getColumns();
@@ -1369,19 +1406,19 @@ if (! class_exists('KPT\Renderer', false)) {
             $html .= "var DataTables;\n";
             $html .= "document.addEventListener('DOMContentLoaded', function() {\n";
             $html .= "    DataTables = new DataTablesJS({\n";
-            $html .= "        tableName: '{$tableName}',\n";
-            $html .= "        primaryKey: '{$jsPrimaryKey}',\n";
+            $html .= "        tableName: " . $this->jsonSafe($tableName) . ",\n";
+            $html .= "        primaryKey: " . $this->jsonSafe($jsPrimaryKey) . ",\n";
             $html .= "        inlineEditableColumns: {$inlineEditableColumns},\n";
-            $html .= "        perPage: " . $this->getRecordsPerPage() . ",\n";
+            $html .= "        perPage: " . (int) $this->getRecordsPerPage() . ",\n";
             $html .= "        bulkActionsEnabled: " . ($bulkActions['enabled'] ? 'true' : 'false') . ",\n";
-            $html .= "        bulkActions: " . json_encode($bulkActions['actions']) . ",\n";
-            $html .= "        actionConfig: " . json_encode($actionConfig) . ",\n";
-            $html .= "        columns: " . json_encode($columns) . ",\n";
-            $html .= "        cssClasses: " . json_encode($this->getCssClasses()) . ",\n";
-            $html .= "        defaultSortColumn: '{$defaultSortColumn}',\n";
-            $html .= "        defaultSortDirection: '{$defaultSortDirection}',\n";
-            $html .= "        theme: '{$this->theme}',\n";
-            $html .= "        footerAggregations: " . json_encode($this->getFooterAggregations()) . "\n";
+            $html .= "        bulkActions: " . $this->jsonSafe($bulkActions['actions']) . ",\n";
+            $html .= "        actionConfig: " . $this->jsonSafe($actionConfig) . ",\n";
+            $html .= "        columns: " . $this->jsonSafe($columns) . ",\n";
+            $html .= "        cssClasses: " . $this->jsonSafe($this->getCssClasses()) . ",\n";
+            $html .= "        defaultSortColumn: " . $this->jsonSafe($defaultSortColumn) . ",\n";
+            $html .= "        defaultSortDirection: " . $this->jsonSafe($defaultSortDirection) . ",\n";
+            $html .= "        theme: " . $this->jsonSafe($this->theme) . ",\n";
+            $html .= "        footerAggregations: " . $this->jsonSafe($this->getFooterAggregations()) . "\n";
             $datepickerFormatters = [];
             foreach ($this->getTableSchema() as $colName => $info) {
                 $type = $info['override_type'] ?? $info['type'] ?? 'text';
@@ -1390,7 +1427,7 @@ if (! class_exists('KPT\Renderer', false)) {
                 }
             }
             if (!empty($datepickerFormatters)) {
-                $html .= "        datepickerFormatters: " . json_encode($datepickerFormatters) . ",\n";
+                $html .= "        datepickerFormatters: " . $this->jsonSafe($datepickerFormatters) . ",\n";
             }
             $html .= "    });\n";
             $html .= "});\n";
@@ -1449,7 +1486,7 @@ if (! class_exists('KPT\Renderer', false)) {
             if ($this->theme === 'uikit') {
                 $html .= "<ul uk-tab id=\"{$tabId}\">\n";
                 foreach ($tabNames as $name) {
-                    $html .= "<li><a href=\"#\">{$name}</a></li>\n";
+                    $html .= "<li><a href=\"#\">" . $this->esc($name) . "</a></li>\n";
                 }
                 $html .= "</ul>\n<ul class=\"uk-switcher uk-margin\">\n";
                 foreach ($orderedTabs as $name => $fields) {
@@ -1471,7 +1508,7 @@ if (! class_exists('KPT\Renderer', false)) {
                         . "<button class=\"nav-link{$active}\" id=\"{$slug}-btn\" "
                         . "data-bs-toggle=\"tab\" data-bs-target=\"#{$slug}\" "
                         . "type=\"button\" role=\"tab\" aria-controls=\"{$slug}\" "
-                        . "aria-selected=\"{$selected}\">{$name}</button></li>\n";
+                        . "aria-selected=\"{$selected}\">" . $this->esc($name) . "</button></li>\n";
                     $first = false;
                 }
                 $html .= "</ul>\n<div class=\"tab-content\" id=\"{$tabId}-content\">\n";
@@ -1496,7 +1533,7 @@ if (! class_exists('KPT\Renderer', false)) {
                     $active = $first ? " kp-dt-tab-active{$s}" : '';
                     $html .= "<button type=\"button\" class=\"kp-dt-tab-btn{$s}{$active}\" "
                         . "data-tab-target=\"{$slug}\" "
-                        . "onclick=\"KPDataTablesPlain.switchTab(this, '{$slug}')\">{$name}</button>\n";
+                        . "onclick=\"KPDataTablesPlain.switchTab(this, '{$slug}')\">" . $this->esc($name) . "</button>\n";
                     $first = false;
                 }
                 $html .= "</div>\n";

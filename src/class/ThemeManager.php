@@ -514,17 +514,22 @@ if (! class_exists('KPT\ThemeManager', false)) {
          */
         public function getNotificationJs(string $message, string $status = 'success'): string
         {
+            $flags = JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP;
+            $jsMessage = json_encode($message, $flags);
+            $jsStatus = json_encode($status, $flags);
+
             switch ($this->theme) {
                 case self::THEME_UIKIT:
-                    return "UIkit.notification('{$message}', { status: '{$status}' });";
+                    $jsMessage = json_encode(htmlspecialchars($message, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'), $flags);
+                    return "UIkit.notification({$jsMessage}, { status: {$jsStatus} });";
 
                 case self::THEME_BOOTSTRAP:
-                    return "KPDataTablesBootstrap.notification('{$message}', '{$status}');";
+                    return "KPDataTablesBootstrap.notification({$jsMessage}, {$jsStatus});";
 
                 case self::THEME_TAILWIND:
                 case self::THEME_PLAIN:
                 default:
-                    return "KPDataTablesPlain.notification('{$message}', '{$status}');";
+                    return "KPDataTablesPlain.notification({$jsMessage}, {$jsStatus});";
             }
         }
 
@@ -580,15 +585,18 @@ if (! class_exists('KPT\ThemeManager', false)) {
          */
         public function getModalConfirmJs(string $message): string
         {
+            $flags = JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP;
+
             switch ($this->theme) {
                 case self::THEME_UIKIT:
-                    return "UIkit.modal.confirm('{$message}')";
+                    $jsMessage = json_encode(htmlspecialchars($message, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'), $flags);
+                    return "UIkit.modal.confirm({$jsMessage})";
 
                 case self::THEME_BOOTSTRAP:
                 case self::THEME_TAILWIND:
                 case self::THEME_PLAIN:
                 default:
-                    return "KPDataTablesPlain.confirm('{$message}')";
+                    return "KPDataTablesPlain.confirm(" . json_encode($message, $flags) . ")";
             }
         }
     }
