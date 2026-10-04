@@ -228,7 +228,7 @@ if (! class_exists('KPT\ThemeManager', false)) {
 
             // Include framework JS from CDN if enabled
             if ($includeCdn) {
-                $html .= $tm->getJsIncludes(true, $useMinified);
+                $html .= $tm->getJsIncludes($theme, true, $useMinified);
             }
 
             // if we are minifying
